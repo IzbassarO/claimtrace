@@ -204,6 +204,7 @@ const REF_NOTE = {
   retracted: "The cited source is retracted.",
   not_found: "The cited reference was not found.",
   metadata_mismatch: "Reference metadata does not match the cited work.",
+  unchecked: "The cited reference could not be confirmed.",
 };
 const refNote = (c) => REF_NOTE[refStatus.get(c.ref_id)] || null;
 const refAttention = (a) => a.status !== "verified";
