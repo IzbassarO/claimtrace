@@ -2,6 +2,7 @@
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from claimtrace.claims.numbers import cap_numbers
 from claimtrace.claims.quote import verify_quote
 from claimtrace.claims.retrieval import Embed, retrieve
 from claimtrace.core.llm import ask_json, wrap_untrusted
@@ -88,7 +89,8 @@ async def check_claim(
     skeptic_user = f"{user}\n\nFirst reviewer's answer:\n{wrap_untrusted('first_review', first)}"
     skeptic, skeptic_err = await _ask("skeptic", SKEPTIC_SYSTEM, skeptic_user, skeptic_model)
     verdict, quote, needs_review, note = combine(judge, skeptic, source.text)
-    notes = [n for n in (judge_err, skeptic_err, note) if n]
+    verdict, number_note = cap_numbers(verdict, quote, citation.sentence)
+    notes = [n for n in (judge_err, skeptic_err, note, number_note) if n]
     return ClaimCheck(
         **base,
         verdict=Verdict(verdict),
