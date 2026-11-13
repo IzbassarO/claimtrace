@@ -69,10 +69,15 @@ class OpenAlexTransport(httpx.AsyncBaseTransport):
         self.inner = inner
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        if request.url.host != OPENALEX_HOST or request.method != "GET":
+        # Crossref DOI records (entity lookups, free) are cached too: the pipeline warms them
+        # before field extraction finishes, and the real audit must not ask twice.
+        crossref = request.url.host == "api.crossref.org" and request.url.path.startswith(
+            "/works/10."
+        )
+        if request.method != "GET" or not (crossref or request.url.host == OPENALEX_HOST):
             return await self.inner.handle_async_request(request)
         url = str(request.url.copy_remove_param("api_key"))
-        root = Path(get_settings().cache_dir) / "openalex"
+        root = Path(get_settings().cache_dir) / ("crossref" if crossref else "openalex")
         f = root / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
         try:
             hit = json.loads(f.read_text())
@@ -84,7 +89,8 @@ class OpenAlexTransport(httpx.AsyncBaseTransport):
             )
         except (OSError, ValueError, KeyError):
             pass
-        paid = request.url.path.count("/") <= 1  # list/search endpoint, e.g. /works?search=
+        # OpenAlex list/search endpoint, e.g. /works?search= (Crossref DOI lookups are never paid)
+        paid = not crossref and request.url.path.count("/") <= 1
         if paid and not _spend_search(root):
             return httpx.Response(
                 402, json={"error": "ClaimTrace OpenAlex search budget exhausted"}, request=request

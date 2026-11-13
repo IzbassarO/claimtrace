@@ -181,3 +181,20 @@ async def test_retrieval_runs_ahead_of_the_llm_queue(wired, monkeypatch):
     monkeypatch.setattr(claims, "check_claim", check_claim)
     await pipeline.run("text", [])
     assert seen == {r: [f"excerpt for Claim {r} [{r}]."] for r in ("1", "2", "3")}
+
+
+async def test_reference_chunks_are_audited_while_ingest_still_runs(wired, monkeypatch):
+    log, _ = wired
+
+    async def parse_inputs(text, files, on_references=None, on_doi_refs=None):
+        on_references([REFS[2]])  # a later chunk can arrive first
+        await asyncio.sleep(0.2)
+        log.append("ingest done")
+        on_references([REFS[0], REFS[1]])
+        return Manuscript(body=text, references=list(REFS), citations=list(CITS))
+
+    monkeypatch.setattr(ingest, "parse_inputs", parse_inputs)
+    final = await pipeline.run("text", [])
+    assert log.index("audit 3") < log.index("ingest done")
+    assert [a.reference.id for a in final.references] == ["1", "2", "3"]
+    assert [c.citation_id for c in final.claims] == ["c1", "c2", "c3"]
