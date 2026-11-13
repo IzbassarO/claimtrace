@@ -78,7 +78,7 @@ ARXIV_PDF = "arxiv.org/pdf/2101.00001"
 
 def test_jats_keeps_title_body_captions_tables_and_drops_references():
     text = src.jats_to_text(JATS)
-    assert text.startswith(TITLE)
+    assert text.startswith(TITLE + "\n\nGarcía Okafor\n\nWe tested")
     assert "reduced hip fractures by 18% (p<0.05) in women aged 70 to 80." in text
     assert "Fractures are common in older adults [1]." in text
     assert "Kaplan-Meier curves by treatment arm." in text
@@ -98,9 +98,16 @@ def test_guard_needs_length_and_title_words():
     assert not src.looks_like(GOOD_TEXT, None)
     late = "filler words here. " * 400 + TITLE  # title only after the first 5000 chars
     assert not src.looks_like(late, TITLE)
-    assert src.looks_like(
-        GOOD_TEXT.upper().replace("VITAMIN", "Vitámin"), "Vitamin D supplementation"
-    )
+    assert src.looks_like(GOOD_TEXT.upper().replace("VITAMIN", "Vitámin"), TITLE)
+
+
+def test_guard_short_title_needs_first_author_family_name():
+    text = "Deep learning\n\nYann LeCun, Yoshua Bengio\n\n" + "Representation learning. " * 100
+    assert src.looks_like(text, "Deep learning", ["LeCun, Yann", "Bengio, Yoshua"])
+    assert src.looks_like(text, "Deep learning", ["Yann LeCun"])
+    assert not src.looks_like(text, "Deep learning", ["Hinton, Geoffrey"])
+    assert not src.looks_like(text, "Deep learning", [])  # cannot check: fall back to abstract
+    assert src.looks_like(text, "Deep learning about representation")  # 3 content words
 
 
 # ---------- full text ----------
@@ -229,7 +236,7 @@ async def test_abstract_from_openalex_inverted_index():
 async def test_abstract_providers_down_then_crossref_jats_stripped():
     jats = (
         "<jats:title>Abstract</jats:title><jats:p>Vitamin D reduced fractures "
-        "by 18&#x00025; in <jats:italic>women</jats:italic>.</jats:p>"
+        "by 18&#x00025; (p<0.05) in <jats:italic>women</jats:italic>.</jats:p>"
     )
     routes = {
         "api.openalex.org/works/doi:" + DOI: httpx.Response(503),
@@ -239,7 +246,7 @@ async def test_abstract_providers_down_then_crossref_jats_stripped():
     async with client(routes) as c:
         s = await src.fetch_source(audit(doi=DOI), c, fake_pdf_to_text())
     assert s.origin == "crossref"
-    assert s.text == "Vitamin D reduced fractures by 18% in women."
+    assert s.text == "Vitamin D reduced fractures by 18% (p<0.05) in women."
 
 
 async def test_semantic_scholar_abstract():

@@ -37,9 +37,6 @@ async def fetch(work: Work, pdf_text: str):
     return await src.fetch_source(audit, pdf_client(), pdf_to_text)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: guard counts stopwords, accepts a paper on another drug"
-)
 async def test_guard_rejects_paper_sharing_only_stopwords_and_generic_words():
     work = Work(
         provider="crossref",
@@ -54,7 +51,6 @@ async def test_guard_rejects_paper_sharing_only_stopwords_and_generic_words():
     assert got is None or got.kind != "full_text"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: short title ('Deep learning') accepts any paper")
 async def test_guard_rejects_other_paper_for_short_generic_title():
     # LeCun, Bengio, Hinton 2015, doi 10.1038/nature14539 (not in PMC, so PDF route).
     work = Work(

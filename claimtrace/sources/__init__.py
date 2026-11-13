@@ -52,7 +52,7 @@ async def fetch_source(
         if got is None:
             continue
         text, url = got
-        if not looks_like(text, w.title):
+        if not looks_like(text, w.title, w.authors):
             log.info("sources: %s text rejected by wrong-document guard for %s", origin, ref_id)
             continue
         return SourceText(
@@ -92,15 +92,37 @@ def _words(s: str) -> list[str]:
     return re.findall(r"[^\W_]+", s)
 
 
-def looks_like(text: str, title: str | None) -> bool:
-    """Full text is accepted only if long enough and most title words occur near its start."""
+# Function words only: shared "for the of" must not make another paper look like the cited one.
+_STOP = set(
+    "the and for with from into onto over under via using its their this that these those are "
+    "was were has have had been can does all you how what why when who which our than between "
+    "among after before during toward towards about across against within".split()
+)
+SHORT_TITLE = 3  # fewer content words than this: also require the first author's family name
+
+
+def _family(author: str) -> str | None:
+    """'Family, Given' or 'Given Family' -> longest word of the family name."""
+    fam = author.split(",")[0] if "," in author else (author.split() or [""])[-1]
+    words = _words(fam)
+    return max(words, key=len) if words else None
+
+
+def looks_like(text: str, title: str | None, authors: list[str] | None = None) -> bool:
+    """Full text is accepted only if long enough and most title content words occur near its
+    start; for short titles ('Deep learning') the first author's family name must occur too."""
     if len(text) < MIN_FULLTEXT_CHARS or not title:
         return False
-    want = {t for t in _words(title) if len(t) >= 3 or t.isdigit()}
+    want = {t for t in _words(title) if (len(t) >= 3 or t.isdigit()) and t not in _STOP}
     if not want:
         return False
     have = set(_words(text[:GUARD_WINDOW]))
-    return 2 * len(want & have) > len(want)
+    if 2 * len(want & have) <= len(want):
+        return False
+    if len(want) < SHORT_TITLE:
+        fam = _family(authors[0]) if authors else None
+        return fam is not None and fam in have
+    return True
 
 
 # ---------- Europe PMC (JATS) ----------
@@ -134,6 +156,7 @@ async def _europepmc(w: Work, client: httpx.AsyncClient) -> tuple[str, str] | No
     return (text, f"https://europepmc.org/article/PMC/{pmcid}") if text else None
 
 
+_MARK = {"sup": "^", "sub": "_"}  # 10<sup>5</sup> -> "10^5", never "105"
 _SKIP = {"ref-list", "back", "xref-list", "fn-group", "ack", "glossary", "app-group"}
 _BLOCKS = {"article-title", "title", "p", "tr", "label"}
 
@@ -142,11 +165,18 @@ def _local(tag) -> str:
     return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
 
 
+def _text(el: ET.Element) -> str:
+    parts = [_MARK.get(_local(el.tag), ""), el.text or ""]
+    for child in el:
+        parts += [_text(child), child.tail or ""]
+    return "".join(parts)
+
+
 def _flat(el: ET.Element) -> str:
     if _local(el.tag) == "tr":
-        cells = (" ".join("".join(c.itertext()).split()) for c in el)
+        cells = (" ".join(_text(c).split()) for c in el)
         return " | ".join(c for c in cells if c)
-    return " ".join("".join(el.itertext()).split())
+    return " ".join(_text(el).split())
 
 
 def _collect(el: ET.Element, out: list[str]) -> None:
@@ -163,14 +193,20 @@ def _collect(el: ET.Element, out: list[str]) -> None:
 
 
 def jats_to_text(xml: bytes) -> str:
-    """Title, abstract, body, figure/table captions of a JATS article; no reference list."""
+    """Title, author surnames, abstract, body, figure/table captions of a JATS article;
+    no reference list. Surnames let the wrong-document guard check short titles."""
     root = ET.fromstring(xml)
     out: list[str] = []
-    for path in (".//title-group/article-title", ".//abstract", ".//body", ".//floats-group"):
+    surnames = ".//article-meta/contrib-group/contrib/name/surname"
+    paths = (".//title-group/article-title", surnames, ".//abstract", ".//body", ".//floats-group")
+    for path in paths:
+        if path == surnames:
+            out.append(" ".join(_flat(s) for s in root.iterfind(path)))
+            continue
         for el in root.iterfind(path):
             _collect(el, out)
             break  # first match only (sub-articles repeat these)
-    return "\n\n".join(out)
+    return "\n\n".join(o for o in out if o)
 
 
 # ---------- PDFs: arXiv, Unpaywall ----------
@@ -247,14 +283,30 @@ async def _unpaywall(w: Work, client, pdf_to_text: PdfToText) -> tuple[str, str]
 # ---------- abstracts ----------
 
 
+MARKUP_PROVIDERS = {"crossref"}  # JATS abstracts; arXiv / S2 / OpenAlex give plain text
+
+
 async def _given_abstract(w: Work) -> str | None:
-    return _strip_tags(w.abstract) if w.abstract else None
+    if not w.abstract:
+        return None
+    return _strip_tags(w.abstract) if w.provider in MARKUP_PROVIDERS else w.abstract
+
+
+# A real tag: a name right after "<" or "</", attributes only as name="value".
+# "doses < 10 mg ... > 50 mg" has no such tag and is left alone.
+_ATTRS = r"""(?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*\s*/?>"""
+
+
+def _tag(names: str) -> str:
+    return rf"<(?:{names}){_ATTRS}"
 
 
 def _strip_tags(s: str) -> str:
-    s = re.sub(r"<(jats:)?title>.*?</(jats:)?title>", " ", s, flags=re.S)
-    s = re.sub(r"</?(?:jats:)?(?:p|sec|title|list-item)\b[^>]*>", " ", s)  # block tags
-    s = re.sub(r"<[^>]+>", "", s)  # inline tags (italic, sup, ...) vanish without a space
+    s = re.sub(_tag("(?:jats:)?title") + r".*?</(?:jats:)?title\s*>", " ", s, flags=re.S)
+    s = re.sub(_tag("/?(?:jats:)?(?:p|sec|title|list-item)"), " ", s)  # block tags
+    s = re.sub(_tag("(?:jats:)?sup"), "^", s)  # 10<sup>5</sup> -> "10^5", never "105"
+    s = re.sub(_tag("(?:jats:)?sub"), "_", s)
+    s = re.sub(_tag(r"/?[A-Za-z][\w:.-]*"), "", s)  # other inline tags (italic, ...)
     return " ".join(html.unescape(s).split())
 
 
