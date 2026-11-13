@@ -18,6 +18,7 @@ from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
     arxiv_from_doi,
+    first_author_equal,
     id_equal,
     identifies,
     mismatches,
@@ -25,7 +26,9 @@ from claimtrace.refaudit.match import (
     norm_doi,
     strip_notice,
     title_match,
+    title_prefix,
     title_similarity,
+    year_ok,
 )
 from claimtrace.refaudit.providers import (
     Gate,
@@ -78,6 +81,17 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     if not identified:
         failed = [o.provider for o in outcomes if not o.ok]
         near = [w for w in works if title_match(ref.title, w.title)]
+        # not_found must mean "nothing close exists": same first author and year (±1) with a
+        # similar or prefix title is a possible match, left unchecked for a human
+        close = [
+            w
+            for w in works
+            if ref.title
+            and w.title
+            and first_author_equal(ref.authors, w.authors)
+            and year_ok(ref.year, w.year)
+            and (title_similarity(ref.title, w.title) >= 0.6 or title_prefix(ref.title, w.title))
+        ]
         notices = [w for w in works if title_match(ref.title, strip_notice(w.title))]
         if failed:
             out.note = f"no match; provider failed: {', '.join(failed)}"
@@ -93,6 +107,9 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
                 f"{w.authors[0] if w.authors else 'no authors'}) but neither year (±1) nor "
                 "first author confirm it is the cited work"
             )
+        elif close:
+            w = close[0]
+            out.note = f"possible match: {w.title} ({w.provider}, {w.year})"
         else:
             out.status = RefStatus.not_found
             out.note = f"no matching record in {', '.join(o.provider for o in outcomes)}"
@@ -125,7 +142,13 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     retracted_by = [w.provider for w in identified if w.is_retracted]
     matched.is_retracted = bool(retracted_by)
     out.matched = matched
-    how = "identifier" if id_equal(ref, best) else "title + year/author"
+    how = (
+        "identifier"
+        if id_equal(ref, best)
+        else "title + year/author"
+        if title_match(ref.title, best.title)
+        else "truncated title + year + first author"
+    )
     out.note = f"identified via {best.provider} ({how})"
     if retracted_by:
         out.status = RefStatus.retracted

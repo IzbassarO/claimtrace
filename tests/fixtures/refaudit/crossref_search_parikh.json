@@ -1,0 +1,28 @@
+{
+  "status": "ok",
+  "message": {
+    "items": [
+      {
+        "DOI": "10.18653/v1/d16-1244",
+        "title": ["A Decomposable Attention Model for Natural Language Inference"],
+        "author": [
+          {"given": "Ankur", "family": "Parikh"},
+          {"given": "Oscar", "family": "Täckström"},
+          {"given": "Dipanjan", "family": "Das"},
+          {"given": "Jakob", "family": "Uszkoreit"}
+        ],
+        "issued": {"date-parts": [[2016]]},
+        "container-title": ["Proceedings of the 2016 Conference on Empirical Methods in Natural Language Processing"],
+        "URL": "https://doi.org/10.18653/v1/d16-1244"
+      },
+      {
+        "DOI": "10.1109/example.2019.0001",
+        "title": ["An attention model for decomposable tasks"],
+        "author": [{"given": "Wei", "family": "Zhang"}],
+        "issued": {"date-parts": [[2019]]},
+        "container-title": ["Some Conference"],
+        "URL": "https://doi.org/10.1109/example.2019.0001"
+      }
+    ]
+  }
+}

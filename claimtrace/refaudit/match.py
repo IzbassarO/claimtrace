@@ -130,6 +130,27 @@ def title_match(cited: str | None, found: str | None) -> bool:
     )
 
 
+def title_prefix(a: str | None, b: str | None) -> bool:
+    """One title's words are a prefix of the other's ('A decomposable attention model' vs '...
+    for natural language inference'), with >= 3 words on the shorter side."""
+    if not a or not b:
+        return False
+    wa, wb = normalize_title(a).split(), normalize_title(b).split()
+    n = min(len(wa), len(wb))
+    return n >= 3 and wa[:n] == wb[:n]
+
+
+def truncated_title(cited: str | None, found: str | None) -> bool:
+    """A truncated citation of the found title: prefix relation, and the added words bring no
+    negation, number or correction-notice marker."""
+    if not title_prefix(cited, found):
+        return False
+    a, b = strip_retracted(cited), strip_retracted(found)
+    return (
+        is_notice(a) == is_notice(b) and negations(a) == negations(b) and numbers(a) == numbers(b)
+    )
+
+
 def year_ok(cited: int | None, found: int | None) -> bool:
     return cited is not None and found is not None and abs(cited - found) <= 1
 
@@ -186,8 +207,13 @@ def id_equal(ref: Reference, w: Work) -> bool:
 def identifies(ref: Reference, w: Work) -> bool:
     if id_equal(ref, w):
         return True
-    return title_match(ref.title, w.title) and (
-        year_ok(ref.year, w.year) or first_author_equal(ref.authors, w.authors)
+    if title_match(ref.title, w.title):
+        return year_ok(ref.year, w.year) or first_author_equal(ref.authors, w.authors)
+    # a truncated title needs both year and first author; mismatches() still flags the title
+    return (
+        truncated_title(ref.title, w.title)
+        and year_ok(ref.year, w.year)
+        and first_author_equal(ref.authors, w.authors)
     )
 
 
