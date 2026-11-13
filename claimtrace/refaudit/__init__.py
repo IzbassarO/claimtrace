@@ -24,7 +24,8 @@ from claimtrace.refaudit.providers import (
     Gate,
     arxiv_batch,
     crossref,
-    openalex,
+    openalex_doi,
+    openalex_search,
     semanticscholar,
 )
 
@@ -111,6 +112,23 @@ def _ref_arxiv(ref: Reference) -> str | None:
     return norm_arxiv(ref.arxiv_id) or arxiv_from_doi(ref.doi)
 
 
+async def _openalex(ref: Reference, client, gate, crossref_task) -> list[Work]:
+    """Free DOI lookups first; the billed title search only if Crossref did not identify the
+    work (or failed) and the cited DOI found nothing on OpenAlex."""
+    aid = _ref_arxiv(ref)
+    doi = norm_doi(ref.doi) or (f"10.48550/arxiv.{aid}" if aid and ARXIV_ID.match(aid) else None)
+    works = await openalex_doi(client, gate, doi) if doi else []
+    if any(identifies(ref, w) for w in works):
+        return works
+    try:
+        cr = await crossref_task
+    except Exception:  # noqa: BLE001 - Crossref's failure is reported by its own outcome
+        cr = []
+    if hit := next((w.doi for w in cr if w.doi and identifies(ref, w)), None):
+        return works + (await openalex_doi(client, gate, hit) if hit != doi else [])
+    return works + (await openalex_search(client, gate, ref.title) if ref.title else [])
+
+
 async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
     aid = _ref_arxiv(ref)
     aid = aid if aid and ARXIV_ID.match(aid) else None
@@ -120,10 +138,8 @@ async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
             status=RefStatus.unchecked,
             note="nothing to look up (no title, DOI or arXiv id)",
         )
-    calls = {
-        "crossref": crossref(client, gates["crossref"], ref),
-        "openalex": openalex(client, gates["openalex"], ref),
-    }
+    cr = asyncio.ensure_future(crossref(client, gates["crossref"], ref))
+    calls = {"crossref": cr, "openalex": _openalex(ref, client, gates["openalex"], cr)}
     if use_s2:
         calls["semanticscholar"] = semanticscholar(client, gates["semanticscholar"], ref)
     results = await asyncio.gather(*calls.values(), return_exceptions=True)
