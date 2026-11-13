@@ -22,4 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - run: shellcheck scripts/*.sh
+      - name: compose config
+        run: cp .env.example .env && DOMAIN=example.com docker compose config -q
       - run: docker build -t claimtrace:ci .
