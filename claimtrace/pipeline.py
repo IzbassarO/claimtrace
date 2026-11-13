@@ -8,6 +8,7 @@ Progress callback: on_progress(stage, done, total). Timings: `Report.timings` (c
 """
 
 import asyncio
+import contextlib
 import hashlib
 import inspect
 import itertools
@@ -189,6 +190,15 @@ def _report(rid, ms, audits, checks, complete: bool) -> Report:
     )
 
 
+async def _parse(text, files, on_references, on_doi_refs) -> Manuscript:
+    params = inspect.signature(ingest.parse_inputs).parameters
+    if "on_references" in params:
+        return await ingest.parse_inputs(
+            text, files, on_references=on_references, on_doi_refs=on_doi_refs
+        )
+    return await ingest.parse_inputs(text, files)
+
+
 async def _audit(refs, client, on_progress, on_result, priority) -> list[ReferenceAudit]:
     params = inspect.signature(refaudit.audit_references).parameters
     if "on_result" in params:
@@ -227,23 +237,13 @@ async def run(
             t.mark(f"{stage}_end")
         user_progress(stage, done, total)
 
-    progress("ingest", 0, 1)
-    with timing.span("ingest"):
-        ms = await ingest.parse_inputs(text, files or [])
     limit = get_settings().max_references
-    if len(ms.references) > limit:
-        ms.warnings.append(f"Only the first {limit} of {len(ms.references)} references audited.")
-        ms.references = ms.references[:limit]
-    progress("ingest", 1, 1)
-
-    refs = ms.references
-    pairs = _pairs(ms)
+    pairs: list[tuple[Citation, str]] = []
     pairs_by_ref: dict[str, list[tuple[int, Citation]]] = defaultdict(list)
-    for k, (c, r) in enumerate(pairs):
-        pairs_by_ref[r].append((k, c))
-    to_fetch = sum(1 for r in refs if r.id in pairs_by_ref)
-
-    audits: dict[int, ReferenceAudit] = {}
+    ms: Manuscript | None = None
+    to_fetch = 0
+    audits: dict[int, ReferenceAudit] = {}  # keyed by id() of the Reference object
+    streamed: list[Reference] = []  # references in arrival order (before ingest finishes)
     checks: dict[int, ClaimCheck] = {}
     counters = {"sources": 0, "claims": 0}
     queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
@@ -255,10 +255,11 @@ async def run(
     def emit() -> None:
         if not on_partial:
             return
+        order = ms.references if ms is not None else streamed
         snap = _report(
             rid,
-            ms,
-            [audits[i] for i in sorted(audits)],
+            ms or Manuscript(body=""),
+            [audits[id(r)] for r in order if id(r) in audits],
             [checks[k] for k in sorted(checks)],
             complete=False,
         )
@@ -293,10 +294,42 @@ async def run(
             await asyncio.gather(*(prepare(k, c) for k, c in pairs_by_ref[audit.reference.id]))
 
         def on_result(i: int, audit: ReferenceAudit) -> None:
-            audits[i] = audit
+            audits[id(audit.reference)] = audit
+            progress("references", len(audits), len(ms.references) if ms else len(audits) + 1)
             emit()
-            if audit.reference.id in pairs_by_ref:
+            # claims are known only once ingest has finished; earlier audits are picked up then
+            if ms is not None and audit.reference.id in pairs_by_ref:
                 fetches.append(asyncio.ensure_future(fetch_and_queue(audit)))
+
+        audit_tasks: list[asyncio.Task] = []
+
+        def audit_chunk(chunk: list[Reference]) -> None:
+            room = limit - len(streamed)
+            chunk = chunk[: max(0, room)]
+            if not chunk:
+                return
+            base = len(streamed)
+            streamed.extend(chunk)
+            audit_tasks.append(
+                asyncio.ensure_future(
+                    _audit(
+                        chunk,
+                        client,
+                        lambda d, n: None,  # progress comes from on_result (chunks overlap)
+                        lambda i, a: on_result(base + i, a),
+                        _suspicious_first(chunk),
+                    )
+                )
+            )
+
+        async def warm(regex_refs: list[Reference]) -> None:
+            # DOI/arXiv lookups before field extraction finishes: results are discarded, the
+            # provider answers land in the disk cache (free lookups only, no paid search)
+            with contextlib.suppress(Exception):
+                await refaudit.audit_references(regex_refs[:limit], client)
+
+        def on_doi_refs(regex_refs: list[Reference]) -> None:
+            audit_tasks.append(asyncio.ensure_future(warm(regex_refs)))
 
         async def worker() -> None:
             while True:
@@ -328,17 +361,32 @@ async def run(
             asyncio.ensure_future(worker())
             for _ in range(max(1, concurrency("judge"), concurrency("skeptic")))
         ]
-        progress("references", 0, len(refs))
-        if pairs:
-            progress("claims", 0, len(pairs))
         try:
-            audit_list = await _audit(
-                refs,
-                client,
-                lambda d, n: progress("references", d, n),
-                on_result,
-                _suspicious_first(refs),
-            )
+            progress("ingest", 0, 1)
+            with timing.span("ingest"):
+                ms = await _parse(text, files or [], audit_chunk, on_doi_refs)
+            if len(ms.references) > limit:
+                ms.warnings.append(
+                    f"Only the first {limit} of {len(ms.references)} references audited."
+                )
+                ms.references = ms.references[:limit]
+            progress("ingest", 1, 1)
+            refs = ms.references
+            # references ingest did not stream (older ingest / .bib / PDF): audit them now
+            missing = [r for r in refs if all(r is not s for s in streamed)]
+            if missing:
+                audit_chunk(missing)
+            pairs = _pairs(ms)
+            for k, (c, r) in enumerate(pairs):
+                pairs_by_ref[r].append((k, c))
+            to_fetch = sum(1 for r in refs if r.id in pairs_by_ref)
+            if pairs:
+                progress("claims", 0, len(pairs))
+            for a in list(audits.values()):  # audits that finished during ingest
+                if a.reference.id in pairs_by_ref:
+                    fetches.append(asyncio.ensure_future(fetch_and_queue(a)))
+            await asyncio.gather(*audit_tasks)
+            audit_list = [audits[id(r)] for r in refs]
             # a fetch may still be appending its claims; wait for every fetch, then the queue
             while any(not f.done() for f in fetches):
                 await asyncio.gather(*fetches)
