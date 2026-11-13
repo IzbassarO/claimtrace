@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     max_references: int = 200
     max_claims: int = 150
     llm_concurrency: int = 4
+    # skeptic calls in flight; 0 = same as LLM_CONCURRENCY. Drops to LLM_CONCURRENCY after a 429.
+    llm_concurrency_skeptic: int = 0
 
     def problems(self) -> list[str]:
         """Configuration errors, by variable name only (safe to log)."""
