@@ -12,3 +12,7 @@ eval/.cache/
 .cache/
 *.egg-info/
 .pytest-tmp/
+# third-party agent skills (installed locally, not committed)
+.claude/skills/
+skills-lock.json
+.claude/agents/impeccable-*.md

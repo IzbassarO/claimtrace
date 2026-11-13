@@ -147,3 +147,11 @@ system produce confident wrong answers and pinned each bug as a failing test; th
 re-ran lint/tests and merged. An independent review (Codex) was checked finding by finding
 (`docs/DECISIONS.md`). The human set direction, chose models and priorities, and holds the keys.
 At runtime the product uses Claude (judge, extraction) and Kimi (skeptic).
+
+Design tooling (installed locally into `.claude/skills/`, not committed; read as design guidance
+only — no third-party hooks, scripts or network fetches were run): `design-brief`,
+`design-tokens`, `design-review` (julianoczkowski/designer-skills), `ui-ux-pro-max`
+(nextlevelbuilder), `design-taste-frontend` (leonxlnx/taste-skill; its auto-run Stop hook was
+removed from the local copy), `emil-design-eng` (emilkowalski/skills), `web-design-guidelines`
+(vercel-labs; its rules are fetched from the network at use time, so it was not used offline),
+Impeccable (installed with `--no-hooks`).
