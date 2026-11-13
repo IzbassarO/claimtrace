@@ -97,3 +97,29 @@ async def test_openalex_key_added_only_for_openalex_and_redacted(monkeypatch):
     assert "api_key" not in seen[1].params
     out = ProviderOutcome(provider="openalex", ok=False, error=f"503 for {seen[0]}")
     assert "sekret" not in out.error and "api_key=***" in out.error
+
+
+async def test_openalex_cache_and_search_budget(monkeypatch, tmp_path):
+    from claimtrace.core import settings as st
+
+    s = st.Settings(_env_file=None, cache_dir=str(tmp_path), openalex_run_searches=1)
+    monkeypatch.setattr(http, "get_settings", lambda: s)
+    monkeypatch.setattr(http, "_run_searches", 0)
+    calls = []
+
+    def handler(r):
+        calls.append(r.url.path)
+        return httpx.Response(200, json={"path": r.url.path})
+
+    transport = http.OpenAlexTransport(httpx.MockTransport(handler))
+    async with httpx.AsyncClient(transport=transport) as c:
+        oa = "https://api.openalex.org"
+        assert (await c.get(f"{oa}/works", params={"search": "a"})).json()["path"] == "/works"
+        cached = await c.get(f"{oa}/works", params={"search": "a"})  # cache hit: free
+        assert cached.headers["x-claimtrace-cache"] == "hit"
+        assert (await c.get(f"{oa}/works", params={"search": "b"})).status_code == 402  # over cap
+        assert (await c.get(f"{oa}/works/doi:10.1/x")).status_code == 200  # lookups are free
+        assert (await c.get("https://api.crossref.org/works")).status_code == 200
+    assert calls == ["/works", "/works/doi:10.1/x", "/works"]
+    day = next(tmp_path.glob("openalex/searches-*.txt"))
+    assert day.read_text() == "1"

@@ -8,4 +8,5 @@ __pycache__/
 .worktrees/
 .claude/settings.local.json
 eval/.cache/
+.cache/
 *.egg-info/

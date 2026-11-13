@@ -22,7 +22,7 @@ All shared types are in `claimtrace/core/schemas.py`. Modules exchange **only** 
 
 | Path | Role | May import |
 |---|---|---|
-| `claimtrace/core/` | schemas, settings, `llm` (role models, `ask_json`, `ask_text`, `wrap_untrusted`), `http` (`make_client` — adds `OPENALEX_API_KEY` to every api.openalex.org request; retrying `request`; `redact`) | stdlib, 3rd party |
+| `claimtrace/core/` | schemas, settings, `llm` (role models, `ask_json`, `ask_text`, `wrap_untrusted`), `http` (`make_client` — adds `OPENALEX_API_KEY` to every api.openalex.org request, caches OpenAlex answers on disk, enforces the paid-search budget (402 when exhausted ⇒ provider failure); retrying `request`; `redact`) | stdlib, 3rd party |
 | `claimtrace/ingest/` | inputs → `Manuscript`; `pdf_to_text` via GROBID | core |
 | `claimtrace/refaudit/` | `Reference` → `ReferenceAudit` | core |
 | `claimtrace/sources/` | `ReferenceAudit` → `SourceText` | core (+ injected `pdf_to_text`) |
@@ -68,9 +68,11 @@ down); they encode them in the result. The pipeline still guards each call and d
 - `unchecked` — no match and at least one provider failed, or nothing to look up.
 
 **Claims** (`Verdict`)
-- `source_not_found` — no source text available (reference not identified or no text/abstract).
+- `source_not_found` — no source text available (reference not identified, no text/abstract, or
+  every source provider failed — a statement about the source, never about the claim).
 - `supported` / `partly_supported` / `unsupported` — only with a verified verbatim quote.
-- `insufficient_evidence` — models say so, quote fails verification, or a model call failed.
+- `insufficient_evidence` — models say so, quote fails verification, or both model calls failed.
+  If only one model call failed, the other model's verdict is used with `needs_review = true`.
 - `needs_review` — judge and skeptic disagree (or one of them failed).
 
 ## LLM roles
