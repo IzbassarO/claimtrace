@@ -3,7 +3,7 @@
 ```
             text / .bib / .pdf
                     │
-   web (FastAPI + static UI) ──► pipeline.run()  (LangGraph, linear)
+   web (FastAPI + static UI) ──► pipeline.run()  (streaming conveyor)
                                    │
    ┌──────────┬───────────────┬────┴─────────┬──────────────┬─────────┐
    ▼          ▼               ▼              ▼              ▼
@@ -27,7 +27,7 @@ All shared types are in `claimtrace/core/schemas.py`. Modules exchange **only** 
 | `claimtrace/refaudit/` | `Reference` → `ReferenceAudit` | core |
 | `claimtrace/sources/` | `ReferenceAudit` → `SourceText` | core (+ injected `pdf_to_text`) |
 | `claimtrace/claims/` | (`Citation`, ref id, `SourceText`) → `ClaimCheck` | core |
-| `claimtrace/pipeline.py` | LangGraph wiring, limits, progress, summary | everything above |
+| `claimtrace/pipeline.py` | streaming conveyor (per-reference source fetch, claim workers, problem-first queue, partial reports), verdict cache, limits, progress, timings | everything above |
 | `claimtrace/web/` | FastAPI app, jobs, export, chat, static UI | core, pipeline |
 | `eval/` | `python -m eval.run` | core, module entry points |
 
@@ -40,8 +40,10 @@ async def pdf_to_text(pdf: bytes) -> str            # GROBID body text; raises o
 
 # claimtrace/refaudit/__init__.py
 async def audit_references(refs: list[Reference], client: httpx.AsyncClient,
-                           on_progress: Callable[[int, int], None] | None = None
-                           ) -> list[ReferenceAudit]   # same order as refs
+                           on_progress: Callable[[int, int], None] | None = None, *,
+                           on_result: Callable[[int, ReferenceAudit], None] | None = None,
+                           priority: list[int] | None = None
+                           ) -> list[ReferenceAudit]   # same order as refs; on_result streams
 
 # claimtrace/sources/__init__.py
 async def fetch_source(audit: ReferenceAudit, client: httpx.AsyncClient,

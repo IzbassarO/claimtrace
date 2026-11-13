@@ -14,7 +14,6 @@ dependencies = [
     "langchain-core>=0.3",
     "langchain-anthropic>=0.3",
     "langchain-openai>=0.3",
-    "langgraph>=0.2",
     "rank-bm25>=0.2.2",
     "fastembed>=0.4",
     "bibtexparser>=1.4,<2",
