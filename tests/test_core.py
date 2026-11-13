@@ -153,21 +153,19 @@ async def test_ssrf_guard_blocks_private_targets_and_redirect_hops(monkeypatch):
         assert (await c.get("https://example.org/paper.pdf")).status_code == 200
 
 
-async def test_ssrf_guard_allows_configured_grobid(monkeypatch):
+async def test_grobid_client_only_reaches_grobid_and_never_redirects(monkeypatch):
     from claimtrace.core import settings as st
 
     s = st.Settings(_env_file=None, grobid_url="http://grobid:8070")
     monkeypatch.setattr(http, "get_settings", lambda: s)
-
-    async def docker_dns(host, port):
-        return {"172.18.0.3"}  # compose network address
-
-    monkeypatch.setattr(http, "_resolve", docker_dns)
-    t = http.PublicOnlyTransport(httpx.MockTransport(lambda r: httpx.Response(200)))
+    t = http.GrobidOnlyTransport(httpx.MockTransport(lambda r: httpx.Response(200)))
     async with httpx.AsyncClient(transport=t) as c:
         assert (await c.get("http://grobid:8070/api/isalive")).status_code == 200
-        with pytest.raises(http.BlockedURL):
-            await c.get("http://grobid:9999/x")  # same host, other port: not allowed
+        for url in ("http://grobid:9999/x", "http://169.254.169.254/", "https://grobid:8070/x"):
+            with pytest.raises(http.BlockedURL):
+                await c.get(url)
+    async with http.make_grobid_client() as c:
+        assert c.follow_redirects is False
 
 
 def test_skeptic_on_judge_provider_is_refused(monkeypatch):

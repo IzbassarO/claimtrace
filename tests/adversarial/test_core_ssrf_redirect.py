@@ -7,7 +7,6 @@ from claimtrace.core import http
 from claimtrace.core import settings as st
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: public URL can redirect into the internal GROBID")
 async def test_redirect_from_public_host_to_grobid_is_blocked(monkeypatch):
     s = st.Settings(_env_file=None, grobid_url="http://grobid:8070")
     monkeypatch.setattr(http, "get_settings", lambda: s)

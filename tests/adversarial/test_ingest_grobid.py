@@ -17,8 +17,8 @@ from claimtrace.ingest import parse_inputs, tei
 async def test_unusable_grobid_answer_warns(monkeypatch, answer):
     monkeypatch.setattr(
         tei,
-        "make_client",
-        lambda timeout=30: httpx.AsyncClient(
+        "make_grobid_client",
+        lambda timeout=180: httpx.AsyncClient(
             transport=httpx.MockTransport(lambda req: httpx.Response(200, text=answer))
         ),
     )

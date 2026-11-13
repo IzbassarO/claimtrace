@@ -114,17 +114,27 @@ async def _resolve(host: str, port: int) -> set[str]:
 
 class PublicOnlyTransport(httpx.AsyncBaseTransport):
     """SSRF guard: every request, including each redirect hop (the client sends every hop
-    through its transport), must use http(s) and resolve only to public IPs. The configured
-    GROBID host is the one internal service allowed."""
+    through its transport), must use http(s) and resolve only to public IPs. No exceptions:
+    the internal GROBID service is reached only through `make_grobid_client()`."""
 
     def __init__(self, inner: httpx.AsyncBaseTransport):
         self.inner = inner
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        url = request.url
-        grobid = urlsplit(get_settings().grobid_url)
-        if (url.host, url.port) != (grobid.hostname, grobid.port):
-            await _check_public(url, request)
+        await _check_public(request.url, request)
+        return await self.inner.handle_async_request(request)
+
+
+class GrobidOnlyTransport(httpx.AsyncBaseTransport):
+    """Only the configured GROBID host:port. Used with redirects disabled."""
+
+    def __init__(self, inner: httpx.AsyncBaseTransport):
+        self.inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        g, u = urlsplit(get_settings().grobid_url), request.url
+        if (u.scheme, u.host, u.port) != (g.scheme, g.hostname, g.port):
+            raise BlockedURL(f"GROBID client may only call {g.hostname}", request=request)
         return await self.inner.handle_async_request(request)
 
 
@@ -142,6 +152,15 @@ async def _check_public(url: httpx.URL, request: httpx.Request) -> None:
     # ponytail: resolve-then-connect leaves a DNS-rebinding window; pin IPs if this matters
     if not addrs or not all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs):
         raise BlockedURL(f"blocked non-public address for {url.host}", request=request)
+
+
+def make_grobid_client(timeout: float = 180.0) -> httpx.AsyncClient:
+    """Client for the internal GROBID service: that host only, never follows redirects."""
+    return httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=False,
+        transport=GrobidOnlyTransport(httpx.AsyncHTTPTransport()),
+    )
 
 
 def make_client(timeout: float = 30.0) -> httpx.AsyncClient:
