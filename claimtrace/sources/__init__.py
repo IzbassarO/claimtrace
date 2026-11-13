@@ -11,6 +11,7 @@ import re
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
+from difflib import SequenceMatcher
 from urllib.parse import quote
 
 import httpx
@@ -108,17 +109,56 @@ def _family(author: str) -> str | None:
     return max(words, key=len) if words else None
 
 
+# Kept local (modules never import refaudit). A title that adds or drops one of these is
+# the opposite claim: "X does not reduce Y" is not "X reduces Y".
+_NEG = set(
+    "no not non without never cannot lack lacks lacking absence absent fail fails failed "
+    "failure".split()
+)
+TITLE_SIM = 0.85
+MAX_TITLE_LINE = 300  # a longer first line is a text blob, not a title
+
+
+def _neg(s: str) -> set[str]:
+    found = set(_words(s)) & _NEG
+    if re.search(r"n['’]t\b", s.casefold()):
+        found.add("n't")
+    return found
+
+
+def _digits(s: str) -> set[str]:
+    return {w for w in _words(s) if w.isdigit()}
+
+
+def _same_title(title: str, line: str) -> bool:
+    sim = SequenceMatcher(None, _words(title), _words(line), autojunk=False).ratio()
+    return sim >= TITLE_SIM and _neg(title) == _neg(line) and _digits(title) == _digits(line)
+
+
 def looks_like(text: str, title: str | None, authors: list[str] | None = None) -> bool:
-    """Full text is accepted only if long enough and most title content words occur near its
-    start; for short titles ('Deep learning') the first author's family name must occur too."""
+    """Full text is accepted only if long enough and it is the cited paper. Our full texts
+    (JATS, GROBID TEI) start with the document's own title, so its first line must match the
+    cited title word for word (>= 0.85), with the same negation words and numbers. Without a
+    title-like first line: most title content words near the start, and the first sentence must
+    carry the same negation words. Short titles ('Deep learning') also need the first author's
+    family name."""
     if len(text) < MIN_FULLTEXT_CHARS or not title:
         return False
     want = {t for t in _words(title) if (len(t) >= 3 or t.isdigit()) and t not in _STOP}
     if not want:
         return False
-    have = set(_words(text[:GUARD_WINDOW]))
-    if 2 * len(want & have) <= len(want):
-        return False
+    window = text[:GUARD_WINDOW]
+    have = set(_words(window))
+    first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+    if first and len(first) <= MAX_TITLE_LINE:
+        if not _same_title(title, first):
+            return False
+    else:
+        if 2 * len(want & have) <= len(want):
+            return False
+        sentence = re.split(r"(?<=[.!?])\s+", window.strip(), maxsplit=1)[0]
+        if _neg(sentence) != _neg(title):
+            return False
     if len(want) < SHORT_TITLE:
         fam = _family(authors[0]) if authors else None
         return fam is not None and fam in have
@@ -275,8 +315,12 @@ async def _unpaywall(w: Work, client, pdf_to_text: PdfToText) -> tuple[str, str]
         except Exception as e:
             log.info("sources: pdf %s failed: %s", u, type(e).__name__)
             continue
-        if got:
+        if not got:
+            continue
+        if looks_like(got[0], w.title, w.authors):
             return got
+        # wrong document at this url: the next OA candidate may still be the right one
+        log.info("sources: pdf %s rejected by wrong-document guard", u)
     return None
 
 

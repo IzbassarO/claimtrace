@@ -46,6 +46,10 @@ def provider_of(role: Role) -> str:
 def get_model(role: Role) -> BaseChatModel:
     s = get_settings()
     provider, model = provider_of(role), getattr(s, f"llm_{role}_model")
+    if role == "skeptic" and provider == provider_of("judge"):
+        # independence is a correctness rule: without it the skeptic "fails" and every verdict
+        # carries needs_review instead of two same-provider models silently agreeing
+        raise LLMError("LLM_SKEPTIC_PROVIDER must differ from LLM_JUDGE_PROVIDER")
     if not model:
         raise LLMError(f"LLM_{role.upper()}_MODEL is not set")
     if provider == "anthropic":
