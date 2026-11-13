@@ -46,12 +46,28 @@ def _in_raw(value: str, raw: str) -> bool:
     return bool(v) and v in _norm(raw)
 
 
+# the title field starts after: start of string, '. ' / ': ' / ') ' / '] ', an opening quote,
+# or a year ('2020, Title')
+_TITLE_START = re.compile(r"(?:^|[.:;)\]]\s*|[\"“‘'«]\s*|\b(?:19|20)\d{2}[a-z]?[.,]?\s+)$")
+_NEGATION = re.compile(
+    r"(?<!\w)(?:no|not|non|without|never|neither|nor|none|lack|lacks|lacking|absence|absent|"
+    r"cannot|\w+n't|\w+n’t)\W*$"
+)
+
+
 def _title_in_raw(title: str, raw: str) -> bool:
-    """Verbatim AND a whole field: the match must end where the title field ends (., ?, !,
-    closing quote, '[Internet]'), so a truncated 'Aspirin does' of 'Aspirin does not ...' fails."""
-    v = _norm(title)
+    """Verbatim AND a whole field: the match must start and end where the title field does,
+    so neither a truncated 'Aspirin does' of 'Aspirin does not ...' nor 'aspirin reduces ...'
+    of 'No aspirin reduces ...' passes. A negation right before the match always fails."""
+    v, r = _norm(title), _norm(raw)
+    if not v:
+        return False
     end = "" if v[-1:] in ("?", "!") else r"(?=$|[.?!]|,?[\"”’'»]|\s*\[)"
-    return bool(v) and re.search(rf"(?<!\w){re.escape(v)}{end}", _norm(raw)) is not None
+    for m in re.finditer(rf"(?<!\w){re.escape(v)}{end}", r):
+        before = r[: m.start()]
+        if _TITLE_START.search(before) and not _NEGATION.search(before[-30:]):
+            return True
+    return False
 
 
 def _author_in_raw(author: str, raw: str) -> bool:
