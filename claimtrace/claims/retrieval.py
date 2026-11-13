@@ -1,5 +1,6 @@
 """Pick the source passages most relevant to a citing sentence: BM25 over all passages, then a
-dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top."""
+dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top.
+section_of() labels a verified quote with its source section (not used for retrieval)."""
 
 import asyncio
 import re
@@ -7,6 +8,8 @@ import threading
 from collections.abc import Callable, Sequence
 
 from rank_bm25 import BM25Okapi
+
+from claimtrace.claims.quote import verify_quote
 
 Embed = Callable[[list[str]], Sequence[Sequence[float]]]
 Rerank = Callable[[str, list[str]], Sequence[float]]  # (query, passages) -> one score each
@@ -19,6 +22,9 @@ _RRF_K = 60
 _SENT = re.compile(r"(?<=[.!?])\s+")
 _TOKEN = re.compile(r"\w+")
 _MAX_SENT_WORDS = 120
+_BLOCK = re.compile(r"\n[ \t\r\f\v]*\n\s*")
+HEADING_WORDS = 12
+_FLOAT_LABEL = re.compile(r"(?i)(fig(ure)?\.?|table|box|scheme)\s*[a-z]?\d")
 
 _lock = threading.Lock()
 _model = None
@@ -63,6 +69,48 @@ def passages(text: str) -> list[str]:
     if len(sents) <= 3:
         return [" ".join(sents)] if sents else []
     return [" ".join(sents[i : i + 3]) for i in range(0, len(sents) - 1, 2)]
+
+
+def _is_heading(block: str) -> bool:
+    """'Introduction', '2 Methods', '4.1 Training data': one short line, no final period."""
+    words = block.split()
+    return (
+        "\n" not in block
+        and 0 < len(words) <= HEADING_WORDS
+        and "|" not in block  # a JATS table row
+        and block[-1] not in ".,;:"
+        and (block[0].isupper() or block[0].isdigit())
+        and any(c.isalpha() for c in block)
+    )
+
+
+def paragraphs(text: str) -> list[tuple[str | None, str]]:
+    """(section heading or None, paragraph) per blank-line separated block; headings are not
+    paragraphs. Never guesses: short lines before the first real paragraph are front matter
+    (title, authors), and after a 'Figure 2' / 'Table 1' label the section is unknown (None)
+    until the next heading, so caption titles and text after an inline float get no label."""
+    out: list[tuple[str | None, str]] = []
+    section, seen_para, in_float = None, False, False
+    for block in (b.strip() for b in _BLOCK.split(text)):
+        if not block:
+            continue
+        heading = _is_heading(block)
+        if seen_para and heading and _FLOAT_LABEL.match(block):
+            section, in_float = None, True
+        elif seen_para and heading and not in_float:
+            section = block
+            continue
+        elif not heading:
+            seen_para, in_float = True, False
+        out.append((section, block))
+    return out
+
+
+def section_of(quote: str, text: str) -> str | None:
+    """Heading of the section whose paragraph contains the verified quote verbatim; None when
+    no single paragraph has it or paragraphs in different sections do (never guess)."""
+    found = {section for section, para in paragraphs(text) if verify_quote(quote, para)}
+    return found.pop() if len(found) == 1 else None
 
 
 def _tokens(text: str) -> list[str]:

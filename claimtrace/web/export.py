@@ -48,6 +48,8 @@ def _claim(c: ClaimCheck) -> list[str]:
     if c.quote:
         kind = EVIDENCE.get(c.evidence_kind.value, "") if c.evidence_kind else ""
         out.append(f'- Verbatim quote ({kind or "source"}): "{_one_line(c.quote)}"')
+        if c.section:
+            out.append(f"- Section: {_one_line(c.section)}")
     elif c.evidence_kind:
         out.append(f"- Checked against: {EVIDENCE[c.evidence_kind.value]}")
     if c.source_url:

@@ -1,0 +1,39 @@
+Effect of a supervised walking programme on blood pressure in older adults
+
+Moreau Tanaka Okafor Lindqvist
+
+Abstract
+
+Hypertension is common in older adults and physical activity is a recommended first-line measure. We ran a twelve-week supervised walking programme in 240 community-dwelling adults aged 65 to 80 years. Systolic blood pressure fell modestly in the walking group compared with usual care. Adherence was high and no serious adverse events occurred.
+
+1 Introduction
+
+High blood pressure affects more than half of adults over the age of sixty-five. It is a leading modifiable risk factor for stroke, heart failure and kidney disease. Drug treatment is effective, but many older adults take several medicines and are wary of adding another.
+
+Exercise lowers blood pressure in younger populations. Evidence in adults older than seventy is thinner and often comes from small, unsupervised studies. We therefore tested whether a supervised programme could produce a measurable change in this group.
+
+2 Methods
+
+2.1 Participants
+
+We recruited 240 adults aged 65 to 80 years from four primary care practices. Participants had an office systolic blood pressure between 130 and 159 mmHg. People with unstable angina, recent stroke or inability to walk unaided were excluded.
+
+2.2 Intervention
+
+The walking group met three times a week for twelve weeks. Each session lasted forty-five minutes and was led by a trained physiotherapist. The usual-care group received a leaflet on healthy lifestyle and no further contact.
+
+3 Results
+
+Of the 240 participants randomised, 221 completed the twelve-week follow-up. Mean systolic blood pressure decreased by 6.2 mmHg in the walking group and by 1.1 mmHg in the usual-care group. The between-group difference was 5.1 mmHg (95% CI 2.3 to 7.9). Diastolic blood pressure did not differ between groups.
+
+Table 1
+
+Baseline characteristics of the participants
+
+Values are means with standard deviations unless stated otherwise.
+
+Attendance averaged 81 percent of scheduled sessions. Two participants reported knee pain that resolved without treatment.
+
+4 Discussion
+
+A supervised walking programme lowered systolic blood pressure in older adults by a clinically relevant amount. The effect is smaller than that of a single antihypertensive drug but comes with few side effects. Longer follow-up is needed to show whether the reduction is sustained.
