@@ -34,7 +34,10 @@ _FLOAT_LABEL = re.compile(
     r"(?i)(?:fig(?:ure)?\.?|table|box|scheme)\s*(?:[a-z]?\d+[a-z]?|[ivxlc]+)\b\s*(?:$|[.:])"
 )
 
-_lock = threading.Lock()
+_lock = threading.Lock()  # lazy model loading only
+# ponytail: 2 concurrent inferences (ONNX `run` is thread-safe); each ONNX session uses 2 threads
+# and batch 16, so memory stays bounded. Raise with care: the container is capped at 1.5 GB.
+_infer = threading.BoundedSemaphore(2)
 _model = None
 _reranker = None
 _EMBED_BATCH = 16
@@ -42,26 +45,28 @@ _EMBED_BATCH = 16
 
 def fastembed_embed(texts: list[str]) -> list[list[float]]:
     """Default embedder (blocking; call in a thread). Loads the model once, lazily.
-    One embedding at a time with small batches: concurrent ONNX runs with the default batch of
-    256 grew the container past 5 GB."""
+    At most 2 inferences at a time with small batches: unbounded concurrent ONNX runs with the
+    default batch of 256 grew the container past 5 GB."""
     global _model
     with _lock:
         if _model is None:
             from fastembed import TextEmbedding
 
             _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=2)
+    with _infer:
         return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
 
 
 def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
-    """Default cross-encoder (blocking; call in a thread). Loads once, lazily, under the same lock
-    as the embedder so the two ONNX models never run concurrently."""
+    """Default cross-encoder (blocking; call in a thread). Loads once, lazily; inference shares
+    the embedder's 2-slot semaphore, so at most 2 ONNX runs (of either model) at a time."""
     global _reranker
     with _lock:
         if _reranker is None:
             from fastembed.rerank.cross_encoder import TextCrossEncoder
 
             _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=2)
+    with _infer:
         return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
 
 
