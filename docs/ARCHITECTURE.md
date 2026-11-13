@@ -22,7 +22,7 @@ All shared types are in `claimtrace/core/schemas.py`. Modules exchange **only** 
 
 | Path | Role | May import |
 |---|---|---|
-| `claimtrace/core/` | schemas, settings, `llm` (role models, `ask_json`, `ask_text`, `wrap_untrusted`), `http` (`make_client`, retrying `request`) | stdlib, 3rd party |
+| `claimtrace/core/` | schemas, settings, `llm` (role models, `ask_json`, `ask_text`, `wrap_untrusted`), `http` (`make_client` — adds `OPENALEX_API_KEY` to every api.openalex.org request; retrying `request`; `redact`) | stdlib, 3rd party |
 | `claimtrace/ingest/` | inputs → `Manuscript`; `pdf_to_text` via GROBID | core |
 | `claimtrace/refaudit/` | `Reference` → `ReferenceAudit` | core |
 | `claimtrace/sources/` | `ReferenceAudit` → `SourceText` | core (+ injected `pdf_to_text`) |
