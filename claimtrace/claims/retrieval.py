@@ -1,8 +1,11 @@
 """Pick the source passages most relevant to a citing sentence: BM25 + dense, fused by RRF."""
 
 import asyncio
+import hashlib
 import re
 import threading
+from array import array
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
 from rank_bm25 import BM25Okapi
@@ -18,17 +21,38 @@ _MAX_SENT_WORDS = 120
 
 _lock = threading.Lock()
 _model = None
+_EMBED_BATCH = 16
+_CACHE_TEXTS = 64
+# (embed fn, sha256 of source text) -> passage vectors; float32 arrays keep it small.
+_chunk_vecs: OrderedDict[tuple[object, str], list[array]] = OrderedDict()
 
 
 def fastembed_embed(texts: list[str]) -> list[list[float]]:
-    """Default embedder (blocking; call in a thread). Loads the model once, lazily."""
+    """Default embedder (blocking; call in a thread). Loads the model once, lazily.
+    One embedding at a time with small batches: concurrent ONNX runs with the default batch of
+    256 grew the container past 5 GB."""
     global _model
     with _lock:
         if _model is None:
             from fastembed import TextEmbedding
 
-            _model = TextEmbedding("BAAI/bge-small-en-v1.5")
-    return [list(v) for v in _model.embed(texts)]
+            _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=2)
+        return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
+
+
+async def _passage_vectors(embed: Embed, text: str, chunks: list[str]) -> list[array]:
+    """Each source's passages are embedded once, however many claims cite it."""
+    key = (embed, hashlib.sha256(text.encode()).hexdigest())
+    if key in _chunk_vecs:
+        _chunk_vecs.move_to_end(key)
+        return _chunk_vecs[key]
+    vecs = [array("f", v) for v in await asyncio.to_thread(embed, chunks)]
+    if len(vecs) != len(chunks):
+        raise ValueError("embedder returned the wrong number of vectors")
+    _chunk_vecs[key] = vecs
+    while len(_chunk_vecs) > _CACHE_TEXTS:
+        _chunk_vecs.popitem(last=False)
+    return vecs
 
 
 def passages(text: str) -> list[str]:
@@ -75,8 +99,10 @@ async def retrieve(query: str, text: str, embed: Embed | None = None) -> list[st
         return chunks[:TOP_K]
     rankings = [_ranks(BM25Okapi(corpus).get_scores(_tokens(query)))]
     try:
-        vecs = await asyncio.to_thread(embed or fastembed_embed, [query, *chunks])
-        rankings.append(_ranks(_cosine_scores(vecs)))
+        embed = embed or fastembed_embed
+        chunk_vecs = await _passage_vectors(embed, text, chunks)
+        (query_vec,) = await asyncio.to_thread(embed, [query])
+        rankings.append(_ranks(_cosine_scores([query_vec, *chunk_vecs])))
     except Exception:  # embedding is a bonus: BM25 alone still works
         pass
     fused = [0.0] * len(chunks)
