@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report — Attention Is All You Need · ClaimTrace (Direction B: Bench)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./tokens.css">
+<style>
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--color-bg-primary); color: var(--color-text-primary);
+  font: var(--font-size-base)/var(--line-height-normal) var(--font-family-body);
+  font-variant-numeric: tabular-nums;
+}
+::selection { background: var(--color-accent-tint); color: var(--color-text-primary); }
+a { color: var(--color-text-link); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; border-radius: var(--border-radius-sm); }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: var(--space-4); top: var(--space-2); background: var(--color-bg-secondary); padding: var(--space-2) var(--space-3); }
+.mono { font-family: var(--font-family-mono); font-size: 0.92em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* bar */
+.bar { border-bottom: 1px solid var(--color-border-primary); background: var(--color-bg-secondary); }
+.bar-in { max-width: var(--max-width-page); margin: 0 auto; padding: var(--space-3) var(--space-4);
+  display: flex; gap: var(--space-4); align-items: baseline; flex-wrap: wrap; }
+.brand { font-weight: var(--font-weight-bold); color: var(--color-text-primary); text-decoration: none; letter-spacing: var(--letter-spacing-tight); }
+.bar-meta { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.bar-actions { margin-left: auto; display: flex; gap: var(--space-4); font-size: var(--font-size-sm); }
+
+main { max-width: var(--max-width-page); margin: 0 auto; padding: 0 var(--space-4) var(--space-9); }
+
+/* readout */
+.readout { padding: var(--space-6) 0 var(--space-5); }
+h1 { font-size: var(--font-size-2xl); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-2); font-weight: var(--font-weight-semibold); text-wrap: balance; }
+.readout p { margin: 0; color: var(--color-text-secondary); }
+.gauges { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+.gauge { display: grid; gap: var(--space-2); }
+.gauge-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; }
+.gauge-head b { font-weight: var(--font-weight-semibold); }
+.gauge-head .count { font-family: var(--font-family-mono); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; padding: 0; list-style: none; }
+.legend li { display: inline-flex; gap: var(--space-1); align-items: center; }
+.legend .n { font-family: var(--font-family-mono); color: var(--color-text-primary); }
+/* tick ruler: one tick per item; filled = checked. Meaningful, not decorative. */
+.ruler { height: 14px; border: 1px solid var(--color-border-primary); border-radius: var(--border-radius-sm);
+  background:
+    linear-gradient(90deg, var(--color-text-secondary) var(--done), transparent var(--done)),
+    var(--color-bg-tertiary);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(100% / var(--n) - 2px), transparent calc(100% / var(--n) - 2px) calc(100% / var(--n)));
+          mask: repeating-linear-gradient(90deg, #000 0 calc(100% / var(--n) - 2px), transparent calc(100% / var(--n) - 2px) calc(100% / var(--n)));
+}
+.live { display: inline-flex; gap: var(--space-1); align-items: center; color: var(--color-text-primary); font-size: var(--font-size-sm); }
+
+/* marks */
+.mark { width: 14px; height: 14px; flex: none; vertical-align: -2px; }
+.st { display: inline-flex; gap: var(--space-1); align-items: center; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.st-sup { color: var(--color-status-supported); }
+.st-part { color: var(--color-status-partly); }
+.st-uns { color: var(--color-status-unsupported); }
+.st-neu { color: var(--color-status-neutral); }
+.st-rev { color: var(--color-status-review); }
+.st-mis { color: var(--color-status-mismatch); }
+
+/* sections */
+h2 { font-size: var(--font-size-lg); margin: var(--space-7) 0 var(--space-3); font-weight: var(--font-weight-semibold); display: flex; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
+h2 .count { font-family: var(--font-family-mono); font-size: var(--font-size-sm); font-weight: var(--font-weight-normal); color: var(--color-text-secondary); }
+h3.group { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin: var(--space-5) 0 var(--space-2); }
+
+/* ledger */
+.ledger { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border-primary); border-radius: var(--border-radius-md); background: var(--color-bg-secondary); }
+.ledger > li + li { border-top: 1px solid var(--color-border-primary); }
+.cols { display: none; }
+.row { display: grid; gap: var(--space-3); padding: var(--space-4); }
+.cell-label { display: block; font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); letter-spacing: var(--letter-spacing-wide); text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: var(--space-1); }
+.id { font-family: var(--font-family-mono); font-size: var(--font-size-sm); color: var(--color-text-secondary); display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: baseline; }
+.claim { color: var(--color-text-secondary); margin: 0; }
+.claim cite { font-style: normal; font-family: var(--font-family-mono); font-size: 0.9em; color: var(--color-text-primary); }
+.source { margin: 0; }
+.source blockquote { margin: 0; font-size: var(--font-size-md); line-height: var(--line-height-normal); font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+.source blockquote::before { content: "\201C"; }
+.source blockquote::after { content: "\201D"; }
+.source figcaption { margin-top: var(--space-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.verdict { display: grid; gap: var(--space-2); align-content: start; }
+.verdict .why { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; }
+
+.row > details { grid-column: 1 / -1; font-size: var(--font-size-sm); margin-top: calc(-1 * var(--space-3)); }
+summary { cursor: pointer; color: var(--color-text-link); min-height: 44px; display: inline-flex; align-items: center; }
+summary::marker { color: var(--color-text-secondary); }
+.models { display: grid; gap: var(--space-3); margin-top: var(--space-2); }
+.model { background: var(--color-bg-tertiary); border-radius: var(--border-radius-sm); padding: var(--space-3); }
+.model p { margin: var(--space-1) 0 0; color: var(--color-text-secondary); }
+.model .who { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+.pending .claim { color: var(--color-text-secondary); }
+.pending .source { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.collapsed { padding: var(--space-3) var(--space-4); font-size: var(--font-size-sm); color: var(--color-text-secondary); display: flex; gap: var(--space-2); align-items: center; }
+
+/* references */
+.diff { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); margin-top: var(--space-2); }
+.diff th, .diff td { text-align: left; vertical-align: top; padding: var(--space-2) var(--space-3) var(--space-2) 0; border-top: 1px solid var(--color-border-secondary); }
+.diff thead th { border-top: 0; font-size: var(--font-size-xs); letter-spacing: var(--letter-spacing-wide); text-transform: uppercase; color: var(--color-text-tertiary); font-weight: var(--font-weight-semibold); }
+.diff tbody th { font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.raw { margin: 0; color: var(--color-text-secondary); }
+.facts { margin: var(--space-2) 0 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+.facts .mono { color: var(--color-text-primary); overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ledger > li { transition: background-color var(--duration-slow) var(--easing-out); }
+  @starting-style { .ledger > li.arrived { background-color: var(--color-accent-tint); } }
+}
+
+/* desktop: aligned columns — id | citing sentence | source says | verdict */
+@media (min-width: 48rem) {
+  .readout { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: start; }
+  .gauges { margin-top: 0; }
+  .cols, .row { grid-template-columns: 6.5rem minmax(0, 1fr) minmax(0, 1.35fr) 12rem; gap: var(--space-5); }
+  .cols { display: grid; padding: var(--space-2) var(--space-4); background: var(--color-bg-tertiary); border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+    font-size: var(--font-size-xs); letter-spacing: var(--letter-spacing-wide); text-transform: uppercase; color: var(--color-text-tertiary); font-weight: var(--font-weight-semibold); }
+  .row .cell-label { display: none; }
+  .id { flex-direction: column; gap: 0; }
+  .row > details { grid-column: 2 / -1; }
+  .models { grid-template-columns: 1fr 1fr; }
+  .ref-row { grid-template-columns: 6.5rem minmax(0, 1fr) 12rem; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="m-sup" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25" fill="currentColor"/></symbol>
+    <symbol id="m-part" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></symbol>
+    <symbol id="m-uns" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="m-neu" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.6 2"/></symbol>
+    <symbol id="m-rev" viewBox="0 0 16 16"><path d="M4 14.5V2h8l-2 3.25L12 8.5H4" fill="currentColor" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></symbol>
+    <symbol id="m-mis" viewBox="0 0 16 16"><rect x="1.5" y="4" width="9" height="2.5" rx="0.5" fill="currentColor"/><rect x="5.5" y="9.5" width="9" height="2.5" rx="0.5" fill="currentColor"/></symbol>
+    <symbol id="m-pend" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="home.html">ClaimTrace</a>
+    <span class="bar-meta">Report <span class="mono">_n41aUcS-KY4sNIcGUUA6w</span> · <time datetime="2026-11-13T22:19:05Z">13 Nov 2026, 22:19 UTC</time></span>
+    <nav class="bar-actions" aria-label="Report actions">
+      <a href="#">Download JSON</a><a href="#">Copy link</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="readout" aria-labelledby="title">
+    <div>
+      <h1 id="title">Attention Is All You Need</h1>
+      <p>Each claim shows the citing sentence beside the source’s own words. A verdict appears only with a verbatim quote of at least five words.</p>
+    </div>
+    <div class="gauges">
+      <div class="gauge">
+        <div class="gauge-head"><b>References</b><span class="count">40 / 40 checked</span></div>
+        <div class="ruler" style="--n:40;--done:100%" aria-hidden="true"></div>
+        <ul class="legend" aria-label="Reference results">
+          <li class="st-sup"><svg class="mark" aria-hidden="true"><use href="#m-sup"/></svg><span><span class="n">38</span> verified</span></li>
+          <li class="st-mis"><svg class="mark" aria-hidden="true"><use href="#m-mis"/></svg><span><span class="n">1</span> details differ</span></li>
+          <li class="st-neu"><svg class="mark" aria-hidden="true"><use href="#m-neu"/></svg><span><span class="n">1</span> could not check</span></li>
+        </ul>
+      </div>
+      <div class="gauge">
+        <div class="gauge-head"><b>Claims</b><span class="count">41 / 58 checked</span>
+          <span class="live" role="status" aria-live="polite"><svg class="mark st-neu" aria-hidden="true"><use href="#m-pend"/></svg>Still checking 17 claims</span></div>
+        <div class="ruler" style="--n:58;--done:70.69%" aria-hidden="true"></div>
+        <p class="legend">Counts by verdict appear when every claim is checked.</p>
+      </div>
+    </div>
+  </section>
+
+  <h2 id="claims-h">Claims <span class="count">41 / 58</span></h2>
+
+  <h3 class="group" id="attn">Needs your attention</h3>
+  <div class="cols" aria-hidden="true"><span>Citation</span><span>Citing sentence</span><span>Source says</span><span>Verdict</span></div>
+  <ol class="ledger" aria-labelledby="attn">
+    <li class="row">
+      <div class="id"><span>c30 → [38]</span><span>full text</span></div>
+      <div>
+        <span class="cell-label">Citing sentence</span>
+        <p class="claim">We set the maximum output length during inference to input length + 50, but terminate early when possible <cite>[38]</cite>.</p>
+      </div>
+      <figure class="source">
+        <span class="cell-label">Source says</span>
+        <blockquote>where we simply stop decoding after a predetermined maximum output length of twice the source length</blockquote>
+        <figcaption>Wu et al. 2016, Google’s neural machine translation system · <a href="https://arxiv.org/pdf/1609.08144">arXiv <span class="mono">1609.08144</span></a></figcaption>
+      </figure>
+      <div class="verdict">
+        <span class="st st-uns"><svg class="mark" aria-hidden="true"><use href="#m-uns"/></svg>Not supported</span>
+        <p class="why">Source says twice the source length, not input length + 50. Both models agree.</p>
+      </div>
+      <details>
+        <summary>Judge and skeptic</summary>
+        <div class="models">
+          <div class="model"><span class="who">Judge <span class="st st-uns"><svg class="mark" aria-hidden="true"><use href="#m-uns"/></svg>Not supported</span></span>
+            <p>The source (GNMT) mentions a maximum output length of twice the source length for the unpruned case, not input length + 50. It does describe early termination through pruning, so only that part overlaps with the claim.</p></div>
+          <div class="model"><span class="who">Skeptic <span class="st st-uns"><svg class="mark" aria-hidden="true"><use href="#m-uns"/></svg>Not supported</span></span>
+            <p>The source describes pruning that can end search early, but its stated maximum output length is twice the source length, not input length + 50. It therefore does not support the specific inference configuration claimed.</p></div>
+        </div>
+      </details>
+    </li>
+    <li class="row">
+      <div class="id"><span>c5 → [27]</span><span>full text</span></div>
+      <div>
+        <span class="cell-label">Citing sentence</span>
+        <p class="claim">In all but a few cases <cite>[27]</cite>, however, such attention mechanisms are used in conjunction with a recurrent network.</p>
+      </div>
+      <figure class="source">
+        <span class="cell-label">Source says</span>
+        <blockquote>has been predominantly used in conjunction with LSTMs (Rocktäschel et al., 2016;Wang and Jiang, 2016) and to a lesser extent with CNNs</blockquote>
+        <figcaption>Parikh et al. 2016, A decomposable attention model · <a href="https://www.aclweb.org/anthology/D16-1244.pdf">ACL Anthology PDF</a></figcaption>
+      </figure>
+      <div class="verdict">
+        <span class="st st-part"><svg class="mark" aria-hidden="true"><use href="#m-part"/></svg>Partly supported</span>
+        <span class="st st-rev"><svg class="mark" aria-hidden="true"><use href="#m-rev"/></svg>Needs review</span>
+        <p class="why">The models disagree; the more cautious verdict is shown.</p>
+      </div>
+      <details open>
+        <summary>Judge and skeptic</summary>
+        <div class="models">
+          <div class="model"><span class="who">Judge <span class="st st-sup"><svg class="mark" aria-hidden="true"><use href="#m-sup"/></svg>Supported</span></span>
+            <p>The source says attention has been predominantly used with LSTMs, and to a lesser extent with CNNs. This matches the claim that attention is mostly paired with recurrent networks, and the source’s own feed-forward approach is one of the exceptions. The wording “all but a few cases” is a little stronger than “predominantly”.</p></div>
+          <div class="model"><span class="who">Skeptic <span class="st st-part"><svg class="mark" aria-hidden="true"><use href="#m-part"/></svg>Partly supported</span></span>
+            <p>The source supports a predominant pairing of attention with LSTMs, while also noting non-recurrent CNN use and presenting its own feed-forward exception. However, “predominantly” is weaker than the citing sentence’s near-universal “all but a few cases,” so it supports only a qualified version of the claim.</p></div>
+        </div>
+      </details>
+    </li>
+  </ol>
+
+  <h3 class="group" id="ok">Supported</h3>
+  <ol class="ledger" aria-labelledby="ok">
+    <li class="row">
+      <div class="id"><span>c6 → [9]</span><span>full text</span></div>
+      <div>
+        <span class="cell-label">Citing sentence</span>
+        <p class="claim">The goal of reducing sequential computation also forms the foundation of the Extended Neural GPU [16], ByteNet [18] and ConvS2S <cite>[9]</cite>, all of which use convolutional neural networks as basic building block, computing hidden representations in parallel for all input and output positions.</p>
+      </div>
+      <figure class="source">
+        <span class="cell-label">Source says</span>
+        <blockquote>Convolutional networks do not depend on the computations of the previous time step and therefore allow parallelization over every element in a sequence.</blockquote>
+        <figcaption>Gehring et al. 2017, Convolutional sequence to sequence learning · <a href="https://arxiv.org/pdf/1705.03122">arXiv <span class="mono">1705.03122</span></a></figcaption>
+      </figure>
+      <div class="verdict">
+        <span class="st st-sup"><svg class="mark" aria-hidden="true"><use href="#m-sup"/></svg>Supported</span>
+        <p class="why">Both models agree.</p>
+      </div>
+    </li>
+    <li class="collapsed"><svg class="mark st-sup" aria-hidden="true"><use href="#m-sup"/></svg><a href="#">Show the other supported and partly supported claims checked so far</a></li>
+  </ol>
+
+  <h3 class="group" id="wait">Still checking</h3>
+  <ol class="ledger" aria-labelledby="wait">
+    <li class="row pending">
+      <div class="id"><span>c32 → [37]</span></div>
+      <div><span class="cell-label">Citing sentence</span>
+        <p class="claim">Furthermore, RNN sequence-to-sequence models have not been able to attain state-of-the-art results in small-data regimes <cite>[37]</cite>.</p></div>
+      <p class="source"><span class="cell-label">Source says</span>Reading the source’s full text…</p>
+      <div class="verdict"><span class="st st-neu"><svg class="mark" aria-hidden="true"><use href="#m-pend"/></svg>Checking…</span></div>
+    </li>
+    <li class="row pending">
+      <div class="id"><span>c33 → [25]</span></div>
+      <div><span class="cell-label">Citing sentence</span>
+        <p class="claim">We trained a 4-layer transformer with d model = 1024 on the Wall Street Journal (WSJ) portion of the Penn Treebank <cite>[25]</cite>, about 40K training sentences.</p></div>
+      <p class="source"><span class="cell-label">Source says</span>Looking for the source…</p>
+      <div class="verdict"><span class="st st-neu"><svg class="mark" aria-hidden="true"><use href="#m-pend"/></svg>Checking…</span></div>
+    </li>
+    <li class="collapsed"><svg class="mark st-neu" aria-hidden="true"><use href="#m-pend"/></svg>15 more claims queued</li>
+  </ol>
+
+  <h2 id="refs-h">References <span class="count">40 / 40</span></h2>
+  <ol class="ledger" aria-labelledby="refs-h">
+    <li class="row ref-row">
+      <div class="id"><span>[27]</span><span>b26</span></div>
+      <div>
+        <span class="cell-label">Reference</span>
+        <p class="raw">Ankur Parikh, Oscar Täckström, Dipanjan Das, and Jakob Uszkoreit. A decomposable attention model. In Empirical Methods in Natural Language Processing, 2016.</p>
+        <table class="diff">
+          <thead><tr><th scope="col">Field</th><th scope="col">Cited</th><th scope="col">Found (Crossref)</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Title</th><td>A decomposable attention model</td><td>A Decomposable Attention Model for Natural Language Inference</td></tr>
+          </tbody>
+        </table>
+        <p class="facts"><span>DOI <a class="mono" href="https://doi.org/10.18653/v1/d16-1244">10.18653/v1/d16-1244</a></span><span>Authors (<span class="mono">4</span>) match</span><span>Year <span class="mono">2016</span> matches</span></p>
+      </div>
+      <div class="verdict">
+        <span class="st st-mis"><svg class="mark" aria-hidden="true"><use href="#m-mis"/></svg>Details differ</span>
+        <p class="why">Cited title is a shortened form of the published title.</p>
+      </div>
+    </li>
+    <li class="row ref-row">
+      <div class="id"><span>[1]</span><span>b0</span></div>
+      <div>
+        <span class="cell-label">Reference</span>
+        <p class="raw">Jimmy Lei Ba, Jamie Ryan Kiros, and Geoffrey E Hinton. Layer normalization. arXiv preprint arXiv:1607.06450, 2016.</p>
+        <p class="facts"><span>arXiv <a class="mono" href="https://arxiv.org/abs/1607.06450">1607.06450</a> resolves to “Layer Normalization”</span><span>Crossref <span class="mono">0</span> · OpenAlex <span class="mono">1</span> · arXiv <span class="mono">1</span> candidates</span></p>
+      </div>
+      <div class="verdict">
+        <span class="st st-neu"><svg class="mark" aria-hidden="true"><use href="#m-neu"/></svg>Could not check</span>
+        <p class="why">The cited title and authors could not be read from the reference to compare. This is not a finding against the reference.</p>
+      </div>
+    </li>
+    <li class="collapsed"><svg class="mark st-sup" aria-hidden="true"><use href="#m-sup"/></svg><a href="#">Show 38 verified references</a></li>
+  </ol>
+</main>
+</body>
+</html>
