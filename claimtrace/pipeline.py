@@ -42,6 +42,8 @@ log = logging.getLogger(__name__)
 SOURCE_TIMEOUT_S = 90  # whole fetch of one source (PDF download + GROBID), not per read
 MAX_SENTENCE_CHARS = 2000  # longer "sentences" are tables/extraction noise; caps report size
 SOURCE_CONCURRENCY = 6
+# retrieval prefetches in flight; each builds/holds a source index, so this bounds memory
+PREFETCH_CONCURRENCY = 2
 MAX_CACHED_VERDICTS = 5000
 
 Progress = Callable[[str, int, int], None]
@@ -56,12 +58,15 @@ async def _timed_pdf_to_text(pdf: bytes) -> str:
         return await ingest.pdf_to_text(pdf)
 
 
-async def _excerpts(c: Citation, src: SourceText | None) -> list[str] | None:
+async def _excerpts(
+    c: Citation, src: SourceText | None, sem: asyncio.Semaphore
+) -> list[str] | None:
     """Retrieval ahead of the LLM queue; None (the claim retrieves itself) on any problem."""
     if src is None or not src.text.strip():
         return None
     try:
-        return await claims.retrieve(c.sentence, src.text)
+        async with sem:
+            return await claims.retrieve(c.sentence, src.text)
     except Exception:
         log.exception("retrieval prefetch failed")
         return None
@@ -237,6 +242,7 @@ async def run(
     seq = itertools.count()
     fetches: list[asyncio.Task] = []
     source_sem = asyncio.Semaphore(SOURCE_CONCURRENCY)
+    prefetch_sem = asyncio.Semaphore(PREFETCH_CONCURRENCY)
 
     def emit() -> None:
         if not on_partial:
@@ -272,7 +278,7 @@ async def run(
 
             async def prepare(k: int, c: Citation) -> None:
                 cached = src is not None and _cached_verdict(c, audit.reference.id, src) is not None
-                ex = None if src is None or cached else await _excerpts(c, src)
+                ex = None if src is None or cached else await _excerpts(c, src, prefetch_sem)
                 item = (0 if problem else 1, next(seq), k, c, audit.reference.id, src, ex)
                 queue.put_nowait(item)
 
