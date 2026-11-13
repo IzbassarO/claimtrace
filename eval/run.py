@@ -12,6 +12,7 @@ Writes eval/results/<suite>.json and eval/results/summary.md (from every results
 import argparse
 import asyncio
 import json
+import os
 import random
 import re
 import tarfile
@@ -343,6 +344,9 @@ def write_results(suite: str, res: dict, params: dict) -> None:
 
 
 async def main(argv: list[str] | None = None) -> None:
+    # One eval run may spend at most ~300 paid OpenAlex searches ($1/day budget).
+    os.environ.setdefault("OPENALEX_RUN_SEARCHES", "300")
+    get_settings.cache_clear()
     ap = argparse.ArgumentParser(prog="python -m eval.run")
     ap.add_argument("--suite", choices=["scifact", "refs", "all"], default="all")
     ap.add_argument("--limit", type=int, default=None, help="scifact: sample size (default 100)")

@@ -10,7 +10,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 
-RUN useradd --create-home --uid 1000 app
+RUN useradd --create-home --uid 1000 app && mkdir -p /cache && chown app:app /cache
 WORKDIR /app
 
 # Dependencies first (cached layer), then the embedding model, then the code.
