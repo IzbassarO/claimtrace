@@ -49,8 +49,22 @@ Partial = Callable[[Report], None]
 
 
 async def _timed_pdf_to_text(pdf: bytes) -> str:
+    if get_settings().source_pdf_parser == "fast":
+        with timing.span("fast_pdf_source"):
+            return await ingest.pdf_to_text_fast(pdf)
     with timing.span("grobid_source"):
         return await ingest.pdf_to_text(pdf)
+
+
+async def _excerpts(c: Citation, src: SourceText | None) -> list[str] | None:
+    """Retrieval ahead of the LLM queue; None (the claim retrieves itself) on any problem."""
+    if src is None or not src.text.strip():
+        return None
+    try:
+        return await claims.retrieve(c.sentence, src.text)
+    except Exception:
+        log.exception("retrieval prefetch failed")
+        return None
 
 
 # ---------- verdict cache (claim + source text + models + prompts) ----------
@@ -255,8 +269,14 @@ async def run(
             counters["sources"] += 1
             progress("sources", counters["sources"], to_fetch)
             problem = audit.status != RefStatus.verified
-            for k, c in pairs_by_ref[audit.reference.id]:
-                queue.put_nowait((0 if problem else 1, next(seq), k, c, audit.reference.id, src))
+
+            async def prepare(k: int, c: Citation) -> None:
+                cached = src is not None and _cached_verdict(c, audit.reference.id, src) is not None
+                ex = None if src is None or cached else await _excerpts(c, src)
+                item = (0 if problem else 1, next(seq), k, c, audit.reference.id, src, ex)
+                queue.put_nowait(item)
+
+            await asyncio.gather(*(prepare(k, c) for k, c in pairs_by_ref[audit.reference.id]))
 
         def on_result(i: int, audit: ReferenceAudit) -> None:
             audits[i] = audit
@@ -266,13 +286,17 @@ async def run(
 
         async def worker() -> None:
             while True:
-                _, _, k, c, r, src = await queue.get()
+                _, _, k, c, r, src, ex = await queue.get()
                 try:
                     res = _cached_verdict(c, r, src) if src else None
                     if res is None:
                         try:
                             with timing.span("claim_check"):
-                                res = await claims.check_claim(c, r, src)
+                                res = await (
+                                    claims.check_claim(c, r, src, excerpts=ex)
+                                    if ex is not None
+                                    else claims.check_claim(c, r, src)
+                                )
                             if src:
                                 _store_verdict(c, src, res)
                         except Exception as e:

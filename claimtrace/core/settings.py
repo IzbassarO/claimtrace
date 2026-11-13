@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # OpenAlex budget: $1/day, search/list = $0.001, DOI lookup free, resets 00:00 UTC
     openalex_daily_searches: int = 900
     openalex_run_searches: int = 0  # per-process cap, 0 = none (eval / live tests use 300)
+    # text extraction for SOURCE PDFs: "grobid" (default) or "fast" (pypdfium2); the user's own
+    # manuscript always goes through GROBID
+    source_pdf_parser: str = "grobid"
     cache_dir: str = ".cache"  # OpenAlex response cache + search counter
     grobid_url: str = "http://localhost:8070"
 

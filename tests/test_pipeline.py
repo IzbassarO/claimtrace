@@ -34,7 +34,7 @@ async def test_pipeline_wires_modules(monkeypatch):
     async def fetch_source(audit, client, pdf_to_text):
         return SourceText(ref_id="1", kind=EvidenceKind.abstract, text="t", origin="openalex")
 
-    async def check_claim(c, ref_id, source):
+    async def check_claim(c, ref_id, source, **kw):
         assert source is not None
         raise RuntimeError("llm down")
 
@@ -72,7 +72,7 @@ async def test_overlong_sentence_and_slow_source_are_bounded(monkeypatch):
     async def fetch_source(audit, client, pdf_to_text):
         await asyncio.sleep(3600)  # slow-drip server: must hit the per-source deadline
 
-    async def check_claim(c, ref_id, source):
+    async def check_claim(c, ref_id, source, **kw):
         return ClaimCheck(
             citation_id=c.id, ref_id=ref_id, sentence=c.sentence, verdict=Verdict.source_not_found
         )
@@ -106,7 +106,7 @@ async def test_report_carries_stage_timings(monkeypatch):
     async def fetch_source(audit, client, pdf_to_text):
         return SourceText(ref_id="1", kind=EvidenceKind.abstract, text="t", origin="openalex")
 
-    async def check_claim(c, ref_id, source):
+    async def check_claim(c, ref_id, source, **kw):
         return ClaimCheck(
             citation_id=c.id, ref_id=ref_id, sentence=c.sentence, verdict=Verdict.source_not_found
         )
