@@ -1,17 +1,19 @@
 """FastAPI shell: job API, exports, chat, static UI. Jobs live in memory (single process);
-finished reports are also written to CACHE_DIR/reports so permalinks survive restarts."""
+finished reports are also written to CACHE_DIR/reports so shareable links survive restarts."""
 
 import asyncio
 import logging
 import re
 import secrets
+import time
+import traceback
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,6 +30,11 @@ ALLOWED_EXT = {".txt", ".md", ".bib", ".pdf"}
 MAX_JOBS = 50
 MAX_RUNNING = 2
 MAX_REPORTS = 1000
+MAX_QUEUED = 4  # uploads waiting for a worker are held in RAM
+JOB_TIMEOUT_S = 1200
+RATE_JOBS, RATE_WINDOW_S = 10, 600  # per client IP
+MAX_CHAT_RUNNING = 2
+MAX_CHAT_PER_REPORT = 20
 # job id = report id = permalink token (the link is the only access control): token_urlsafe(16)
 JOB_ID = re.compile(r"[A-Za-z0-9_-]{22}")
 
@@ -90,12 +97,64 @@ def _load(job_id: str) -> Report | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.running = asyncio.Semaphore(MAX_RUNNING)
+    app.state.chat_running = asyncio.Semaphore(MAX_CHAT_RUNNING)
+    # ponytail: per-process dicts that only grow (one int / few floats per report / client IP);
+    # fine for a demo server, move to a TTL store if it runs for months
+    app.state.chat_counts = {}
+    app.state.job_times = {}
     for p in get_settings().problems():
         log.warning("config: %s", p)
     yield
 
 
+class UploadLimit:
+    """Pure ASGI: reject an oversized POST /api/jobs before Starlette spools the multipart.
+    Content-Length is checked up front; bodies without one are counted while streaming."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or (scope["method"], scope["path"]) != ("POST", "/api/jobs"):
+            return await self.app(scope, receive, send)
+        limit = (get_settings().max_upload_mb + 1) * 1024 * 1024  # +1 MB: multipart overhead
+        length = dict(scope["headers"]).get(b"content-length")
+        if length is not None and (not length.isdigit() or int(length) > limit):
+            return await _too_large(send)
+        seen, over = 0, False
+
+        async def counted():
+            nonlocal seen, over
+            msg = await receive()
+            seen += len(msg.get("body", b""))
+            if seen > limit:
+                over = True
+                raise ValueError("upload too large")
+            return msg
+
+        async def guarded(msg):
+            if not over:  # whatever the app answers to the aborted body is replaced by 413
+                await send(msg)
+
+        try:
+            await self.app(scope, counted, guarded)
+        except Exception:
+            if not over:
+                raise
+        if over:
+            await _too_large(send)
+
+
+async def _too_large(send) -> None:
+    mb = get_settings().max_upload_mb
+    body = f'{{"detail":"Upload too large (max {mb} MB in total)."}}'.encode()
+    headers = [(b"content-type", b"application/json"), (b"connection", b"close")]
+    await send({"type": "http.response.start", "status": 413, "headers": headers})
+    await send({"type": "http.response.body", "body": body})
+
+
 app = FastAPI(title="ClaimTrace", lifespan=lifespan)
+app.add_middleware(UploadLimit)
 
 
 async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
@@ -105,11 +164,17 @@ async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
     async with app.state.running:
         job.status = "running"
         try:
-            job.report = await pipeline.run(text, files, progress, report_id=job.id)
+            async with asyncio.timeout(JOB_TIMEOUT_S) as deadline:
+                job.report = await pipeline.run(text, files, progress, report_id=job.id)
         except Exception as e:
-            log.exception("job %s failed", job.id)
-            # redact before cutting so a key split at the cut cannot survive
-            job.error, job.status = redact(f"{type(e).__name__}: {e}")[:300], "error"
+            job.report = None
+            # tracebacks carry request URLs (API keys): never log.exception here
+            log.error("job %s failed:\n%s", job.id, redact(traceback.format_exc()))
+            if deadline.expired():
+                job.error = f"The audit timed out after {JOB_TIMEOUT_S / 60:g} min."
+            else:  # redact before cutting so a key split at the cut cannot survive
+                job.error = redact(f"{type(e).__name__}: {e}")[:300]
+            job.status = "error"
             return
         try:
             _save(job.id, job.report)
@@ -125,10 +190,21 @@ def _evict() -> None:
         if old is None:
             raise HTTPException(503, "Server busy: too many jobs in progress, try again later.")
         del JOBS[old]
+    if sum(j.status == "queued" for j in JOBS.values()) >= MAX_QUEUED:
+        raise HTTPException(
+            503, "Server busy: too many audits waiting, try again in a few minutes."
+        )
+
+
+def _client_ip(request: Request) -> str:
+    """Caddy sets X-Forwarded-For to the real client (it drops untrusted incoming values)."""
+    fwd = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return fwd or (request.client.host if request.client else "?")
 
 
 @app.post("/api/jobs")
 async def create_job(
+    request: Request,
     text: Annotated[str | None, Form()] = None,
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict:
@@ -152,7 +228,12 @@ async def create_job(
         inputs.append(InputFile(name=name, content=content))
     if text is None and not inputs:
         raise HTTPException(400, "Paste manuscript text or upload at least one file.")
+    ip, now = _client_ip(request), time.monotonic()
+    recent = [t for t in request.app.state.job_times.get(ip, []) if now - t < RATE_WINDOW_S]
+    if len(recent) >= RATE_JOBS:
+        raise HTTPException(429, "Too many audits from your address, try again in a few minutes.")
     _evict()
+    request.app.state.job_times[ip] = [*recent, now]
     job = Job(id=secrets.token_urlsafe(16))
     JOBS[job.id] = job
     job.task = asyncio.create_task(_run(job, text, inputs))
@@ -203,10 +284,17 @@ class ChatIn(BaseModel):
 
 
 @app.post("/api/jobs/{job_id}/chat")
-async def chat_route(job_id: str, body: ChatIn) -> dict:
+async def chat_route(job_id: str, body: ChatIn, request: Request) -> dict:
     report = _report(job_id)
+    state = request.app.state
+    if state.chat_counts.get(job_id, 0) >= MAX_CHAT_PER_REPORT:
+        raise HTTPException(429, f"Question limit reached ({MAX_CHAT_PER_REPORT} per report).")
+    if state.chat_running.locked():
+        raise HTTPException(429, "The assistant is busy, retry in a moment.")
     try:
-        answer = await chat.answer(report, body.question, body.history)
+        async with state.chat_running:
+            state.chat_counts[job_id] = state.chat_counts.get(job_id, 0) + 1
+            answer = await chat.answer(report, body.question, body.history)
     except Exception as e:
         log.warning("chat failed for job %s: %s", job_id, type(e).__name__)
         raise HTTPException(502, "The assistant is unavailable right now.") from e

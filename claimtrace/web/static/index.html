@@ -39,6 +39,8 @@
       <h2 id="progress-h">Working</h2>
       <progress id="bar" aria-labelledby="stage"></progress>
       <p id="stage" aria-live="polite"></p>
+      <p id="conn" class="error" role="status"></p>
+      <button id="retry" type="button" hidden>Retry</button>
     </section>
 
     <section id="results" aria-labelledby="results-h" hidden>
@@ -48,7 +50,8 @@
         <a id="export-md" download>Download Markdown</a>
         <button id="new-job" type="button">Audit another manuscript</button>
       </p>
-      <p class="permalink">Permanent link (anyone with it can view this report):
+      <p class="permalink">Shareable link (anyone with it can view this report; kept for the newest 1000 reports
+        on this server):
         <a id="permalink"></a>
         <button id="copy-link" type="button">Copy link</button>
         <span id="copy-status" role="status"></span></p>
