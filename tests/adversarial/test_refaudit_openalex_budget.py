@@ -48,9 +48,6 @@ async def audit(ref, handler, seen=None):
     return a
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: HTTP 404 on a title search is read as 'no record' -> not_found"
-)
 @pytest.mark.parametrize("broken", ["api.openalex.org", "api.crossref.org"])
 async def test_search_endpoint_404_is_a_failure_not_not_found(broken):
     # a 404 on /works?search=... (moved endpoint, proxy/CDN error page) is not an answer about
@@ -84,9 +81,6 @@ async def test_openalex_search_404_is_not_cached():
     assert a.status == RefStatus.verified
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: DOI + arXiv id: paid search spent, free arXiv DOI lookup never tried"
-)
 async def test_cited_arxiv_id_is_looked_up_free_before_any_paid_search():
     # journal DOI has a typo (unknown everywhere); the cited arXiv id is right and OpenAlex
     # knows it under its free DataCite DOI. arXiv itself is down, Crossref has no preprints.

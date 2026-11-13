@@ -113,19 +113,22 @@ def _ref_arxiv(ref: Reference) -> str | None:
 
 
 async def _openalex(ref: Reference, client, gate, crossref_task) -> list[Work]:
-    """Free DOI lookups first; the billed title search only if Crossref did not identify the
-    work (or failed) and the cited DOI found nothing on OpenAlex."""
+    """Free DOI lookups first (cited DOI, then the arXiv DataCite DOI, then the DOI Crossref
+    identified); the billed title search only if none of them identified the work."""
     aid = _ref_arxiv(ref)
-    doi = norm_doi(ref.doi) or (f"10.48550/arxiv.{aid}" if aid and ARXIV_ID.match(aid) else None)
-    works = await openalex_doi(client, gate, doi) if doi else []
-    if any(identifies(ref, w) for w in works):
-        return works
+    dois = [norm_doi(ref.doi), f"10.48550/arxiv.{aid}" if aid and ARXIV_ID.match(aid) else None]
+    works, tried = [], []
+    for doi in dict.fromkeys(d for d in dois if d):
+        tried.append(doi)
+        works += await openalex_doi(client, gate, doi)
+        if any(identifies(ref, w) for w in works):
+            return works
     try:
         cr = await crossref_task
     except Exception:  # noqa: BLE001 - Crossref's failure is reported by its own outcome
         cr = []
     if hit := next((w.doi for w in cr if w.doi and identifies(ref, w)), None):
-        return works + (await openalex_doi(client, gate, hit) if hit != doi else [])
+        return works + (await openalex_doi(client, gate, hit) if hit not in tried else [])
     return works + (await openalex_search(client, gate, ref.title) if ref.title else [])
 
 

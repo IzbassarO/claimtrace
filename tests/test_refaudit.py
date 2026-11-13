@@ -347,3 +347,24 @@ async def test_arxiv_failure_makes_arxiv_only_ref_unchecked():
 async def test_nothing_to_look_up_is_unchecked_without_requests():
     [a] = await run([Reference(id="n", raw="Some garbage")], {})
     assert a.status == RefStatus.unchecked and not a.providers
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ('{"error":"Title match not found"}', RefStatus.not_found),
+        ("Not Found", RefStatus.unchecked),
+    ],
+    ids=["documented-no-match", "proxy-404"],
+)
+async def test_s2_title_match_404_is_an_answer_only_when_documented(monkeypatch, body, status):
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "k")
+    get_settings.cache_clear()
+    ref = Reference(id="x", raw="", title="A fabricated paper about nothing at all", year=2020)
+    routes = {
+        "api.crossref.org": lambda r: httpx.Response(200, json={"message": {"items": []}}),
+        "api.openalex.org": oa_empty,
+        "api.semanticscholar.org": lambda r: httpx.Response(404, text=body),
+    }
+    [a] = await run([ref], routes)
+    assert a.status == status
