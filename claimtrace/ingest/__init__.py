@@ -1,9 +1,11 @@
 """Ingest: manuscript text / .bib / PDF -> Manuscript. Owner: T1 (docs/TASKS.md)."""
 
 import asyncio
+import logging
 import re
 import threading
 from collections import Counter
+from collections.abc import Callable
 
 import bibtexparser
 import pypdfium2 as pdfium
@@ -13,7 +15,7 @@ from bibtexparser.customization import convert_to_unicode
 
 from claimtrace.core.schemas import InputFile, Manuscript, Reference
 from claimtrace.core.settings import get_settings
-from claimtrace.ingest.extract import extract_references
+from claimtrace.ingest.extract import extract_references, regex_reference
 from claimtrace.ingest.tei import body_text, grobid_tei, parse_tei
 from claimtrace.ingest.text import (
     find_arxiv,
@@ -26,6 +28,19 @@ from claimtrace.ingest.text import (
 )
 
 TEXT_EXT = (".txt", ".md")
+log = logging.getLogger(__name__)
+RefsCallback = Callable[[list[Reference]], None]
+
+
+def _safe(cb: RefsCallback | None) -> RefsCallback:
+    def call(refs: list[Reference]) -> None:
+        if cb:
+            try:
+                cb(refs)
+            except Exception:  # a broken listener must not break parsing
+                log.exception("ingest callback failed")
+
+    return call
 
 
 def _bib_raw(src: str, key: str) -> str | None:
@@ -81,10 +96,28 @@ def _lf(s: str) -> str:
     return s.replace("\r\n", "\n").replace("\r", "\n")
 
 
-async def parse_inputs(text: str | None, files: list[InputFile]) -> Manuscript:
+async def parse_inputs(
+    text: str | None,
+    files: list[InputFile],
+    on_references: RefsCallback | None = None,
+    on_doi_refs: RefsCallback | None = None,
+) -> Manuscript:
     """Pasted text and/or files -> Manuscript. The first manuscript source wins (pasted text,
     then .txt/.md, then .pdf); .bib files supply the references when present. Per-item problems
-    (GROBID down, unknown extension, LLM failure) become warnings, never exceptions."""
+    (GROBID down, unknown extension, LLM failure) become warnings, never exceptions.
+
+    Streaming (optional, the result is the same with or without): `on_references(refs)` gets
+    every final Reference exactly once, chunk by chunk as LLM extraction finishes (one call for
+    .bib / GROBID). `on_doi_refs(refs)` gets regex-only copies of the text entries carrying a
+    DOI or arXiv id, once, before any LLM call: cache warming only, never final data.
+    Callback exceptions are logged and ignored."""
+    sent = False
+
+    def emit(refs: list[Reference]) -> None:
+        nonlocal sent
+        sent = True
+        _safe(on_references)(refs)
+
     warnings: list[str] = []
     manuscripts: list[tuple[str, str | bytes]] = []  # (kind, content)
     bib_refs: list[Reference] = []
@@ -122,16 +155,24 @@ async def parse_inputs(text: str | None, files: list[InputFile]) -> Manuscript:
         if kind == "pdf":
             await _from_pdf(ms, content, bib_refs)
         else:
-            await _from_text(ms, content, bib_refs)
+            await _from_text(ms, content, bib_refs, emit, _safe(on_doi_refs))
     elif bib_refs:
         ms.references = bib_refs
         ms.warnings.append("No manuscript text: references audited, no citations checked")
     else:
         ms.warnings.append("No input to analyse")
+    if not sent and ms.references:  # .bib / GROBID: all at once
+        emit(ms.references)
     return ms
 
 
-async def _from_text(ms: Manuscript, text: str, bib_refs: list[Reference]) -> None:
+async def _from_text(
+    ms: Manuscript,
+    text: str,
+    bib_refs: list[Reference],
+    on_chunk: RefsCallback,
+    on_doi_refs: RefsCallback,
+) -> None:
     body, section, warn = split_manuscript(text)
     ms.title, ms.body = guess_title(body), body
     if warn:
@@ -146,7 +187,10 @@ async def _from_text(ms: Manuscript, text: str, bib_refs: list[Reference]) -> No
             ms.warnings.append(f"{len(entries) - limit} references skipped (limit {limit})")
             entries = entries[:limit]
         pairs = [(num or f"r{i + 1}", raw) for i, (num, raw) in enumerate(entries)]
-        ms.references, warns = await extract_references(pairs)
+        ids = [r for r in (regex_reference(i, raw) for i, raw in pairs) if r.doi or r.arxiv_id]
+        if ids:
+            on_doi_refs(ids)
+        ms.references, warns = await extract_references(pairs, on_chunk=on_chunk)
         ms.warnings += warns
     else:
         ms.warnings.append("No reference section found (expected a 'References' heading)")
