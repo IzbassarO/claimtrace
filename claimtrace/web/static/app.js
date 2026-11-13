@@ -90,6 +90,23 @@ async function submitJob(ev) {
   }
 }
 
+// Same flow as pasted text: fill the textarea (so the user sees what was sent) and submit.
+async function trySample() {
+  $("form-error").textContent = "";
+  $("sample").disabled = true;
+  try {
+    const resp = await fetch("/static/sample.txt");
+    if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
+    $("text").value = await resp.text();
+    $("files").value = "";
+    $("job-form").requestSubmit();
+  } catch (e) {
+    $("form-error").textContent = e.message;
+  } finally {
+    $("sample").disabled = false;
+  }
+}
+
 function startPolling(id) {
   jobId = id;
   chatHistory = [];
@@ -250,7 +267,12 @@ document.addEventListener("DOMContentLoaded", () => {
   $("job-form").addEventListener("submit", submitJob);
   $("chat-form").addEventListener("submit", ask);
   $("new-job").addEventListener("click", reset);
+<<<<<<< HEAD
   $("copy-link").addEventListener("click", copyLink);
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
+=======
+  $("sample").addEventListener("click", trySample);
+  const m = location.hash.match(/^#job=([\w-]+)$/);
+>>>>>>> origin/main
   if (m) startPolling(m[1]);
 });

@@ -1,0 +1,14 @@
+Citation practices in a short sample manuscript
+
+Deep convolutional networks became much easier to optimise once their layers were reformulated
+as residual functions. Residual learning eases the training of networks that are substantially
+deeper than those used previously [1]. Concerns about the reliability of research have grown in
+parallel. Ioannidis proved that all published research findings are false [2]. Similar worries
+reach into biology, where migratory songbirds are said to navigate by the quantum folding of
+circadian proteins in the retina [3].
+
+References
+
+[1] He K, Zhang X, Ren S, Sun J. Deep residual learning for image recognition. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR); 2016. p. 770-778. doi:10.1109/CVPR.2016.90
+[2] Ioannidis JPA. Why most published research findings are false. PLoS Med. 2005;2(8):e124. doi:10.1371/journal.pmed.0020124
+[3] Varkonyi T, Lindqvist A. Quantum folding of migratory songbird circadian proteins. Journal of Interdisciplinary Applied Studies. 2019;7(3):112-129.
