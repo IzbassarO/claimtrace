@@ -82,12 +82,14 @@ class OpenAlexTransport(httpx.AsyncBaseTransport):
             )
         except (OSError, ValueError, KeyError):
             pass
-        if request.url.path.count("/") <= 1 and not _spend_search(root):
+        paid = request.url.path.count("/") <= 1  # list/search endpoint, e.g. /works?search=
+        if paid and not _spend_search(root):
             return httpx.Response(
                 402, json={"error": "ClaimTrace OpenAlex search budget exhausted"}, request=request
             )
         resp = await self.inner.handle_async_request(request)
-        if resp.status_code in (200, 404):  # answers, not failures: safe to reuse
+        # 200 is an answer; 404 is one only for an entity lookup (on a search it is a failure)
+        if resp.status_code == 200 or (resp.status_code == 404 and not paid):
             await resp.aread()
             try:
                 root.mkdir(parents=True, exist_ok=True)
