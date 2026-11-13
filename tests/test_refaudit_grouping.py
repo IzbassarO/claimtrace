@@ -41,11 +41,11 @@ def test_unresolved_doi_after_answered_lookups_is_a_doi_mismatch():
     assert [(m.field, m.found) for m in a.mismatches] == [("doi", "does not resolve (doi.org)")]
 
 
-def test_doi_registered_at_doi_org_is_not_compared():
+def test_doi_registered_at_doi_org_is_not_compared_so_not_verified():
     outcomes = [*ANSWERED, ProviderOutcome(provider="doi.org", ok=True, candidates=1)]
     a = refaudit.decide(REF, [AX], outcomes)
-    assert a.status == RefStatus.verified and not a.mismatches
-    assert "DOI registered (not in Crossref/OpenAlex), not compared" in a.note
+    assert a.status == RefStatus.unchecked and not a.mismatches
+    assert refaudit.DOI_REGISTERED in a.note
 
 
 @pytest.mark.parametrize("extra", [[], [ProviderOutcome(provider="doi.org", ok=False)]])
