@@ -1,4 +1,5 @@
 import asyncio
+import json
 import threading
 import time
 from pathlib import Path
@@ -282,3 +283,20 @@ def test_chat_report_drops_abstracts():
     rep = make_report()
     rep.references[0].matched.abstract = "LONG ABSTRACT TEXT"
     assert "LONG ABSTRACT TEXT" not in chat.report_json(rep)
+
+
+def test_chat_report_trims_references_before_claims(monkeypatch):
+    rep = make_report()
+    full = chat.report_json(rep)
+    assert "HTTP 503" in full and "Doe J." in full and "[references truncated]" not in full
+    head = len(json.dumps(rep.model_dump(mode="json", exclude={"references"})))
+    # room for slim references only: provider outcomes and raw strings go first
+    monkeypatch.setattr(chat, "MAX_REPORT_CHARS", len(full) - 50)
+    slim = chat.report_json(rep)
+    assert "HTTP 503" not in slim and "Doe J." not in slim and "Coffee is harmful" in slim
+    assert "[references truncated]" not in slim
+    # no room for references at all: claims, summary and warnings survive whole
+    monkeypatch.setattr(chat, "MAX_REPORT_CHARS", head + 20)
+    cut = chat.report_json(rep)
+    assert "[references truncated]" in cut and '"citation_id": "c1"' in cut
+    assert cut.startswith(full[: head - 1])

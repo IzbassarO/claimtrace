@@ -176,6 +176,12 @@ async def test_long_text_fuses_injected_embedding():
     assert idx == sorted(idx)
 
 
+async def test_long_text_without_word_characters_does_not_crash():
+    text = "!!! ??? ... " * 300
+    out = await retrieval.retrieve("statins", text, embed=lambda t: 1 / 0)
+    assert 0 < len(out) <= retrieval.TOP_K
+
+
 def test_passages_overlap_and_cover_everything():
     text = " ".join(f"S{i} ends here." for i in range(7))
     ps = retrieval.passages(text)

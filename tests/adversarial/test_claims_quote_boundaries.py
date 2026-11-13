@@ -25,18 +25,11 @@ LINEBREAK_CASES = [
 ]
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: word split by a line-break hyphen is matched from its second half"
-)
 @pytest.mark.parametrize(("quote", "source"), LINEBREAK_CASES)
 def test_quote_cannot_start_inside_a_line_broken_word(quote, source):
     assert not verify_quote(quote, source)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: 'supported' shown with quote 'changed ...' from source 'un-\\nchanged'",
-)
 async def test_line_broken_negation_gives_supported_verdict():
     quote, text = LINEBREAK_CASES[0]
     cit = Citation(id="c1", sentence="Drug X changed blood pressure [1].", ref_ids=["1"])
@@ -55,9 +48,6 @@ async def test_line_broken_negation_gives_supported_verdict():
 # ---------- bug 2: a number cut off before a glue character the gate does not know ----------
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: number truncated before ×, ⁄, ~ or a figure/em dash passes"
-)
 @pytest.mark.parametrize(
     ("quote", "source"),
     [
@@ -78,7 +68,6 @@ def test_quote_cannot_end_inside_a_number(quote, source):
 # ---------- bug 3: a minus sign separated by a space is dropped from the quote ----------
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: quote '5 mmHg ...' passes when the source says '− 5'")
 def test_quote_cannot_drop_a_spaced_minus_sign():
     # "-5" and "−5" are rejected already; PDF text often puts a space after the minus
     source = "The mean change was − 5 mmHg in all treated patients."
