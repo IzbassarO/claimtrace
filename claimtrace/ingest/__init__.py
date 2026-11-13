@@ -113,8 +113,10 @@ async def parse_inputs(text: str | None, files: list[InputFile]) -> Manuscript:
 
 
 async def _from_text(ms: Manuscript, text: str, bib_refs: list[Reference]) -> None:
-    body, section = split_manuscript(text)
+    body, section, warn = split_manuscript(text)
     ms.title, ms.body = guess_title(body), body
+    if warn:
+        ms.warnings.append(warn)
     if bib_refs:
         ms.references = bib_refs
         if section:
@@ -148,5 +150,5 @@ async def _from_pdf(ms: Manuscript, pdf: bytes, bib_refs: list[Reference]) -> No
 
 async def pdf_to_text(pdf: bytes) -> str:
     """PDF -> plain body text via GROBID. Injected into sources by the pipeline.
-    Raises RuntimeError('GROBID unavailable ...') when GROBID cannot be reached."""
+    Raises RuntimeError when GROBID cannot be reached or returns no usable TEI."""
     return body_text(await grobid_tei(pdf))

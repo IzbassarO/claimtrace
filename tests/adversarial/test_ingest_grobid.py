@@ -7,9 +7,6 @@ from claimtrace.core.schemas import InputFile
 from claimtrace.ingest import parse_inputs, tei
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: GROBID 200 with non-TEI / empty TEI gives an empty report, no warning"
-)
 @pytest.mark.parametrize(
     "answer",
     [

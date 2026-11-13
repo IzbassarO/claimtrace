@@ -18,12 +18,30 @@ _PREFIX = {
 }
 
 
-def split_manuscript(text: str) -> tuple[str, str | None]:
-    """(body, reference section) split at the LAST reference heading line."""
+_TRAILER = re.compile(
+    r"\n[ \t]*\n[ \t#*]*(?:appendix|appendices|supplementary|supplemental|supporting information)"
+    r"\b[^\n]{0,80}(?=\n|$)",
+    re.I,
+)
+
+
+def split_manuscript(text: str) -> tuple[str, str | None, str | None]:
+    """(body, reference section, warning) split at the LAST reference heading line before any
+    appendix / supplement heading that follows the references. A trailing appendix goes back
+    into the body; a trailing supplement with its own reference list is dropped (its [n] would
+    resolve against the wrong list) and reported in the warning."""
     heads = list(_REF_HEADING.finditer(text))
     if not heads:
-        return text, None
-    return text[: heads[-1].start()], text[heads[-1].end() :]
+        return text, None, None
+    trailer = _TRAILER.search(text, heads[0].end())
+    end = trailer.start() if trailer else len(text)
+    main = [h for h in heads if h.start() < end][-1]
+    body, section, tail = text[: main.start()], text[main.end() : end], text[end:]
+    if not tail.strip():
+        return body, section, None
+    if _REF_HEADING.search(tail):
+        return body, section, "Text after the reference list has its own references; ignored"
+    return body.rstrip() + "\n\n" + tail.strip("\n"), section, None
 
 
 def guess_title(body: str) -> str | None:
@@ -62,7 +80,12 @@ def split_entries(section: str) -> list[tuple[str | None, str]]:
         return out
     blocks = [b.strip() for b in re.split(r"\n[ \t]*\n", section) if b.strip()]
     if len(blocks) == 1 or not any("\n" in b for b in blocks):
-        blocks = [ln.strip() for ln in section.splitlines() if ln.strip()]
+        blocks = []
+        for ln in (ln.strip() for ln in section.splitlines() if ln.strip()):
+            if blocks and _CONTINUATION.match(ln):  # hard-wrapped line: never starts an entry
+                blocks[-1] += "\n" + ln
+            else:
+                blocks.append(ln)
     return [(None, b) for b in blocks]
 
 
@@ -75,8 +98,9 @@ _ARXIV = re.compile(
     re.I,
 )
 _URL = re.compile(r"https?://\S+", re.I)
-_YEAR = re.compile(r"(?<![\w/.-])((?:19|20)\d{2})[a-z]?(?![\w/])")
+_YEAR = re.compile(r"(?<![\w/.-])((?:19|20)\d{2})[a-z]?(?![\w/]|\s*[-–]\s*(?:19|20)\d{2})")
 _PAREN_YEAR = re.compile(r"\(((?:19|20)\d{2})[a-z]?\)")
+_IMPRINT_YEAR = re.compile(r"(?<![\w/.-])((?:19|20)\d{2})[a-z]?\s*;\s*\d")  # 'Lancet. 2017;390'
 
 
 def find_doi(raw: str) -> str | None:
@@ -95,9 +119,10 @@ def find_arxiv(raw: str) -> str | None:
 
 
 def year_candidates(raw: str) -> list[int]:
-    """Plausible publication years, outside DOIs/URLs/arXiv ids. Parenthesised years first."""
+    """Plausible publication years, outside DOIs/URLs/arXiv ids and year ranges. Imprint years
+    ('2017;390') first, then parenthesised years, then the rest."""
     clean = _ARXIV.sub(" ", _DOI.sub(" ", _URL.sub(" ", raw)))
-    found = [int(y) for y in _PAREN_YEAR.findall(clean)] + [int(y) for y in _YEAR.findall(clean)]
+    found = [int(y) for p in (_IMPRINT_YEAR, _PAREN_YEAR, _YEAR) for y in p.findall(clean)]
     return list(dict.fromkeys(found))
 
 
@@ -108,7 +133,8 @@ _ABBREV = {
     "ms", "no", "nos", "approx", "ca", "resp", "tab", "sect", "sec", "ch", "vol", "pp", "p",
     "et", "etc", "st", "prof", "inc", "ltd", "jr", "sr", "suppl", "viz",
 }  # fmt: skip
-_BOUNDARY = re.compile(r"[.!?][\"'”’)\]]*\s+(?=[A-Z0-9\"“‘'(\[])")
+# numeric markers right after the full stop ('... mortality. [1] Next') stay with their sentence
+_BOUNDARY = re.compile(r"[.!?][\"'”’)\]]*(?:\s*\[\d[\d,\s–—-]*\])*\s+(?=[A-Z0-9\"“‘'(\[])")
 _TOKEN_BEFORE = re.compile(r"([\w.]+)\.$")
 
 
@@ -152,11 +178,15 @@ _LATEX = re.compile(r"\\cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
 _PAREN = re.compile(r"\(([^()]*\d{4}[^()]*)\)")
 _PARTICLES = r"(?:(?:van|von|de|der|den|di|da|du|del|dos|la|le)\s+)*"
 _NAME = _PARTICLES + r"[A-ZÀ-ÖØ-Þ][\w'’\-]+"
+# a line starting lowercase (not 'van Dijk') continues the previous reference entry
+_CONTINUATION = re.compile(rf"(?!{_PARTICLES}[A-ZÀ-ÖØ-Þ])[a-z]")
 _NARRATIVE = re.compile(
-    rf"(?<![\w.])(?P<name>{_NAME})(?:\s+et\s+al\.?|,?\s+(?:and|&)\s+{_NAME})?\s*"
-    r"\((?P<years>(?:19|20)\d{2}[a-z]?(?:\s*[,;]\s*(?:19|20)\d{2}[a-z]?)*)\)"
+    rf"(?<![\w.])(?P<name>{_NAME})(?:\s+et\s+al\.?|(?P<co>,?\s+(?:and|&)\s+{_NAME}))?\s*"
+    r"\((?P<years>(?:19|20)\d{2}[a-z]?(?:\s*[,;]\s*(?:(?:19|20)\d{2}[a-z]?|[a-z]\b))*)\)"
 )
-_PART_YEAR = re.compile(r"\b((?:19|20)\d{2})([a-z]?)\b")
+_LIST_BEFORE = re.compile(rf"{_NAME},\s*$")  # 'Jones, | Brown and Smith (2020)'
+# a year with its suffix, or a bare suffix letter continuing it ('2020a, b')
+_PART_YEAR = re.compile(r"\b((?:19|20)\d{2})([a-z]?)\b|(?<!\w)([a-z])(?=\s*(?:[,;)]|$))")
 _LEAD = re.compile(
     r"^(?:(?:see(?:\s+also)?|e\.g\.|i\.e\.|cf\.|for\s+example|reviewed\s+in)[,:]?\s+)+", re.I
 )
@@ -192,6 +222,17 @@ def ref_family_keys(ref: Reference) -> set[str]:
     if lead:
         keys |= family_keys(lead.group(1))
     return keys
+
+
+def _years(s: str):
+    """'2019, 2020a, b' -> (2019, ''), (2020, 'a'), (2020, 'b')."""
+    last = None
+    for m in _PART_YEAR.finditer(s):
+        if m.group(1):
+            last = int(m.group(1))
+            yield last, m.group(2)
+        elif last is not None and m.group(3):
+            yield last, m.group(3)
 
 
 def _expand(spec: str) -> list[str]:
@@ -231,18 +272,18 @@ def _paren_parts(content: str):
     """'(Smith et al., 2020; Doe & Roe, 2019a, 2019b)' -> [(names, year, suffix), ...]."""
     names = None
     for part in content.split(";"):
-        years = list(_PART_YEAR.finditer(part))
-        if not years:
+        first = re.search(r"\b(?:19|20)\d{2}[a-z]?\b", part)
+        if not first:
             continue
-        lead = _LEAD.sub("", part[: years[0].start()].strip()).strip(" ,")
+        lead = _LEAD.sub("", part[: first.start()].strip()).strip(" ,")
         if lead:
             if not _NAMES_OK.match(lead):
                 continue
             names = lead
         if names is None:
             continue
-        for y in years:
-            yield names, int(y.group(1)), y.group(2)
+        for year, suffix in _years(part[first.start() :]):
+            yield names, year, suffix
 
 
 def find_citations(body: str, refs: list[Reference]) -> tuple[list[Citation], list[str]]:
@@ -254,6 +295,8 @@ def find_citations(body: str, refs: list[Reference]) -> tuple[list[Citation], li
         for pat, keys_of, label in ((_NUMERIC, _expand, "[{}]"), (_LATEX, _bib_keys, "{}")):
             for m in pat.finditer(sent):
                 keys = keys_of(m.group(1))
+                if "0" in keys:  # '[0, 1]' is an interval, not a citation
+                    continue
                 markers.append(m.group(0))
                 ids.extend(k for k in keys if k in res.ids and k not in ids)
                 missing += [label.format(k) for k in keys if k not in res.ids]
@@ -270,11 +313,14 @@ def find_citations(body: str, refs: list[Reference]) -> tuple[list[Citation], li
             markers.append(m.group(0))
             ids.extend(i for i in found if i not in ids)
         for m in _NARRATIVE.finditer(sent):
-            for y in _PART_YEAR.finditer(m.group("years")):
-                hit = res.author_year(m.group("name"), int(y.group(1)), y.group(2))
+            # 'Jones, Brown and Smith (2020)': the match starts at the 2nd author; the real
+            # first author is unknown here, so leave it unresolved rather than guess
+            in_list = m.group("co") and _LIST_BEFORE.search(sent[: m.start()])
+            for year, suffix in _years(m.group("years")):
+                hit = [] if in_list else res.author_year(m.group("name"), year, suffix)
                 ids.extend(i for i in hit if i not in ids)
                 if not hit:
-                    missing.append(f"{m.group('name')} {y.group(0)}")
+                    missing.append(f"{m.group('name')} {year}{suffix}")
             markers.append(m.group(0))
         if not markers:
             continue
