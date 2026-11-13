@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))  # `eval` is a top-level folder, not an installed 
 
 from claimtrace.core.schemas import (  # noqa: E402
     ClaimCheck,
+    EvidenceKind,
     Mismatch,
     ModelOpinion,
     ProviderOutcome,
@@ -186,6 +187,7 @@ def test_scifact_metrics():
 
 
 ITEM = {"claim_id": 5, "doc_id": 7, "claim": "X raises Y.", "gold": "supported",
+        "kind": EvidenceKind.abstract,
         "text": "Title\n\nWe found that X  raises Y in all  tested mice."}  # fmt: skip
 
 
@@ -238,3 +240,141 @@ def test_make_refs_parse_crossref():
     }
     assert make_refs.crossref_retracted(msg)
     assert not make_refs.crossref_retracted({})
+
+
+# ---------------------------------------------------------------- budget, haystacks, ablation
+
+
+def test_fabricated_only_on_a_seeded_subset():
+    cases = run.make_ref_cases(SEEDS, seed=3, fabricated=1)
+    fab = [c["id"] for c in cases if c["mutation"] == "fabricated"]
+    assert len(fab) == 1 and fab == [
+        c["id"] for c in run.make_ref_cases(SEEDS, seed=3, fabricated=1) if "fabricated" in c["id"]
+    ]
+    assert sum(c["mutation"] == "unchanged" for c in cases) == 3  # other mutations untouched
+
+
+def test_make_refs_trim_keeps_retracted_and_original_set():
+    first = make_refs.DOIS[0].lower()
+    rows = [{"doi": first, "retracted": False}, {"doi": "r", "retracted": True}]
+    rows += [{"doi": f"x{i}", "retracted": False} for i in range(10)]
+    out = make_refs.trim(rows, target=5)
+    assert len(out) == 5 and rows[0] in out and rows[1] in out
+    assert out == [r for r in rows if r in out]  # file order kept
+    assert out == make_refs.trim(rows, target=5)
+
+
+def big_corpus(n=30):
+    return {
+        d: {"doc_id": d, "title": f"T{d}", "abstract": [f"Doc {d} sentence {k}." for k in range(3)]}
+        for d in range(n)
+    }
+
+
+def test_make_haystack():
+    corpus = big_corpus()
+    hay = run.make_haystack(corpus, 5, {5, 6}, __import__("random").Random(1))
+    paras = hay.split("\n\n")
+    assert len(paras) == run.DISTRACTORS + 1
+    assert "Doc 5 sentence 0. Doc 5 sentence 1. Doc 5 sentence 2." in paras
+    assert not any(p.startswith("Doc 6 ") for p in paras)  # other cited docs never distract
+    assert hay == run.make_haystack(corpus, 5, {5, 6}, __import__("random").Random(1))
+
+
+def test_scifact_items_haystack(tmp_path):
+    dev, corpus = run.load_scifact(sf_tarball(tmp_path))
+    items = run.scifact_items(dev, corpus, None, 0, haystack=True)
+    by = {(i["claim_id"], i["doc_id"]): i for i in items}
+    assert by[(1, 10)]["rationale"] == ["Sentence one of 10."]
+    assert by[(2, 20)]["rationale"] == ["Two."] and by[(3, 30)]["rationale"] == []
+    assert by[(1, 10)]["kind"] == EvidenceKind.full_text
+    # tiny corpus: the haystack has the other abstracts, never the claim's other cited doc
+    assert "Sentence one of 10." in by[(1, 10)]["text"]
+    assert "of 10." not in by[(2, 20)]["text"]
+
+
+def test_has_gold_and_rank():
+    assert run.has_gold(["a  b\nc. d"], ["b c."]) and not run.has_gold(["a b"], ["b c"])
+
+    async def go():
+        async def variant(q, t):  # top-k = first k of a fixed ranking, in document order
+            ranking = ["p3", "p1 gold here", "p2"]
+            return sorted(ranking[: run.retrieval.TOP_K])
+
+        return await run.first_gold_rank(variant, "q", "t", ["gold here"])
+
+    assert __import__("asyncio").run(go()) == 2
+    assert run.retrieval.TOP_K == 6  # restored
+
+
+def test_retrieval_metrics():
+    rows = [
+        {"chars": 3000, "variants": {"bm25": {"hit": True, "rank": 2, "ms": 10.0}}},
+        {"chars": 2600, "variants": {"bm25": {"hit": False, "rank": None, "ms": 20.0}}},
+    ]
+    m = run.retrieval_metrics(rows)
+    assert m["n"] == 2 and m["haystack_chars_min"] == 2600
+    assert m["variants"]["bm25"] == {"recall@6": 0.5, "mrr": 0.25, "mean_latency_ms": 15.0}
+
+
+async def test_run_retrieval_bm25_vs_failing_embed(monkeypatch, tmp_path):
+    """End to end on a synthetic corpus; the hybrid embedder fails and that is recorded."""
+    corpus = big_corpus(60)
+    for d in corpus.values():  # long enough (>= 2500 chars) that retrieval ranks passages
+        d["abstract"] = [
+            f"{s} Filler about assorted unrelated research topics." for s in d["abstract"]
+        ]
+    corpus[7]["abstract"] = [
+        "Unrelated opening sentence about weather patterns in coastal towns.",
+        "Vitamin zeta strongly reduces migraine frequency in adult patients.",
+        "A closing remark about funding and acknowledgements for this work.",
+    ]
+    dev = [{"id": 1, "claim": "Vitamin zeta reduces migraine frequency.", "cited_doc_ids": [7],
+            "evidence": {"7": [{"sentences": [1], "label": "SUPPORT"}]}}]  # fmt: skip
+    monkeypatch.setattr(run, "scifact_tarball", lambda: tmp_path)
+    monkeypatch.setattr(run, "load_scifact", lambda _: (dev, corpus))
+
+    def boom(texts):
+        raise OSError("no model")
+
+    monkeypatch.setattr(run.retrieval, "fastembed_embed", boom)
+    res = await run.run_retrieval(None, 0)
+    m = res["metrics"]
+    assert m["n"] == 1 and m["haystack_chars_min"] >= 2500 and m["embed_errors"] > 0
+    assert m["variants"]["bm25"]["recall@6"] == 1.0 and m["variants"]["bm25"]["mrr"] == 1.0
+
+
+def op_row(gold, verdict, judge, jq, skeptic=None, sq=None, error=None):
+    return {"gold": gold, "verdict": verdict, "quote": None, "quote_in_source": False,
+            "needs_review": False, "error": error, "judge": judge, "judge_quote": jq,
+            "skeptic": skeptic, "skeptic_quote": sq}  # fmt: skip
+
+
+def test_ablation():
+    text = "The drug lowered blood pressure in all treated adult patients."
+    good = "lowered blood pressure in all treated"
+    rows = [
+        # agreement with a real quote: supported everywhere
+        op_row("supported", "supported", "supported", good, "supported", good),
+        # judge invents a quote: gate turns it into insufficient_evidence
+        op_row("nei", "insufficient_evidence", "supported", "cured every patient of all disease",
+               "supported", "cured every patient of all disease"),
+        # skeptic disagrees: more cautious verdict
+        op_row("unsupported", "unsupported", "supported", good, "unsupported", good),
+        # a failed check: insufficient everywhere, not counted as a mismatch
+        op_row("nei", "insufficient_evidence", None, None, error="boom"),
+    ]  # fmt: skip
+    a = run.ablation(rows, [text] * 4)
+    assert a["product_mismatches"] == 0
+    judge_only = a["judge only (no quote gate)"]
+    assert judge_only["n"] == 4 and judge_only["false_supported_rate"] == 2 / 3
+    assert a["judge + skeptic (no gate)"]["false_supported_rate"] == 1 / 3
+    assert a["judge + quote gate"]["false_supported_rate"] == 1 / 3
+    full = a["judge + skeptic + quote gate"]
+    assert full["false_supported_rate"] == 0 and full["accuracy"] == 1.0
+    md = run.render_ablation({"scifact": {"created": "t", "params": {}, "ablation": a}})
+    assert (
+        "| judge only (no quote gate) | 4 |" in md and "product_mismatches (should be 0): 0" in md
+    )
+    rows[0]["verdict"] = "unsupported"  # a recorded verdict the stored opinions do not explain
+    assert run.ablation(rows, [text] * 4)["product_mismatches"] == 1

@@ -26,3 +26,11 @@ async def test_make_refs_crossref_lookup():
         ret = await make_refs.fetch(client, "10.1038/nature12968", want_retracted=True)
     assert row["title"] == "Deep learning" and row["year"] == 2015
     assert ret["retracted"] and not ret["title"].upper().startswith("RETRACTED")
+
+
+async def test_retrieval_suite_on_real_haystacks():
+    """Real SciFact haystacks, real fastembed: hybrid must actually embed (no silent fallback)."""
+    res = await run.run_retrieval(3, 0)
+    m = res["metrics"]
+    assert m["n"] == 3 and m["haystack_chars_min"] >= 2500 and m["embed_errors"] == 0
+    assert set(m["variants"]) >= {"bm25", "hybrid"}

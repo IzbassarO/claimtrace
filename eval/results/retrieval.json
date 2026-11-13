@@ -1,0 +1,3580 @@
+{
+  "suite": "retrieval",
+  "created": "2026-11-13T20:02:09+00:00",
+  "metrics": {
+    "n": 209,
+    "haystack_chars_min": 23517,
+    "embed_errors": 0,
+    "variants": {
+      "bm25": {
+        "recall@6": 0.937799043062201,
+        "mrr": 0.7472886762360447,
+        "mean_latency_ms": 3.177324980029471
+      },
+      "hybrid": {
+        "recall@6": 0.9760765550239234,
+        "mrr": 0.7976874003189792,
+        "mean_latency_ms": 2303.6622206984603
+      }
+    }
+  },
+  "rows": [
+    {
+      "claim_id": 811,
+      "doc_id": 19799455,
+      "chars": 30436,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.3014999935403466
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2631.126166903414
+        }
+      }
+    },
+    {
+      "claim_id": 873,
+      "doc_id": 27393799,
+      "chars": 33677,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.247333923354745
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1728.9476250298321
+        }
+      }
+    },
+    {
+      "claim_id": 540,
+      "doc_id": 11886686,
+      "chars": 28924,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.725624945014715
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2318.1944590760395
+        }
+      }
+    },
+    {
+      "claim_id": 1021,
+      "doc_id": 9433958,
+      "chars": 28026,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.786041935905814
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2323.6043750075623
+        }
+      }
+    },
+    {
+      "claim_id": 839,
+      "doc_id": 1469751,
+      "chars": 28243,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9522079275920987
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2826.3452079845592
+        }
+      }
+    },
+    {
+      "claim_id": 1012,
+      "doc_id": 9745001,
+      "chars": 29640,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.099250025115907
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2361.0974580515176
+        }
+      }
+    },
+    {
+      "claim_id": 744,
+      "doc_id": 8460275,
+      "chars": 28121,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9645420145243406
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 4215.320292045362
+        }
+      }
+    },
+    {
+      "claim_id": 1259,
+      "doc_id": 24341590,
+      "chars": 28732,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.1241660472005606
+        },
+        "hybrid": {
+          "hit": false,
+          "rank": null,
+          "ms": 2555.9622920118272
+        }
+      }
+    },
+    {
+      "claim_id": 452,
+      "doc_id": 464511,
+      "chars": 28085,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.7540419725701213
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2009.2515000142157
+        }
+      }
+    },
+    {
+      "claim_id": 1088,
+      "doc_id": 37549932,
+      "chars": 30924,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 5,
+          "ms": 3.329708008095622
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1994.9399170000106
+        }
+      }
+    },
+    {
+      "claim_id": 1352,
+      "doc_id": 12885341,
+      "chars": 31396,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.98700004350394
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2421.1495419731364
+        }
+      }
+    },
+    {
+      "claim_id": 179,
+      "doc_id": 17450673,
+      "chars": 32356,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0188329983502626
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2237.4397499952465
+        }
+      }
+    },
+    {
+      "claim_id": 1303,
+      "doc_id": 12631697,
+      "chars": 26343,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.6624170131981373
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3378.1946250237525
+        }
+      }
+    },
+    {
+      "claim_id": 533,
+      "doc_id": 12991445,
+      "chars": 28440,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.0700410716235638
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2116.3735419977456
+        }
+      }
+    },
+    {
+      "claim_id": 1146,
+      "doc_id": 13906581,
+      "chars": 29872,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4634170588105917
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2208.426082972437
+        }
+      }
+    },
+    {
+      "claim_id": 275,
+      "doc_id": 14241418,
+      "chars": 28479,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.0449170153588057
+        },
+        "hybrid": {
+          "hit": false,
+          "rank": null,
+          "ms": 2777.4434159509838
+        }
+      }
+    },
+    {
+      "claim_id": 641,
+      "doc_id": 5912283,
+      "chars": 31458,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.4383339807391167
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 4,
+          "ms": 1963.4644159814343
+        }
+      }
+    },
+    {
+      "claim_id": 183,
+      "doc_id": 12827098,
+      "chars": 27030,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.760209026746452
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1830.890208017081
+        }
+      }
+    },
+    {
+      "claim_id": 693,
+      "doc_id": 24088502,
+      "chars": 29063,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9772090492770076
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1988.1321670254692
+        }
+      }
+    },
+    {
+      "claim_id": 982,
+      "doc_id": 2988714,
+      "chars": 26971,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 2.731333952397108
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2493.3532080613077
+        }
+      }
+    },
+    {
+      "claim_id": 1202,
+      "doc_id": 3475317,
+      "chars": 32898,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.495875047519803
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2165.0802500080317
+        }
+      }
+    },
+    {
+      "claim_id": 185,
+      "doc_id": 18340282,
+      "chars": 33737,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.542541991919279
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3539.136292063631
+        }
+      }
+    },
+    {
+      "claim_id": 742,
+      "doc_id": 32159283,
+      "chars": 31302,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0728329438716173
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2301.861708983779
+        }
+      }
+    },
+    {
+      "claim_id": 903,
+      "doc_id": 10648422,
+      "chars": 29817,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1524159712716937
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2955.6670000310987
+        }
+      }
+    },
+    {
+      "claim_id": 431,
+      "doc_id": 28937856,
+      "chars": 29431,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 6,
+          "ms": 3.116249921731651
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2319.6730830240995
+        }
+      }
+    },
+    {
+      "claim_id": 1370,
+      "doc_id": 2425364,
+      "chars": 28689,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7625830844044685
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1812.3549999436364
+        }
+      }
+    },
+    {
+      "claim_id": 1130,
+      "doc_id": 17997584,
+      "chars": 28699,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.355958964675665
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1924.9684169190004
+        }
+      }
+    },
+    {
+      "claim_id": 48,
+      "doc_id": 13734012,
+      "chars": 38206,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.8507080171257257
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 5,
+          "ms": 2445.9150419570506
+        }
+      }
+    },
+    {
+      "claim_id": 179,
+      "doc_id": 23557241,
+      "chars": 29576,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.8310000197961926
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2615.4267500387505
+        }
+      }
+    },
+    {
+      "claim_id": 832,
+      "doc_id": 30303335,
+      "chars": 29385,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 5.843917024321854
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2487.1815419755876
+        }
+      }
+    },
+    {
+      "claim_id": 1029,
+      "doc_id": 11899391,
+      "chars": 26701,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9577920213341713
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3018.9260409679264
+        }
+      }
+    },
+    {
+      "claim_id": 525,
+      "doc_id": 13639330,
+      "chars": 34773,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.7306660087779164
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2601.3493339996785
+        }
+      }
+    },
+    {
+      "claim_id": 386,
+      "doc_id": 16495649,
+      "chars": 29854,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1161250080913305
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2401.944375014864
+        }
+      }
+    },
+    {
+      "claim_id": 1185,
+      "doc_id": 16737210,
+      "chars": 30405,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.2832500291988254
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2603.9250830654055
+        }
+      }
+    },
+    {
+      "claim_id": 922,
+      "doc_id": 17077004,
+      "chars": 27485,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9967500595375896
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2448.912541032769
+        }
+      }
+    },
+    {
+      "claim_id": 179,
+      "doc_id": 27123743,
+      "chars": 27067,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 5,
+          "ms": 2.90079100523144
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2049.575624987483
+        }
+      }
+    },
+    {
+      "claim_id": 146,
+      "doc_id": 10582939,
+      "chars": 29889,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.2902921084314585
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2758.442541002296
+        }
+      }
+    },
+    {
+      "claim_id": 1029,
+      "doc_id": 13923140,
+      "chars": 28804,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.127582953311503
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2832.286083023064
+        }
+      }
+    },
+    {
+      "claim_id": 597,
+      "doc_id": 25742130,
+      "chars": 30181,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.084000083617866
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2425.6914999568835
+        }
+      }
+    },
+    {
+      "claim_id": 236,
+      "doc_id": 4388470,
+      "chars": 26196,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8539589839056134
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1887.4225000618026
+        }
+      }
+    },
+    {
+      "claim_id": 1232,
+      "doc_id": 13905670,
+      "chars": 29818,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.214582917280495
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2043.0132920155302
+        }
+      }
+    },
+    {
+      "claim_id": 1274,
+      "doc_id": 4406819,
+      "chars": 28156,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.0544999754056334
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 1779.0872920304537
+        }
+      }
+    },
+    {
+      "claim_id": 597,
+      "doc_id": 12779444,
+      "chars": 25918,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.5531670544296503
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2002.9639160493389
+        }
+      }
+    },
+    {
+      "claim_id": 521,
+      "doc_id": 34873974,
+      "chars": 32006,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.473208984360099
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2531.793333007954
+        }
+      }
+    },
+    {
+      "claim_id": 597,
+      "doc_id": 36355784,
+      "chars": 29146,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.0891670612618327
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1913.681250065565
+        }
+      }
+    },
+    {
+      "claim_id": 385,
+      "doc_id": 9955779,
+      "chars": 31546,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.4089579712599516
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 5,
+          "ms": 2028.247500071302
+        }
+      }
+    },
+    {
+      "claim_id": 70,
+      "doc_id": 4414547,
+      "chars": 26679,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7632920537143946
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2202.342833043076
+        }
+      }
+    },
+    {
+      "claim_id": 1271,
+      "doc_id": 13768432,
+      "chars": 28836,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.187374910339713
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2009.8205829272047
+        }
+      }
+    },
+    {
+      "claim_id": 993,
+      "doc_id": 16472469,
+      "chars": 33774,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4290830371901393
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2391.8193340068683
+        }
+      }
+    },
+    {
+      "claim_id": 179,
+      "doc_id": 16322674,
+      "chars": 31086,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1502500642091036
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2540.5960829230025
+        }
+      }
+    },
+    {
+      "claim_id": 239,
+      "doc_id": 14079881,
+      "chars": 28493,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.851416007615626
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1697.8026250144467
+        }
+      }
+    },
+    {
+      "claim_id": 728,
+      "doc_id": 36444198,
+      "chars": 27986,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8263330459594727
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1914.658125024289
+        }
+      }
+    },
+    {
+      "claim_id": 971,
+      "doc_id": 46695481,
+      "chars": 27748,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4212080063298345
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2129.96029201895
+        }
+      }
+    },
+    {
+      "claim_id": 718,
+      "doc_id": 17587795,
+      "chars": 23647,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.4299999931827188
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2139.4411670044065
+        }
+      }
+    },
+    {
+      "claim_id": 873,
+      "doc_id": 19307912,
+      "chars": 34615,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.329667029902339
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2387.1906669810414
+        }
+      }
+    },
+    {
+      "claim_id": 729,
+      "doc_id": 26851674,
+      "chars": 26403,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8004999039694667
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2303.8229580270126
+        }
+      }
+    },
+    {
+      "claim_id": 261,
+      "doc_id": 10697096,
+      "chars": 32469,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.5356669686734676
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3805.6559999240562
+        }
+      }
+    },
+    {
+      "claim_id": 1104,
+      "doc_id": 3898784,
+      "chars": 28309,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.2200829591602087
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3649.9317089328542
+        }
+      }
+    },
+    {
+      "claim_id": 1379,
+      "doc_id": 27123743,
+      "chars": 26107,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.785999957472086
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2525.1516250427812
+        }
+      }
+    },
+    {
+      "claim_id": 230,
+      "doc_id": 3067015,
+      "chars": 30339,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.092166967689991
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1932.9588749678805
+        }
+      }
+    },
+    {
+      "claim_id": 873,
+      "doc_id": 3315558,
+      "chars": 27679,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8970419662073255
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2025.8896249579266
+        }
+      }
+    },
+    {
+      "claim_id": 1187,
+      "doc_id": 52873726,
+      "chars": 26042,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9024160467088223
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1962.1239169500768
+        }
+      }
+    },
+    {
+      "claim_id": 598,
+      "doc_id": 25742130,
+      "chars": 29254,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.098667017184198
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2491.3312499411404
+        }
+      }
+    },
+    {
+      "claim_id": 859,
+      "doc_id": 1982286,
+      "chars": 27748,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9635420069098473
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2447.3534589633346
+        }
+      }
+    },
+    {
+      "claim_id": 1132,
+      "doc_id": 33499189,
+      "chars": 28315,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4458329901099205
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2141.4437079802155
+        }
+      }
+    },
+    {
+      "claim_id": 501,
+      "doc_id": 17930286,
+      "chars": 30153,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.132833051495254
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2421.63800005801
+        }
+      }
+    },
+    {
+      "claim_id": 528,
+      "doc_id": 5476778,
+      "chars": 29531,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.521457896567881
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2784.814583021216
+        }
+      }
+    },
+    {
+      "claim_id": 674,
+      "doc_id": 2095573,
+      "chars": 29584,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8627089923247695
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2260.1648750714958
+        }
+      }
+    },
+    {
+      "claim_id": 1041,
+      "doc_id": 25254425,
+      "chars": 30468,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.1655420316383243
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2944.3090829299763
+        }
+      }
+    },
+    {
+      "claim_id": 100,
+      "doc_id": 4381486,
+      "chars": 29358,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.216083045117557
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2169.782208977267
+        }
+      }
+    },
+    {
+      "claim_id": 636,
+      "doc_id": 24294572,
+      "chars": 25868,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7743750251829624
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2394.4792500697076
+        }
+      }
+    },
+    {
+      "claim_id": 130,
+      "doc_id": 27768226,
+      "chars": 33115,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.5079580266028643
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1664.1172500094399
+        }
+      }
+    },
+    {
+      "claim_id": 1241,
+      "doc_id": 4427392,
+      "chars": 29241,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.0782920075580478
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2381.8513329606503
+        }
+      }
+    },
+    {
+      "claim_id": 1320,
+      "doc_id": 16284655,
+      "chars": 33954,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.4379579592496157
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2103.8938750280067
+        }
+      }
+    },
+    {
+      "claim_id": 873,
+      "doc_id": 29025270,
+      "chars": 26449,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 5,
+          "ms": 2.607166999951005
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1664.8826251039281
+        }
+      }
+    },
+    {
+      "claim_id": 1337,
+      "doc_id": 20231138,
+      "chars": 28439,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9542080592364073
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2065.4189579654485
+        }
+      }
+    },
+    {
+      "claim_id": 233,
+      "doc_id": 4388470,
+      "chars": 28881,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1473339768126607
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1964.741125004366
+        }
+      }
+    },
+    {
+      "claim_id": 770,
+      "doc_id": 15476777,
+      "chars": 32664,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.7415840197354555
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2357.3738749837503
+        }
+      }
+    },
+    {
+      "claim_id": 261,
+      "doc_id": 1122279,
+      "chars": 30551,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.275790950283408
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2434.652667026967
+        }
+      }
+    },
+    {
+      "claim_id": 1019,
+      "doc_id": 11603066,
+      "chars": 32640,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.5529580200091004
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2321.198125020601
+        }
+      }
+    },
+    {
+      "claim_id": 216,
+      "doc_id": 21366394,
+      "chars": 31891,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.300375072285533
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3393.5913749737665
+        }
+      }
+    },
+    {
+      "claim_id": 1110,
+      "doc_id": 13770184,
+      "chars": 33037,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.1817920971661806
+        },
+        "hybrid": {
+          "hit": false,
+          "rank": null,
+          "ms": 2915.1031660148874
+        }
+      }
+    },
+    {
+      "claim_id": 1273,
+      "doc_id": 11041152,
+      "chars": 31444,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.3106249757111073
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1912.6336249755695
+        }
+      }
+    },
+    {
+      "claim_id": 163,
+      "doc_id": 18872233,
+      "chars": 28258,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.8613749891519547
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2043.8999169273302
+        }
+      }
+    },
+    {
+      "claim_id": 443,
+      "doc_id": 10165258,
+      "chars": 30150,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.949666930362582
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2070.008166017942
+        }
+      }
+    },
+    {
+      "claim_id": 70,
+      "doc_id": 5956380,
+      "chars": 30153,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.320458927191794
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1906.5729579888284
+        }
+      }
+    },
+    {
+      "claim_id": 124,
+      "doc_id": 4883040,
+      "chars": 26202,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.6922080432996154
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2195.8819578867406
+        }
+      }
+    },
+    {
+      "claim_id": 1298,
+      "doc_id": 11718220,
+      "chars": 23667,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 2.525040996260941
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 4,
+          "ms": 1686.0712500056252
+        }
+      }
+    },
+    {
+      "claim_id": 845,
+      "doc_id": 17741440,
+      "chars": 27900,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7615000726655126
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2021.3212909875438
+        }
+      }
+    },
+    {
+      "claim_id": 53,
+      "doc_id": 45638119,
+      "chars": 30552,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1845420598983765
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2395.026957965456
+        }
+      }
+    },
+    {
+      "claim_id": 593,
+      "doc_id": 19675911,
+      "chars": 29819,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.012834000401199
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2322.515625040978
+        }
+      }
+    },
+    {
+      "claim_id": 1137,
+      "doc_id": 33370,
+      "chars": 30126,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.085249918513
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2345.2059170231223
+        }
+      }
+    },
+    {
+      "claim_id": 1024,
+      "doc_id": 5373138,
+      "chars": 32831,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.2195409294217825
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1926.5818339772522
+        }
+      }
+    },
+    {
+      "claim_id": 42,
+      "doc_id": 18174210,
+      "chars": 28348,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.048917045816779
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2221.9358750153333
+        }
+      }
+    },
+    {
+      "claim_id": 1270,
+      "doc_id": 13900610,
+      "chars": 25824,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.6338750030845404
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1771.1146249203011
+        }
+      }
+    },
+    {
+      "claim_id": 1389,
+      "doc_id": 23895668,
+      "chars": 29983,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.986458013765514
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2080.8751250151545
+        }
+      }
+    },
+    {
+      "claim_id": 1379,
+      "doc_id": 16322674,
+      "chars": 30066,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.3339589135721326
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2611.149459029548
+        }
+      }
+    },
+    {
+      "claim_id": 1150,
+      "doc_id": 11369420,
+      "chars": 27489,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.7446249732747674
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2241.0034579224885
+        }
+      }
+    },
+    {
+      "claim_id": 1379,
+      "doc_id": 23557241,
+      "chars": 30089,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.209332935512066
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2131.438709096983
+        }
+      }
+    },
+    {
+      "claim_id": 115,
+      "doc_id": 33872649,
+      "chars": 32865,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.3671249402686954
+        },
+        "hybrid": {
+          "hit": false,
+          "rank": null,
+          "ms": 1941.3456249749288
+        }
+      }
+    },
+    {
+      "claim_id": 852,
+      "doc_id": 13843341,
+      "chars": 29889,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.928250003606081
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2237.018416984938
+        }
+      }
+    },
+    {
+      "claim_id": 50,
+      "doc_id": 12580014,
+      "chars": 26827,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.6423330418765545
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1842.4516250379384
+        }
+      }
+    },
+    {
+      "claim_id": 759,
+      "doc_id": 1805641,
+      "chars": 32095,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 4.391125054098666
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 4,
+          "ms": 1939.5840000361204
+        }
+      }
+    },
+    {
+      "claim_id": 180,
+      "doc_id": 16966326,
+      "chars": 25545,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.627165988087654
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2166.0023749573156
+        }
+      }
+    },
+    {
+      "claim_id": 208,
+      "doc_id": 13519661,
+      "chars": 26483,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.93133407831192
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1903.0402089701965
+        }
+      }
+    },
+    {
+      "claim_id": 723,
+      "doc_id": 5531479,
+      "chars": 25407,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.606041030958295
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2070.250292075798
+        }
+      }
+    },
+    {
+      "claim_id": 823,
+      "doc_id": 15319019,
+      "chars": 32448,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.246124950237572
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2158.852167078294
+        }
+      }
+    },
+    {
+      "claim_id": 1359,
+      "doc_id": 11614737,
+      "chars": 31658,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.189791925251484
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3144.8702909983695
+        }
+      }
+    },
+    {
+      "claim_id": 1140,
+      "doc_id": 12009265,
+      "chars": 28651,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.0442909337580204
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2409.942458034493
+        }
+      }
+    },
+    {
+      "claim_id": 279,
+      "doc_id": 14376683,
+      "chars": 28239,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.8524580411612988
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2257.4316250393167
+        }
+      }
+    },
+    {
+      "claim_id": 343,
+      "doc_id": 5884524,
+      "chars": 29556,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 4,
+          "ms": 3.1623339746147394
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2838.7319170869887
+        }
+      }
+    },
+    {
+      "claim_id": 1144,
+      "doc_id": 10071552,
+      "chars": 30405,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.93366692494601
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2638.3894169703126
+        }
+      }
+    },
+    {
+      "claim_id": 1335,
+      "doc_id": 27910499,
+      "chars": 30498,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.050041035749018
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2240.9495830070227
+        }
+      }
+    },
+    {
+      "claim_id": 513,
+      "doc_id": 13230773,
+      "chars": 28007,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.882166998460889
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1730.5380000034347
+        }
+      }
+    },
+    {
+      "claim_id": 51,
+      "doc_id": 45638119,
+      "chars": 27568,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9511669417843223
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2917.613000026904
+        }
+      }
+    },
+    {
+      "claim_id": 619,
+      "doc_id": 20888849,
+      "chars": 39719,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.9817499928176403
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2656.4063749974594
+        }
+      }
+    },
+    {
+      "claim_id": 743,
+      "doc_id": 32159283,
+      "chars": 29564,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.0999589944258332
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2183.6550829466432
+        }
+      }
+    },
+    {
+      "claim_id": 921,
+      "doc_id": 1642727,
+      "chars": 31815,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.194499993696809
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2526.8472499446943
+        }
+      }
+    },
+    {
+      "claim_id": 911,
+      "doc_id": 11254556,
+      "chars": 29274,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9485420091077685
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2163.4494999889284
+        }
+      }
+    },
+    {
+      "claim_id": 589,
+      "doc_id": 10984005,
+      "chars": 31120,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.2300829188898206
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2412.191667011939
+        }
+      }
+    },
+    {
+      "claim_id": 57,
+      "doc_id": 4709641,
+      "chars": 29805,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.154000034555793
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1939.0195830492303
+        }
+      }
+    },
+    {
+      "claim_id": 143,
+      "doc_id": 10582939,
+      "chars": 31455,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.2682090532034636
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2361.9079580530524
+        }
+      }
+    },
+    {
+      "claim_id": 1049,
+      "doc_id": 12486491,
+      "chars": 26606,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 2.65633303206414
+        },
+        "hybrid": {
+          "hit": false,
+          "rank": null,
+          "ms": 1982.4639579746872
+        }
+      }
+    },
+    {
+      "claim_id": 338,
+      "doc_id": 23349986,
+      "chars": 27642,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7336659841239452
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2166.044207988307
+        }
+      }
+    },
+    {
+      "claim_id": 549,
+      "doc_id": 9433958,
+      "chars": 30599,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1015409622341394
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2118.894458981231
+        }
+      }
+    },
+    {
+      "claim_id": 1368,
+      "doc_id": 2425364,
+      "chars": 31565,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.085375064983964
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2706.8237910280004
+        }
+      }
+    },
+    {
+      "claim_id": 171,
+      "doc_id": 12670680,
+      "chars": 27099,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8103749500587583
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2389.0541249420494
+        }
+      }
+    },
+    {
+      "claim_id": 805,
+      "doc_id": 22180793,
+      "chars": 28165,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7555000269785523
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2210.8038750011474
+        }
+      }
+    },
+    {
+      "claim_id": 1163,
+      "doc_id": 15305881,
+      "chars": 27479,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.8956669848412275
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2571.1039589950815
+        }
+      }
+    },
+    {
+      "claim_id": 536,
+      "doc_id": 16056514,
+      "chars": 30533,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.915040939114988
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2450.7737499661744
+        }
+      }
+    },
+    {
+      "claim_id": 295,
+      "doc_id": 20310709,
+      "chars": 28864,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.873833989724517
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2579.2590000201017
+        }
+      }
+    },
+    {
+      "claim_id": 756,
+      "doc_id": 2831620,
+      "chars": 30266,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.978667034767568
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2183.1652499968186
+        }
+      }
+    },
+    {
+      "claim_id": 399,
+      "doc_id": 791050,
+      "chars": 30747,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.0352079775184393
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2805.5252080084756
+        }
+      }
+    },
+    {
+      "claim_id": 314,
+      "doc_id": 4347374,
+      "chars": 27736,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.046708065085113
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2901.8734589917585
+        }
+      }
+    },
+    {
+      "claim_id": 1221,
+      "doc_id": 19736671,
+      "chars": 28472,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2.998500014655292
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1949.616374913603
+        }
+      }
+    },
+    {
+      "claim_id": 1062,
+      "doc_id": 20381484,
+      "chars": 34827,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.86395794339478
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1954.0817089146003
+        }
+      }
+    },
+    {
+      "claim_id": 1339,
+      "doc_id": 15482274,
+      "chars": 29100,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9881250811740756
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2352.5089169852436
+        }
+      }
+    },
+    {
+      "claim_id": 3,
+      "doc_id": 14717500,
+      "chars": 28421,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9071250464767218
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2208.948833984323
+        }
+      }
+    },
+    {
+      "claim_id": 218,
+      "doc_id": 21366394,
+      "chars": 25829,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.5294580264016986
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2110.278750071302
+        }
+      }
+    },
+    {
+      "claim_id": 847,
+      "doc_id": 16787954,
+      "chars": 28855,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0695419991388917
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1970.7518329378217
+        }
+      }
+    },
+    {
+      "claim_id": 148,
+      "doc_id": 1084345,
+      "chars": 30678,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.098041983321309
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2684.7537079593167
+        }
+      }
+    },
+    {
+      "claim_id": 971,
+      "doc_id": 28617573,
+      "chars": 31681,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 4.8021250404417515
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2144.5163749158382
+        }
+      }
+    },
+    {
+      "claim_id": 967,
+      "doc_id": 8997410,
+      "chars": 33124,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.415499930270016
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2119.8852089000866
+        }
+      }
+    },
+    {
+      "claim_id": 793,
+      "doc_id": 8551160,
+      "chars": 29207,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.090791986323893
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1927.2942079696804
+        }
+      }
+    },
+    {
+      "claim_id": 1216,
+      "doc_id": 24142891,
+      "chars": 30024,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.922666957601905
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2021.869417047128
+        }
+      }
+    },
+    {
+      "claim_id": 1089,
+      "doc_id": 17628888,
+      "chars": 30125,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1327500473707914
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2624.6562500018626
+        }
+      }
+    },
+    {
+      "claim_id": 137,
+      "doc_id": 26016929,
+      "chars": 30587,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1328749610111117
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1868.7521250685677
+        }
+      }
+    },
+    {
+      "claim_id": 327,
+      "doc_id": 17997584,
+      "chars": 28999,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1212089816108346
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2543.286166037433
+        }
+      }
+    },
+    {
+      "claim_id": 936,
+      "doc_id": 5483793,
+      "chars": 27688,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9407090041786432
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2266.251791967079
+        }
+      }
+    },
+    {
+      "claim_id": 1319,
+      "doc_id": 16284655,
+      "chars": 29308,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.837291918694973
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2864.7072080057114
+        }
+      }
+    },
+    {
+      "claim_id": 1107,
+      "doc_id": 20532591,
+      "chars": 24204,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.527125063352287
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2274.9110830482095
+        }
+      }
+    },
+    {
+      "claim_id": 142,
+      "doc_id": 10582939,
+      "chars": 30309,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.340083989314735
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2626.7457909416407
+        }
+      }
+    },
+    {
+      "claim_id": 721,
+      "doc_id": 1834762,
+      "chars": 28819,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.930082962848246
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2212.7531659789383
+        }
+      }
+    },
+    {
+      "claim_id": 985,
+      "doc_id": 6828370,
+      "chars": 30016,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9817919712513685
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2254.345374996774
+        }
+      }
+    },
+    {
+      "claim_id": 904,
+      "doc_id": 7370282,
+      "chars": 33672,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.53262503631413
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2116.109416936524
+        }
+      }
+    },
+    {
+      "claim_id": 1086,
+      "doc_id": 39281140,
+      "chars": 25128,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.5415830314159393
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1961.1264589475468
+        }
+      }
+    },
+    {
+      "claim_id": 118,
+      "doc_id": 6372244,
+      "chars": 27800,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7817090740427375
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1900.5010839318857
+        }
+      }
+    },
+    {
+      "claim_id": 1385,
+      "doc_id": 306006,
+      "chars": 30941,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1354170059785247
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2189.8602499859408
+        }
+      }
+    },
+    {
+      "claim_id": 452,
+      "doc_id": 12804937,
+      "chars": 30267,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.0423750868067145
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1947.3024170147255
+        }
+      }
+    },
+    {
+      "claim_id": 129,
+      "doc_id": 27768226,
+      "chars": 33080,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 8.79141699988395
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 5,
+          "ms": 1890.6335829524323
+        }
+      }
+    },
+    {
+      "claim_id": 217,
+      "doc_id": 21366394,
+      "chars": 29287,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9262079624459147
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2028.5736250225455
+        }
+      }
+    },
+    {
+      "claim_id": 873,
+      "doc_id": 1180972,
+      "chars": 26890,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.6485410053282976
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1897.906333906576
+        }
+      }
+    },
+    {
+      "claim_id": 1180,
+      "doc_id": 31272411,
+      "chars": 25764,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7492500375956297
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1990.2029170189053
+        }
+      }
+    },
+    {
+      "claim_id": 298,
+      "doc_id": 39381118,
+      "chars": 23517,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.833792008459568
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1993.8147909706458
+        }
+      }
+    },
+    {
+      "claim_id": 380,
+      "doc_id": 19005293,
+      "chars": 30783,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4549159463495016
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1955.1624160958454
+        }
+      }
+    },
+    {
+      "claim_id": 49,
+      "doc_id": 5953485,
+      "chars": 24997,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.520292066037655
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2399.127334007062
+        }
+      }
+    },
+    {
+      "claim_id": 692,
+      "doc_id": 24088502,
+      "chars": 29453,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.03629192057997
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2343.9694159897044
+        }
+      }
+    },
+    {
+      "claim_id": 274,
+      "doc_id": 11614737,
+      "chars": 31120,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4817090490832925
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2600.8443749742582
+        }
+      }
+    },
+    {
+      "claim_id": 248,
+      "doc_id": 1568684,
+      "chars": 29509,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7470409404486418
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2291.121167014353
+        }
+      }
+    },
+    {
+      "claim_id": 1020,
+      "doc_id": 9433958,
+      "chars": 30942,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 4.098916077055037
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2061.9422920281067
+        }
+      }
+    },
+    {
+      "claim_id": 880,
+      "doc_id": 8426046,
+      "chars": 26293,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.616249956190586
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1901.4269160106778
+        }
+      }
+    },
+    {
+      "claim_id": 569,
+      "doc_id": 23460562,
+      "chars": 30115,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9673329554498196
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1819.9512920109555
+        }
+      }
+    },
+    {
+      "claim_id": 1379,
+      "doc_id": 17450673,
+      "chars": 29211,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.841499983333051
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2259.51983302366
+        }
+      }
+    },
+    {
+      "claim_id": 578,
+      "doc_id": 8764879,
+      "chars": 30473,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.909792005084455
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2358.452833024785
+        }
+      }
+    },
+    {
+      "claim_id": 1029,
+      "doc_id": 13940200,
+      "chars": 28166,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.06116696447134
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2668.5231670271605
+        }
+      }
+    },
+    {
+      "claim_id": 54,
+      "doc_id": 49556906,
+      "chars": 29228,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 13.967709033749998
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1869.9974169721827
+        }
+      }
+    },
+    {
+      "claim_id": 475,
+      "doc_id": 18678095,
+      "chars": 24300,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.651958027854562
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2046.708625042811
+        }
+      }
+    },
+    {
+      "claim_id": 415,
+      "doc_id": 6309659,
+      "chars": 26273,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.953207935206592
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2881.4830420305952
+        }
+      }
+    },
+    {
+      "claim_id": 960,
+      "doc_id": 8780599,
+      "chars": 29143,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7658749604597688
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1986.8617090396583
+        }
+      }
+    },
+    {
+      "claim_id": 613,
+      "doc_id": 9638032,
+      "chars": 31279,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0036669922992587
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2198.4203329775482
+        }
+      }
+    },
+    {
+      "claim_id": 212,
+      "doc_id": 22038539,
+      "chars": 35027,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.5302500473335385
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2196.9030420295894
+        }
+      }
+    },
+    {
+      "claim_id": 957,
+      "doc_id": 123859,
+      "chars": 28931,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9548329766839743
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2113.5946250287816
+        }
+      }
+    },
+    {
+      "claim_id": 784,
+      "doc_id": 2356950,
+      "chars": 29937,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.507708082906902
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1932.8736669849604
+        }
+      }
+    },
+    {
+      "claim_id": 56,
+      "doc_id": 4709641,
+      "chars": 28461,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.22545797098428
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2206.2029159860685
+        }
+      }
+    },
+    {
+      "claim_id": 516,
+      "doc_id": 29564505,
+      "chars": 29008,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 3.0161249451339245
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2685.025833081454
+        }
+      }
+    },
+    {
+      "claim_id": 971,
+      "doc_id": 9764256,
+      "chars": 30092,
+      "variants": {
+        "bm25": {
+          "hit": false,
+          "rank": null,
+          "ms": 3.0747499549761415
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 6,
+          "ms": 3295.71204201784
+        }
+      }
+    },
+    {
+      "claim_id": 781,
+      "doc_id": 24338780,
+      "chars": 31834,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.218499943614006
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2016.5202090283856
+        }
+      }
+    },
+    {
+      "claim_id": 1262,
+      "doc_id": 44172171,
+      "chars": 31043,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.9587498866021633
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1747.43424996268
+        }
+      }
+    },
+    {
+      "claim_id": 436,
+      "doc_id": 14637235,
+      "chars": 30125,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.00454196985811
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2307.2234169812873
+        }
+      }
+    },
+    {
+      "claim_id": 249,
+      "doc_id": 1568684,
+      "chars": 29265,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.893166965804994
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2791.6395840002224
+        }
+      }
+    },
+    {
+      "claim_id": 1225,
+      "doc_id": 9650982,
+      "chars": 31095,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1510830158367753
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2558.8688750285655
+        }
+      }
+    },
+    {
+      "claim_id": 808,
+      "doc_id": 36606083,
+      "chars": 33116,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.154166042804718
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2473.5777500318363
+        }
+      }
+    },
+    {
+      "claim_id": 219,
+      "doc_id": 21366394,
+      "chars": 32678,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0906660249456763
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2508.618874941021
+        }
+      }
+    },
+    {
+      "claim_id": 133,
+      "doc_id": 16280642,
+      "chars": 32352,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.3842920092865825
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2382.813541102223
+        }
+      }
+    },
+    {
+      "claim_id": 5,
+      "doc_id": 13734012,
+      "chars": 28781,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.7715000323951244
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1966.0472500836477
+        }
+      }
+    },
+    {
+      "claim_id": 837,
+      "doc_id": 15928989,
+      "chars": 31148,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.03312495816499
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1979.3937089852989
+        }
+      }
+    },
+    {
+      "claim_id": 539,
+      "doc_id": 13282296,
+      "chars": 30265,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.9033750761300325
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2505.9404579224065
+        }
+      }
+    },
+    {
+      "claim_id": 532,
+      "doc_id": 12991445,
+      "chars": 26385,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 6,
+          "ms": 2.6911250315606594
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 3,
+          "ms": 2417.432749993168
+        }
+      }
+    },
+    {
+      "claim_id": 971,
+      "doc_id": 27873158,
+      "chars": 28793,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.9254580149427056
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2897.2541249822825
+        }
+      }
+    },
+    {
+      "claim_id": 275,
+      "doc_id": 4961038,
+      "chars": 29763,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.0234999721869826
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2390.7755829859525
+        }
+      }
+    },
+    {
+      "claim_id": 141,
+      "doc_id": 14437255,
+      "chars": 29140,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1062919879332185
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 1879.4474159367383
+        }
+      }
+    },
+    {
+      "claim_id": 1290,
+      "doc_id": 4687948,
+      "chars": 28716,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.7912500081583858
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2214.080541045405
+        }
+      }
+    },
+    {
+      "claim_id": 882,
+      "doc_id": 14803797,
+      "chars": 26530,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2.629959024488926
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2246.1071249563247
+        }
+      }
+    },
+    {
+      "claim_id": 879,
+      "doc_id": 8426046,
+      "chars": 29430,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.60362499486655
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2043.977375025861
+        }
+      }
+    },
+    {
+      "claim_id": 113,
+      "doc_id": 6157837,
+      "chars": 30119,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.4969999687746167
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3141.1391249857843
+        }
+      }
+    },
+    {
+      "claim_id": 1336,
+      "doc_id": 27910499,
+      "chars": 30502,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 3,
+          "ms": 3.4522080095484853
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2211.5068329731002
+        }
+      }
+    },
+    {
+      "claim_id": 1121,
+      "doc_id": 4456756,
+      "chars": 31709,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 6,
+          "ms": 3.152832970954478
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 5,
+          "ms": 2322.391208028421
+        }
+      }
+    },
+    {
+      "claim_id": 1382,
+      "doc_id": 17755060,
+      "chars": 29487,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 2,
+          "ms": 2.7996250428259373
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 2,
+          "ms": 1697.189582977444
+        }
+      }
+    },
+    {
+      "claim_id": 1266,
+      "doc_id": 37480103,
+      "chars": 31551,
+      "variants": {
+        "bm25": {
+          "hit": true,
+          "rank": 1,
+          "ms": 3.1889169476926327
+        },
+        "hybrid": {
+          "hit": true,
+          "rank": 1,
+          "ms": 2950.2541250549257
+        }
+      }
+    }
+  ],
+  "params": {
+    "limit": null,
+    "seed": 0
+  }
+}

@@ -1,10 +1,13 @@
 """Evaluation harness.
 
-    uv run python -m eval.run --suite scifact|refs|all [--limit N] [--seed S]
+    uv run python -m eval.run --suite SUITE [--limit N] [--seed S]
 
-Writes eval/results/<suite>.json and eval/results/summary.md (from every results file present).
+Writes eval/results/<suite>.json, eval/results/summary.md and eval/results/ablation.md (both
+rebuilt from every results file present). See eval/README.md.
 
-- scifact: SciFact dev claims vs. their cited abstracts through `claims.check_claim`.
+- scifact: SciFact dev claims vs. their cited abstracts through `claims.check_claim` (LLM).
+- scifact-haystack: the same, but the source is a haystack (LLM).
+- retrieval: gold rationale sentences vs. `claims.retrieval.retrieve` on haystacks (no LLM).
 - refs: real references from eval/data/refs_seed.jsonl with deterministic injected errors
   through `refaudit.audit_references`.
 """
@@ -16,14 +19,16 @@ import os
 import random
 import re
 import tarfile
+import time
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
 from claimtrace import claims, refaudit
+from claimtrace.claims import retrieval
 from claimtrace.claims.quote import verify_quote
 from claimtrace.core.http import make_client
-from claimtrace.core.schemas import Citation, EvidenceKind, Reference, SourceText
+from claimtrace.core.schemas import Citation, EvidenceKind, ModelOpinion, Reference, SourceText
 from claimtrace.core.settings import get_settings
 
 HERE = Path(__file__).parent
@@ -81,10 +86,15 @@ def make_raw(r: dict) -> str:
     return " ".join(parts)
 
 
-def make_ref_cases(seeds: list[dict], seed: int = 0) -> list[dict]:
-    """Seed rows -> [{id, mutation, expected, reference}]. Pure and deterministic."""
+FABRICATED = 150  # a fabricated reference costs one paid OpenAlex search; the others are free
+
+
+def make_ref_cases(seeds: list[dict], seed: int = 0, fabricated: int = FABRICATED) -> list[dict]:
+    """Seed rows -> [{id, mutation, expected, reference}]. Pure and deterministic.
+    Only a seeded subset of `fabricated` seeds gets the `fabricated` mutation (budget)."""
     cases = []
     normal = [s for s in seeds if not s.get("retracted")]
+    fab = set(random.Random(seed).sample(range(len(normal)), min(fabricated, len(normal))))
 
     def add(i: int, mutation: str, expected: str, r: dict):
         ref = Reference(
@@ -98,6 +108,7 @@ def make_ref_cases(seeds: list[dict], seed: int = 0) -> list[dict]:
         )
         cases.append({"id": ref.id, "mutation": mutation, "expected": expected, "reference": ref})
 
+    pos = {id(s): j for j, s in enumerate(normal)}
     for i, s in enumerate(seeds):
         base = {k: s.get(k) for k in ("title", "authors", "year", "venue", "doi")}
         if s.get("retracted"):
@@ -108,7 +119,7 @@ def make_ref_cases(seeds: list[dict], seed: int = 0) -> list[dict]:
         add(i, "negated_title", "metadata_mismatch", base | {"title": negate_title(s["title"])})
         if s["authors"]:
             # first author of the next seed whose first author has a different family name
-            j = normal.index(s)
+            j = pos[id(s)]
             others = normal[j + 1 :] + normal[:j]
             other = next(
                 o["authors"][0]
@@ -116,7 +127,8 @@ def make_ref_cases(seeds: list[dict], seed: int = 0) -> list[dict]:
                 if o["authors"] and family(o["authors"][0]) != family(s["authors"][0])
             )
             add(i, "swapped_first_author", "metadata_mismatch", base | {"authors": [other]})
-        add(i, "fabricated", "not_found", fabricate(random.Random(seed * 100_003 + i)))
+        if pos[id(s)] in fab:
+            add(i, "fabricated", "not_found", fabricate(random.Random(seed * 100_003 + i)))
     return cases
 
 
@@ -156,12 +168,27 @@ def ref_metrics(cases: list[dict], audits: list) -> dict:
     return {"metrics": metrics, "rows": rows}
 
 
+def searches_today() -> int:
+    """Paid OpenAlex searches counted today (UTC) by core.http's on-disk counter."""
+    day = Path(get_settings().cache_dir) / "openalex" / f"searches-{datetime.now(UTC):%Y-%m-%d}.txt"
+    try:
+        return int(day.read_text() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
 async def run_refs(limit: int | None, seed: int) -> dict:
     seeds = [json.loads(line) for line in SEED_FILE.read_text().splitlines() if line.strip()]
     cases = make_ref_cases(seeds[:limit] if limit else seeds, seed)
+    before = searches_today()
     async with make_client() as client:
         audits = await refaudit.audit_references([c["reference"] for c in cases], client)
-    return ref_metrics(cases, audits)
+    res = ref_metrics(cases, audits)
+    res["metrics"]["openalex_searches"] = searches_today() - before
+    print(
+        f"refs: OpenAlex searches today {before} -> {before + res['metrics']['openalex_searches']}"
+    )
+    return res
 
 
 # ---------------------------------------------------------------- scifact
@@ -195,8 +222,23 @@ def load_scifact(tarball: Path) -> tuple[list[dict], dict[int, dict]]:
     return dev, corpus
 
 
-def scifact_items(dev: list[dict], corpus: dict, n: int, seed: int) -> list[dict]:
-    """One item per (claim, cited abstract); gold from the evidence for that abstract."""
+DISTRACTORS = 20
+
+
+def make_haystack(corpus: dict, doc_id: int, exclude: set, rng: random.Random) -> str:
+    """The cited abstract among DISTRACTORS other abstracts (none cited by the claim), at a
+    random position, one paragraph each. Long enough that retrieval is actually used."""
+    pool = sorted(d for d in corpus if d not in exclude and d != doc_id)
+    docs = rng.sample(pool, min(DISTRACTORS, len(pool)))
+    docs.insert(rng.randrange(len(docs) + 1), doc_id)
+    return "\n\n".join(" ".join(corpus[d]["abstract"]) for d in docs)
+
+
+def scifact_items(
+    dev: list[dict], corpus: dict, n: int | None, seed: int, haystack: bool = False
+) -> list[dict]:
+    """One item per (claim, cited abstract); gold from the evidence for that abstract.
+    `rationale` = gold evidence sentences of that abstract (empty for NEI)."""
     labels = {"SUPPORT": "supported", "CONTRADICT": "unsupported"}
     items = []
     for c in dev:
@@ -205,16 +247,24 @@ def scifact_items(dev: list[dict], corpus: dict, n: int, seed: int) -> list[dict
             if not doc:
                 continue
             ev = c.get("evidence", {}).get(str(doc_id))
+            idx = sorted({i for e in ev or [] for i in e["sentences"]})
+            if haystack:
+                rng = random.Random(f"{seed}:{c['id']}:{doc_id}")
+                text = make_haystack(corpus, doc_id, set(c["cited_doc_ids"]), rng)
+            else:
+                text = doc["title"] + "\n\n" + " ".join(doc["abstract"])
             items.append(
                 {
                     "claim_id": c["id"],
                     "doc_id": doc_id,
                     "claim": c["claim"],
                     "gold": labels[ev[0]["label"]] if ev else "nei",
-                    "text": doc["title"] + "\n\n" + " ".join(doc["abstract"]),
+                    "rationale": [doc["abstract"][i] for i in idx],
+                    "kind": EvidenceKind.full_text if haystack else EvidenceKind.abstract,
+                    "text": text,
                 }
             )
-    return random.Random(seed).sample(items, min(n, len(items)))
+    return random.Random(seed).sample(items, min(n or len(items), len(items)))
 
 
 def predicted(verdict: str) -> str:
@@ -260,9 +310,7 @@ async def check_item(item: dict) -> dict:
     ref_id = str(item["doc_id"])
     cit = Citation(id=f"sf{item['claim_id']}", sentence=item["claim"], ref_ids=[ref_id])
     # SciFact abstracts come from S2ORC (Semantic Scholar), hence the origin
-    src = SourceText(
-        ref_id=ref_id, kind=EvidenceKind.abstract, text=item["text"], origin="semanticscholar"
-    )
+    src = SourceText(ref_id=ref_id, kind=item["kind"], text=item["text"], origin="semanticscholar")
     row = {k: item[k] for k in ("claim_id", "doc_id", "claim", "gold")}
     try:
         res = await claims.check_claim(cit, ref_id, src)
@@ -273,7 +321,9 @@ async def check_item(item: dict) -> dict:
             "quote_in_source": False,
             "needs_review": True,
             "judge": None,
+            "judge_quote": None,
             "skeptic": None,
+            "skeptic_quote": None,
             "error": f"{type(e).__name__}: {e}"[:200],
         }
     return row | {
@@ -282,15 +332,57 @@ async def check_item(item: dict) -> dict:
         # the product's own strict gate (word boundaries, digits, >= 5 words), not a substring
         "quote_in_source": bool(res.quote) and verify_quote(res.quote, item["text"]),
         "needs_review": res.needs_review,
+        # both opinions with their quotes: the ablation recomputes verdicts from them post hoc
         "judge": res.judge.verdict if res.judge else None,
+        "judge_quote": res.judge.quote if res.judge else None,
         "skeptic": res.skeptic.verdict if res.skeptic else None,
+        "skeptic_quote": res.skeptic.quote if res.skeptic else None,
         "error": None,
     }
 
 
-async def run_scifact(limit: int | None, seed: int) -> dict:
+def _opinion(row: dict, role: str) -> ModelOpinion | None:
+    return ModelOpinion(verdict=row[role], quote=row[f"{role}_quote"] or "") if row[role] else None
+
+
+def _cautious(*ops: ModelOpinion | None) -> str:
+    return max(
+        (o.verdict for o in ops if o), key=claims.CAUTION.index, default="insufficient_evidence"
+    )
+
+
+# variant -> (judge, skeptic, source text) -> verdict. The last one is the product (claims.combine).
+ABLATIONS = {
+    "judge only (no quote gate)": lambda j, s, text: _cautious(j),
+    "judge + skeptic (no gate)": lambda j, s, text: _cautious(j, s),
+    "judge + quote gate": lambda j, s, text: claims.combine(j, None, text)[0],
+    "judge + skeptic + quote gate": lambda j, s, text: claims.combine(j, s, text)[0],
+}
+ABLATION_KEYS = ("n", "accuracy", "false_supported_rate", "supported_precision", "supported_recall")
+
+
+def ablation(rows: list[dict], texts: list[str]) -> dict:
+    """Verdicts each pipeline variant would have given, from the judge/skeptic answers stored in
+    the rows. No LLM calls. `product_mismatches` should be 0: the full variant is the product."""
+    out = {}
+    for name, verdict_of in ABLATIONS.items():
+        alt = [
+            r | {"verdict": verdict_of(_opinion(r, "judge"), _opinion(r, "skeptic"), t)}
+            for r, t in zip(rows, texts, strict=True)
+        ]
+        m = scifact_metrics(alt)
+        out[name] = {k: m[k] for k in ABLATION_KEYS}
+    full = ABLATIONS["judge + skeptic + quote gate"]
+    out["product_mismatches"] = sum(
+        r["error"] is None and full(_opinion(r, "judge"), _opinion(r, "skeptic"), t) != r["verdict"]
+        for r, t in zip(rows, texts, strict=True)
+    )
+    return out
+
+
+async def run_scifact(limit: int | None, seed: int, haystack: bool = False) -> dict:
     dev, corpus = load_scifact(scifact_tarball())
-    items = scifact_items(dev, corpus, limit or 100, seed)
+    items = scifact_items(dev, corpus, limit or 100, seed, haystack)
     sem = asyncio.Semaphore(get_settings().llm_concurrency)
 
     async def one(item):
@@ -298,7 +390,111 @@ async def run_scifact(limit: int | None, seed: int) -> dict:
             return await check_item(item)
 
     rows = list(await asyncio.gather(*(one(i) for i in items)))
-    return {"metrics": scifact_metrics(rows), "rows": rows}
+    abl = ablation(rows, [i["text"] for i in items])
+    return {"metrics": scifact_metrics(rows), "ablation": abl, "rows": rows}
+
+
+async def run_scifact_haystack(limit: int | None, seed: int) -> dict:
+    return await run_scifact(limit, seed, haystack=True)
+
+
+# ---------------------------------------------------------------- retrieval (no LLM)
+
+
+def _no_embed(texts: list[str]):
+    raise RuntimeError("BM25-only variant")  # retrieve() falls back to BM25 on any failure
+
+
+_embed_memo: dict[tuple, list] = {}
+_embed_errors: list[str] = []
+
+
+def _memo_embed(texts: list[str]):
+    """fastembed, memoised per item (the rank probe re-runs retrieve with the same candidates).
+    Failures are recorded: retrieve() swallows them, so a broken embedder would look like BM25."""
+    key = tuple(texts)
+    if key not in _embed_memo:
+        try:
+            _embed_memo[key] = retrieval.fastembed_embed(texts)
+        except Exception as e:
+            _embed_errors.append(f"{type(e).__name__}: {e}"[:200])
+            raise
+    return _embed_memo[key]
+
+
+# name -> async (query, text) -> passages. Add a variant here (e.g. "rerank") to measure it.
+RETRIEVAL_VARIANTS = {
+    "bm25": lambda q, t: retrieval.retrieve(q, t, embed=_no_embed),
+    "hybrid": lambda q, t: retrieval.retrieve(q, t, embed=_memo_embed),
+}
+
+
+def _norm(s: str) -> str:
+    return " ".join(s.split())
+
+
+def has_gold(passages: list[str], gold: list[str]) -> bool:
+    """At least one gold sentence fully inside one returned passage (whitespace-normalised)."""
+    return any(_norm(g) in _norm(p) for g in gold for p in passages)
+
+
+async def first_gold_rank(variant, query: str, text: str, gold: list[str]) -> int | None:
+    """1-based rank of the first passage with gold evidence. retrieve() returns its top passages
+    in document order, so the rank is the smallest k whose top-k (retrieval.TOP_K = k) has one.
+    ponytail: patches a module global, so items run one at a time."""
+    top_k = retrieval.TOP_K
+    try:
+        for k in range(1, top_k + 1):
+            retrieval.TOP_K = k
+            if has_gold(await variant(query, text), gold):
+                return k
+    finally:
+        retrieval.TOP_K = top_k
+    return None
+
+
+def retrieval_metrics(rows: list[dict]) -> dict:
+    n = len(rows) or 1
+    variants = {}
+    for name in rows[0]["variants"] if rows else []:
+        vs = [r["variants"][name] for r in rows]
+        variants[name] = {
+            f"recall@{retrieval.TOP_K}": sum(v["hit"] for v in vs) / n,
+            "mrr": sum(1 / v["rank"] for v in vs if v["rank"]) / n,
+            "mean_latency_ms": sum(v["ms"] for v in vs) / n,
+        }
+    return {
+        "n": len(rows),
+        "haystack_chars_min": min((r["chars"] for r in rows), default=0),
+        "embed_errors": len(_embed_errors),
+        "variants": variants,
+    }
+
+
+async def run_retrieval(limit: int | None, seed: int) -> dict:
+    # the embedding model downloads into the gitignored eval cache, not the system temp dir
+    os.environ.setdefault("FASTEMBED_CACHE_PATH", str(CACHE / "fastembed"))
+    os.environ.setdefault("HF_HOME", str(CACHE / "hf"))
+    dev, corpus = load_scifact(scifact_tarball())
+    items = [i for i in scifact_items(dev, corpus, None, seed, haystack=True) if i["rationale"]]
+    items = items[:limit] if limit else items
+    _embed_errors.clear()
+    for variant in RETRIEVAL_VARIANTS.values():  # warm-up (model load) is not timed
+        await variant(items[0]["claim"], items[0]["text"])
+    rows = []
+    for it in items:
+        _embed_memo.clear()
+        row = {"claim_id": it["claim_id"], "doc_id": it["doc_id"], "chars": len(it["text"])}
+        row["variants"] = {}
+        for name, variant in RETRIEVAL_VARIANTS.items():
+            t0 = time.perf_counter()
+            got = await variant(it["claim"], it["text"])
+            ms = (time.perf_counter() - t0) * 1000
+            hit = has_gold(got, it["rationale"])
+            rank = await first_gold_rank(variant, it["claim"], it["text"], it["rationale"])
+            row["variants"][name] = {"hit": hit, "rank": rank if hit else None, "ms": ms}
+        rows.append(row)
+    return {"metrics": retrieval_metrics(rows), "rows": rows}
 
 
 # ---------------------------------------------------------------- report
@@ -322,11 +518,34 @@ def render_summary(results: dict[str, dict]) -> str:
                 st = ", ".join(f"{k} {v}" for k, v in sorted(d["statuses"].items()))
                 out.append(f"| {mut} | {d['n']} | {fmt(d['accuracy'])} | {st} |")
             out.append("")
+        if "variants" in m:
+            names = list(next(iter(m["variants"].values()), {}))
+            out += ["| variant | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+            for v, d in m["variants"].items():
+                out.append(f"| {v} | " + " | ".join(fmt(d[k]) for k in names) + " |")
+            out.append("")
         if "confusion" in m:
             out += ["| gold \\ verdict | counts |", "|---|---|"]
             for g, d in m["confusion"].items():
                 out.append(f"| {g} | {', '.join(f'{k} {v}' for k, v in sorted(d.items()))} |")
             out.append("")
+    return "\n".join(out)
+
+
+def render_ablation(results: dict[str, dict]) -> str:
+    out = ["# ClaimTrace verdict ablation", ""]
+    out += ["Recomputed from the judge's and skeptic's stored answers (no extra LLM calls).", ""]
+    for suite, res in results.items():
+        if "ablation" not in res:
+            continue
+        a = dict(res["ablation"])
+        mism = a.pop("product_mismatches")
+        out += [f"## {suite}", "", f"{res['created']} · params `{json.dumps(res['params'])}`", ""]
+        out += ["| variant | " + " | ".join(ABLATION_KEYS) + " |", "|---" * 6 + "|"]
+        out += [
+            f"| {v} | " + " | ".join(fmt(d[k]) for k in ABLATION_KEYS) + " |" for v, d in a.items()
+        ]
+        out += ["", f"product_mismatches (should be 0): {mism}", ""]
     return "\n".join(out)
 
 
@@ -337,19 +556,26 @@ def write_results(suite: str, res: dict, params: dict) -> None:
     (RESULTS / f"{suite}.json").write_text(json.dumps(res, indent=2, ensure_ascii=False))
     all_res = {p.stem: json.loads(p.read_text()) for p in sorted(RESULTS.glob("*.json"))}
     (RESULTS / "summary.md").write_text(render_summary(all_res))
+    if any("ablation" in r for r in all_res.values()):
+        (RESULTS / "ablation.md").write_text(render_ablation(all_res))
 
 
 async def main(argv: list[str] | None = None) -> None:
-    # One eval run may spend at most ~300 paid OpenAlex searches ($1/day budget).
-    os.environ.setdefault("OPENALEX_RUN_SEARCHES", "300")
+    # One eval run may spend at most 250 paid OpenAlex searches (budget rule; cache = free reruns)
+    os.environ.setdefault("OPENALEX_RUN_SEARCHES", "250")
     get_settings.cache_clear()
     ap = argparse.ArgumentParser(prog="python -m eval.run")
-    ap.add_argument("--suite", choices=["scifact", "refs", "all"], default="all")
-    ap.add_argument("--limit", type=int, default=None, help="scifact: sample size (default 100)")
+    runners = {
+        "scifact": run_scifact,
+        "scifact-haystack": run_scifact_haystack,
+        "retrieval": run_retrieval,
+        "refs": run_refs,
+    }
+    ap.add_argument("--suite", choices=[*runners, "all"], default="all")
+    ap.add_argument("--limit", type=int, default=None, help="scifact*: sample size (default 100)")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args(argv)
-    runners = {"scifact": run_scifact, "refs": run_refs}
-    for suite in runners if args.suite == "all" else [args.suite]:
+    for suite in ["scifact", "refs"] if args.suite == "all" else [args.suite]:
         res = await runners[suite](args.limit, args.seed)
         write_results(suite, res, {"limit": args.limit, "seed": args.seed})
         print(f"{suite}: " + json.dumps(res["metrics"], default=str))
