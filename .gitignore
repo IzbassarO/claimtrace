@@ -11,3 +11,4 @@ eval/.cache/
 .playwright-mcp/
 .cache/
 *.egg-info/
+.pytest-tmp/
