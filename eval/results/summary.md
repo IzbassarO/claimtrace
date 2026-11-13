@@ -39,22 +39,22 @@
 
 ## scifact
 
-2026-11-13T19:19:27+00:00 · params `{"limit": 100, "seed": 0}`
+2026-11-13T20:10:53+00:00 · params `{"limit": 100, "seed": 0}`
 
 | metric | value |
 |---|---|
 | n | 100 |
-| accuracy | 0.910 |
-| supported_precision | 0.860 |
-| supported_recall | 0.925 |
+| accuracy | 0.900 |
+| supported_precision | 0.857 |
+| supported_recall | 0.900 |
 | false_supported_rate | 0.100 |
 | quote_verified_rate | 0.820 |
 | quote_gate_violations | 0 |
-| needs_review_rate | 0.200 |
+| needs_review_rate | 0.230 |
 | errors | 0 |
 
 | gold \ verdict | counts |
 |---|---|
 | unsupported | unsupported 21 |
 | nei | insufficient_evidence 17, partly_supported 5, supported 1, unsupported 16 |
-| supported | insufficient_evidence 1, partly_supported 18, supported 19, unsupported 2 |
+| supported | insufficient_evidence 1, partly_supported 18, supported 18, unsupported 3 |

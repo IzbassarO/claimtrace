@@ -1,6 +1,6 @@
 {
   "suite": "scifact",
-  "created": "2026-11-13T19:19:27+00:00",
+  "created": "2026-11-13T20:10:53+00:00",
   "metrics": {
     "n": 100,
     "gold": {
@@ -8,31 +8,62 @@
       "nei": 39,
       "supported": 40
     },
-    "accuracy": 0.91,
-    "supported_precision": 0.8604651162790697,
-    "supported_recall": 0.925,
+    "accuracy": 0.9,
+    "supported_precision": 0.8571428571428571,
+    "supported_recall": 0.9,
     "false_supported_rate": 0.1,
     "quote_verified_rate": 0.82,
     "quote_gate_violations": 0,
-    "needs_review_rate": 0.2,
+    "needs_review_rate": 0.23,
     "errors": 0,
     "confusion": {
       "unsupported": {
         "unsupported": 21
       },
       "nei": {
+        "insufficient_evidence": 17,
         "unsupported": 16,
         "partly_supported": 5,
-        "insufficient_evidence": 17,
         "supported": 1
       },
       "supported": {
         "partly_supported": 18,
-        "supported": 19,
-        "unsupported": 2,
+        "supported": 18,
+        "unsupported": 3,
         "insufficient_evidence": 1
       }
     }
+  },
+  "ablation": {
+    "judge only (no quote gate)": {
+      "n": 100,
+      "accuracy": 0.87,
+      "false_supported_rate": 0.16666666666666666,
+      "supported_precision": 0.7872340425531915,
+      "supported_recall": 0.925
+    },
+    "judge + skeptic (no gate)": {
+      "n": 100,
+      "accuracy": 0.9,
+      "false_supported_rate": 0.1,
+      "supported_precision": 0.8571428571428571,
+      "supported_recall": 0.9
+    },
+    "judge + quote gate": {
+      "n": 100,
+      "accuracy": 0.87,
+      "false_supported_rate": 0.16666666666666666,
+      "supported_precision": 0.7872340425531915,
+      "supported_recall": 0.925
+    },
+    "judge + skeptic + quote gate": {
+      "n": 100,
+      "accuracy": 0.9,
+      "false_supported_rate": 0.1,
+      "supported_precision": 0.8571428571428571,
+      "supported_recall": 0.9
+    },
+    "product_mismatches": 0
   },
   "rows": [
     {
@@ -45,7 +76,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Ascorbic-acid levels were undetectable or markedly reduced in the blood and tissues of Slc23a1−/− mice.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Ascorbic-acid levels were undetectable or markedly reduced in the blood and tissues of Slc23a1−/− mice.",
       "error": null
     },
     {
@@ -58,7 +91,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "We conclude that genetic influences on body-mass index are substantial, whereas the childhood environment has little or no influence.",
       "skeptic": "unsupported",
+      "skeptic_quote": "We conclude that genetic influences on body-mass index are substantial, whereas the childhood environment has little or no influence.",
       "error": null
     },
     {
@@ -66,12 +101,14 @@
       "doc_id": 18810195,
       "claim": "Alizarin forms hydrogen bonds with residues involved in PGAM1 substrate binding.",
       "gold": "nei",
-      "verdict": "unsupported",
-      "quote": "We also report the crystal structure of H11-phosphorylated PGAM1 and find that phospho-H11 activates PGAM1 at least in part by promoting substrate 3-phosphoglycerate binding.",
-      "quote_in_source": true,
+      "verdict": "insufficient_evidence",
+      "quote": null,
+      "quote_in_source": false,
       "needs_review": false,
-      "judge": "unsupported",
-      "skeptic": "unsupported",
+      "judge": "insufficient_evidence",
+      "judge_quote": "",
+      "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -84,7 +121,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "glutamate release from VMH neurons is an important component of the neurocircuitry that functions to prevent hypoglycemia.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "glutamate release from VMH neurons is an important component of the neurocircuitry that functions to prevent hypoglycemia.",
       "error": null
     },
     {
@@ -93,11 +132,13 @@
       "claim": "Statins increase blood cholesterol.",
       "gold": "nei",
       "verdict": "unsupported",
-      "quote": "lowering LDL should be the primary goal",
+      "quote": "Mutations that eliminate LDLRs raise LDL and cause heart attacks in childhood, whereas mutations that raise LDLRs reduce LDL and diminish heart attacks.",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Mutations that eliminate LDLRs raise LDL and cause heart attacks in childhood, whereas mutations that raise LDLRs reduce LDL and diminish heart attacks.",
       "skeptic": "unsupported",
+      "skeptic_quote": "If we are to eliminate coronary disease, lowering LDL should be the primary goal. Effective means to achieve this goal are currently available.",
       "error": null
     },
     {
@@ -106,11 +147,13 @@
       "claim": "Rapid up-regulation and higher basal expression of interferon-induced genes reduce survival of granule cell neurons that are infected by West Nile virus.",
       "gold": "unsupported",
       "verdict": "unsupported",
-      "quote": "Granule cell neurons of the cerebellum and cortical neurons from the cerebral cortex have unique innate immune programs that confer differential susceptibility to viral infection ex vivo and in vivo.",
+      "quote": "Granule cell neurons of the cerebellum and cortical neurons from the cerebral cortex have unique innate immune programs that confer differential susceptibility to viral infection",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Granule cell neurons of the cerebellum and cortical neurons from the cerebral cortex have unique innate immune programs that confer differential susceptibility to viral infection",
       "skeptic": "unsupported",
+      "skeptic_quote": "By transducing cortical neurons with genes that were expressed more highly in granule cell neurons, we identified three interferon-stimulated genes (ISGs; Ifi27, Irg1 and Rsad2 (also known as Viperin)) that mediated the antiviral effects against different neurotropic viruses.",
       "error": null
     },
     {
@@ -123,7 +166,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "we developed CH6 aptamer–functionalized lipid nanoparticles (LNPs) encapsulating osteogenic pleckstrin homology domain-containing family O member 1 (Plekho1) siRNA",
       "skeptic": "supported",
+      "skeptic_quote": "Here we screened the aptamer CH6 by cell-SELEX, specifically targeting both rat and human osteoblasts, and then we developed CH6 aptamer–functionalized lipid nanoparticles (LNPs)",
       "error": null
     },
     {
@@ -136,7 +181,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "HTLV-I infection is endemic in Japan, the Caribbean, Africa, and Melanesia and is found among immigrants from these regions in Europe.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "HTLV-I infection is endemic in Japan, the Caribbean, Africa, and Melanesia and is found among immigrants from these regions in Europe.",
       "error": null
     },
     {
@@ -149,7 +196,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "the median thyroid volume was reduced from 73 (interquartile range 50-106) ml to 29 (23-48) ml at 24 months",
       "skeptic": "supported",
+      "skeptic_quote": "The median reduction was 40 (22-48) ml (60% reduction, p < 0.0001), half of which occurred within three months.",
       "error": null
     },
     {
@@ -162,7 +211,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "protein macropinocytosis can also serve as an essential amino acid source",
       "skeptic": "supported",
+      "skeptic_quote": "protein macropinocytosis can also serve as an essential amino acid source",
       "error": null
     },
     {
@@ -175,7 +226,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "there was an association between CYP2D6 variation and clinical outcomes, such that the presence of 2 functional CYP2D6 alleles was associated with better clinical outcomes",
       "skeptic": "supported",
+      "skeptic_quote": "there was an association between CYP2D6 variation and clinical outcomes, such that the presence of 2 functional CYP2D6 alleles was associated with better clinical outcomes and the presence of nonfunctional or reduced-function alleles with worse outcomes",
       "error": null
     },
     {
@@ -188,7 +241,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Genetically identical cells sharing an environment can display markedly different phenotypes.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Genetically identical cells sharing an environment can display markedly different phenotypes.",
       "error": null
     },
     {
@@ -201,7 +256,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "Eliminating BCL-2 yielded rapid loss of leukemic cells and significantly prolonged survival",
       "skeptic": "unsupported",
+      "skeptic_quote": "Eliminating BCL-2 yielded rapid loss of leukemic cells and significantly prolonged survival",
       "error": null
     },
     {
@@ -214,7 +271,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -227,7 +286,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "they represent two morphologically distinct populations that differ in proliferation levels",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "they represent two morphologically distinct populations that differ in proliferation levels",
       "error": null
     },
     {
@@ -240,7 +301,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "an Aedes aegypti C-type lectin, mosGCTL-1, is induced by WNV",
       "skeptic": "supported",
+      "skeptic_quote": "an Aedes aegypti C-type lectin, mosGCTL-1, is induced by WNV",
       "error": null
     },
     {
@@ -253,7 +316,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "heavier birth weights were associated with increased breast cancer risk",
       "skeptic": "supported",
+      "skeptic_quote": "heavier birth weights were associated with increased breast cancer risk",
       "error": null
     },
     {
@@ -266,7 +331,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Binding selectively to the fast-skeletal-troponin complex, CK-2017357 slows the rate of calcium release from troponin C and sensitizes muscle to calcium.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Binding selectively to the fast-skeletal-troponin complex, CK-2017357 slows the rate of calcium release from troponin C and sensitizes muscle to calcium.",
       "error": null
     },
     {
@@ -275,11 +342,13 @@
       "claim": "Hyperfibrinogenemia increases rates of femoropopliteal bypass thrombosis.",
       "gold": "supported",
       "verdict": "partly_supported",
-      "quote": "Plasma fibrinogen concentration was the most important variable predicting graft occlusion, followed by smoking markers.",
+      "quote": "Patency was significantly higher by life table analysis in patients with a plasma fibrinogen concentration below the median than in those with a concentration above (90% v 57%, p less than 0.0002).",
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "Plasma fibrinogen concentration was the most important variable predicting graft occlusion",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Patency was significantly higher by life table analysis in patients with a plasma fibrinogen concentration below the median than in those with a concentration above (90% v 57%, p less than 0.0002).",
       "error": null
     },
     {
@@ -290,9 +359,11 @@
       "verdict": "partly_supported",
       "quote": "overall they do not suggest that a healthcare facility's teaching status on its own markedly improves or worsens patient outcomes",
       "quote_in_source": true,
-      "needs_review": true,
-      "judge": "supported",
+      "needs_review": false,
+      "judge": "partly_supported",
+      "judge_quote": "overall they do not suggest that a healthcare facility's teaching status on its own markedly improves or worsens patient outcomes",
       "skeptic": "partly_supported",
+      "skeptic_quote": "overall they do not suggest that a healthcare facility's teaching status on its own markedly improves or worsens patient outcomes",
       "error": null
     },
     {
@@ -305,7 +376,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "immunotoxicity and autoimmunity are emerging as the Achilles' heel of immunotherapy",
       "skeptic": "unsupported",
+      "skeptic_quote": "immunotoxicity and autoimmunity are emerging as the Achilles' heel of immunotherapy",
       "error": null
     },
     {
@@ -318,7 +391,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "NVP-BEZ235 inhibits the PI3K/mTOR axis and results in antiproliferative and antitumoral activity in cancer cells with both wild-type and mutated p110-alpha.",
       "skeptic": "unsupported",
+      "skeptic_quote": "NVP-BEZ235, a dual PI3K/mTOR inhibitor, prevents PI3K signaling and inhibits the growth of cancer cells with activating PI3K mutations.",
       "error": null
     },
     {
@@ -331,7 +406,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "interventions based on CBT are superior to zopiclone treatment both in short- and long-term management of insomnia in older adults",
       "skeptic": "supported",
+      "skeptic_quote": "These results suggest that interventions based on CBT are superior to zopiclone treatment both in short- and long-term management of insomnia in older adults.",
       "error": null
     },
     {
@@ -344,7 +421,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "unsupported",
+      "judge_quote": "we confirmed that monocytes do not show significant contribution to tissue macrophages in the steady state",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Tissue-resident macrophages self-maintain locally throughout adult life with minimal contribution from circulating monocytes.",
       "error": null
     },
     {
@@ -353,11 +432,13 @@
       "claim": "Auditory entrainment is strengthened when people see congruent visual and auditory information.",
       "gold": "nei",
       "verdict": "partly_supported",
-      "quote": "delta-theta phase modulation across early sensory areas, plays an important \"active\" role in continuously tracking naturalistic audio-visual streams",
+      "quote": "the phase of the 2-7 Hz delta and theta band responses carries robust (in single trials) and usable information (for parsing the temporal structure) about stimulus dynamics in both sensory modalities concurrently",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "the phase of the 2-7 Hz delta and theta band responses carries robust (in single trials) and usable information (for parsing the temporal structure) about stimulus dynamics in both sensory modalities concurrently",
       "skeptic": "partly_supported",
+      "skeptic_quote": "the phase of the 2-7 Hz delta and theta band responses carries robust (in single trials) and usable information (for parsing the temporal structure) about stimulus dynamics in both sensory modalities concurrently",
       "error": null
     },
     {
@@ -370,7 +451,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "but serious nosocomial infections did not decrease (adjusted OR, 0.97; 95% CI, 0.87-1.09)",
       "skeptic": "unsupported",
+      "skeptic_quote": "but serious nosocomial infections did not decrease (adjusted OR, 0.97; 95% CI, 0.87-1.09)",
       "error": null
     },
     {
@@ -379,11 +462,13 @@
       "claim": "Proteins synthesized at the growth cone are ubiquitinated at a higher rate than proteins from the cell body.",
       "gold": "supported",
       "verdict": "partly_supported",
-      "quote": "In addition to RhoA, we find that locally translated proteins are the main targets of the ubiquitin-proteasome system in growth cones.",
+      "quote": "we find that locally translated proteins are the main targets of the ubiquitin-proteasome system in growth cones",
       "quote_in_source": true,
-      "needs_review": true,
-      "judge": "supported",
+      "needs_review": false,
+      "judge": "partly_supported",
+      "judge_quote": "we find that locally translated proteins are the main targets of the ubiquitin-proteasome system in growth cones",
       "skeptic": "partly_supported",
+      "skeptic_quote": "we find that locally translated proteins are the main targets of the ubiquitin-proteasome system in growth cones",
       "error": null
     },
     {
@@ -392,11 +477,13 @@
       "claim": "The center of the granuloma in an immune cell induces a pro-inflammatory immune response.",
       "gold": "supported",
       "verdict": "partly_supported",
-      "quote": "We found that the centers of granulomas have a pro-inflammatory environment that is characterized by the presence of antimicrobial peptides, reactive oxygen species and pro-inflammatory eicosanoids.",
+      "quote": "the centers of granulomas have a pro-inflammatory environment that is characterized by the presence of antimicrobial peptides, reactive oxygen species and pro-inflammatory eicosanoids",
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "the centers of granulomas have a pro-inflammatory environment that is characterized by the presence of antimicrobial peptides, reactive oxygen species and pro-inflammatory eicosanoids",
       "skeptic": "partly_supported",
+      "skeptic_quote": "the centers of granulomas have a pro-inflammatory environment that is characterized by the presence of antimicrobial peptides, reactive oxygen species and pro-inflammatory eicosanoids",
       "error": null
     },
     {
@@ -409,7 +496,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Risks of breast cancer associated with low-penetrance susceptibility polymorphisms do not vary significantly with these ten established environmental risk factors.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Risks of breast cancer associated with low-penetrance susceptibility polymorphisms do not vary significantly with these ten established environmental risk factors.",
       "error": null
     },
     {
@@ -422,7 +511,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "No effect was found for previous use of macrolides (primarily erythromycin), sulfonamides, penicillins, or cephalosporins.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "No effect was found for previous use of macrolides (primarily erythromycin), sulfonamides, penicillins, or cephalosporins.",
       "error": null
     },
     {
@@ -435,7 +526,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Triggering of PD-1 expressed on monocytes by PD-L1 expressed on various cell types induced IL-10 production",
       "skeptic": "unsupported",
+      "skeptic_quote": "Triggering of PD-1 expressed on monocytes by PD-L1 expressed on various cell types induced IL-10 production",
       "error": null
     },
     {
@@ -443,12 +536,14 @@
       "doc_id": 12789595,
       "claim": "Integrating classroom-based collaborative learning with Web-based collaborative learning leads to subpar class performance",
       "gold": "nei",
-      "verdict": "unsupported",
-      "quote": "Access to the wide range of online options illustrated in the figure must surely make learning more exciting, effective, and likely to be retained.",
-      "quote_in_source": true,
-      "needs_review": false,
+      "verdict": "insufficient_evidence",
+      "quote": null,
+      "quote_in_source": false,
+      "needs_review": true,
       "judge": "unsupported",
-      "skeptic": "unsupported",
+      "judge_quote": "Computer assisted learning is inevitable",
+      "skeptic": "insufficient_evidence",
+      "skeptic_quote": "This assumption is potentially but by no means inevitably correct.",
       "error": null
     },
     {
@@ -456,12 +551,14 @@
       "doc_id": 28937856,
       "claim": "FoxO3a activation in neuronal death is mediated by reactive oxygen species (ROS).",
       "gold": "supported",
-      "verdict": "partly_supported",
-      "quote": "SIRT1 and the FOXO transcription factor FOXO3 formed a complex in cells in response to oxidative stress",
+      "verdict": "unsupported",
+      "quote": "SIRT1 and the FOXO transcription factor FOXO3 formed a complex in cells in response to oxidative stress, and SIRT1 deacetylated FOXO3 in vitro and within cells.",
       "quote_in_source": true,
-      "needs_review": false,
+      "needs_review": true,
       "judge": "partly_supported",
-      "skeptic": "partly_supported",
+      "judge_quote": "SIRT1 and the FOXO transcription factor FOXO3 formed a complex in cells in response to oxidative stress",
+      "skeptic": "unsupported",
+      "skeptic_quote": "SIRT1 and the FOXO transcription factor FOXO3 formed a complex in cells in response to oxidative stress, and SIRT1 deacetylated FOXO3 in vitro and within cells.",
       "error": null
     },
     {
@@ -474,7 +571,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Mental health problems remained significantly higher in rehoused mothers and their children than in the comparison group",
       "skeptic": "unsupported",
+      "skeptic_quote": "To establish the mental health needs of homeless children and families before and after rehousing.",
       "error": null
     },
     {
@@ -487,7 +586,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Pregnant women with low 25-OHD levels had an increased risk of bacterial vaginosis and lower birth weight infants",
       "skeptic": "unsupported",
+      "skeptic_quote": "Pregnant women with low 25-OHD levels had an increased risk of bacterial vaginosis and lower birth weight infants, but not delivery by caesarean section.",
       "error": null
     },
     {
@@ -500,7 +601,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "We find that the intrinsic binding properties of RXR are masked in T3R-RXR and RAR-RXR heterodimers.",
       "skeptic": "unsupported",
+      "skeptic_quote": "We find that the intrinsic binding properties of RXR are masked in T3R-RXR and RAR-RXR heterodimers.",
       "error": null
     },
     {
@@ -513,7 +616,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Treg cells lacking expression of integrin αvβ8 were unable to suppress pathogenic T cell responses during active inflammation.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Treg cells lacking expression of integrin αvβ8 were unable to suppress pathogenic T cell responses during active inflammation.",
       "error": null
     },
     {
@@ -526,7 +631,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "POMC neurons received strong excitatory input from the medial VMH (mVMH), whereas NPY neurons did not",
       "skeptic": "partly_supported",
+      "skeptic_quote": "POMC neurons received strong excitatory input from the medial VMH (mVMH), whereas NPY neurons did not and, instead, received weak inhibitory input only from within the ARC. The strength of the excitatory input from the mVMH to POMC neurons was diminished by fasting.",
       "error": null
     },
     {
@@ -535,11 +642,13 @@
       "claim": "Assembly of invadopodia is triggered by focal generation of phosphatidylinositol-3,4-biphosphate and the activation of the nonreceptor tyrosine kinase Src.",
       "gold": "nei",
       "verdict": "partly_supported",
-      "quote": "Finally, coexpression of Tks5/Fish and Src in epithelial cells resulted in the appearance of podosomes.",
+      "quote": "coexpression of Tks5/Fish and Src in epithelial cells resulted in the appearance of podosomes",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "coexpression of Tks5/Fish and Src in epithelial cells resulted in the appearance of podosomes",
       "skeptic": "partly_supported",
+      "skeptic_quote": "coexpression of Tks5/Fish and Src in epithelial cells resulted in the appearance of podosomes",
       "error": null
     },
     {
@@ -550,9 +659,11 @@
       "verdict": "insufficient_evidence",
       "quote": null,
       "quote_in_source": false,
-      "needs_review": false,
-      "judge": "insufficient_evidence",
+      "needs_review": true,
+      "judge": "unsupported",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -565,7 +676,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "indicating an overall prevalence of 493 per million population (95% confidence interval 282 to 801 per million)",
       "skeptic": "unsupported",
+      "skeptic_quote": "indicating an overall prevalence of 493 per million population (95% confidence interval 282 to 801 per million)",
       "error": null
     },
     {
@@ -578,7 +691,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "Increased risk of breast cancer was noted with increased birthweight (relative risk [RR] 1.15 [95% CI 1.09-1.21])",
       "skeptic": "supported",
+      "skeptic_quote": "Increased risk of breast cancer was noted with increased birthweight (relative risk [RR] 1.15 [95% CI 1.09-1.21])",
       "error": null
     },
     {
@@ -591,7 +706,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "NFAT4 additionally requires Ca2+ mobilization from the inner nuclear envelope by nuclear InsP3 receptors",
       "skeptic": "supported",
+      "skeptic_quote": "NFAT4 additionally requires Ca2+ mobilization from the inner nuclear envelope by nuclear InsP3 receptors.",
       "error": null
     },
     {
@@ -604,7 +721,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -613,11 +732,13 @@
       "claim": "Reduced responsiveness to interleukin-2 in regulatory T cells is associated with greater resistance to autoimmune diseases such as Type 1 Diabetes.",
       "gold": "unsupported",
       "verdict": "unsupported",
-      "quote": "correlates with diminished IL-2 responsiveness in Ag-experienced CD4(+) T cells, as measured by phosphorylation of STAT5a, and is associated with lower levels of FOXP3 expression by Tregs",
+      "quote": "diminished IL-2 responsiveness in Ag-experienced CD4(+) T cells, as measured by phosphorylation of STAT5a, and is associated with lower levels of FOXP3 expression by Tregs and a reduction in their ability to suppress proliferation",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "diminished IL-2 responsiveness in Ag-experienced CD4(+) T cells, as measured by phosphorylation of STAT5a, and is associated with lower levels of FOXP3 expression by Tregs and a reduction in their ability to suppress proliferation",
       "skeptic": "unsupported",
+      "skeptic_quote": "We demonstrated that the presence of an autoimmune disease-associated IL2RA haplotype correlates with diminished IL-2 responsiveness in Ag-experienced CD4(+) T cells",
       "error": null
     },
     {
@@ -630,7 +751,9 @@
       "quote_in_source": false,
       "needs_review": true,
       "judge": "unsupported",
+      "judge_quote": "Interference with PIN endocytosis either by auxin or by manipulation of the Arabidopsis Rab5 GTPase pathway prevents PIN polarization.",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "Interference with PIN endocytosis either by auxin or by manipulation of the Arabidopsis Rab5 GTPase pathway prevents PIN polarization.",
       "error": null
     },
     {
@@ -641,9 +764,11 @@
       "verdict": "partly_supported",
       "quote": "imposes a requirement for specific histone demethylases, including LSD1, to permit ligand- and signal-dependent activation of regulated gene expression",
       "quote_in_source": true,
-      "needs_review": false,
-      "judge": "partly_supported",
+      "needs_review": true,
+      "judge": "supported",
+      "judge_quote": "imposes a requirement for specific histone demethylases, including LSD1, to permit ligand- and signal-dependent activation of regulated gene expression",
       "skeptic": "partly_supported",
+      "skeptic_quote": "imposes a requirement for specific histone demethylases, including LSD1, to permit ligand- and signal-dependent activation of regulated gene expression",
       "error": null
     },
     {
@@ -656,7 +781,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Volumes in different compartments (TBW, ECW, and ICW) were not related to hyperlactataemia or other clinical and laboratory markers of disease severity.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Volumes in different compartments (TBW, ECW, and ICW) were not related to hyperlactataemia or other clinical and laboratory markers of disease severity.",
       "error": null
     },
     {
@@ -669,7 +796,9 @@
       "quote_in_source": false,
       "needs_review": true,
       "judge": "unsupported",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -682,7 +811,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "Most errors occurred when giving bolus doses or making up drugs that required multiple step preparation.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Most errors occurred when giving bolus doses or making up drugs that required multiple step preparation.",
       "error": null
     },
     {
@@ -695,7 +826,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Golli-deficient T cells were hyperproliferative and showed enhanced calcium entry upon T cell receptor stimulation.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Golli-deficient T cells were hyperproliferative and showed enhanced calcium entry upon T cell receptor stimulation.",
       "error": null
     },
     {
@@ -708,7 +841,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "we observed a 21% (95% CI 3%-36%) decreased risk of incident T2D per one standard deviation (SD) higher log-transformed NT-pro-BNP levels",
       "skeptic": "unsupported",
+      "skeptic_quote": "We analysed the association between levels of the N-terminal fragment of pro-BNP (NT-pro-BNP) in blood and risk of incident T2D",
       "error": null
     },
     {
@@ -721,7 +856,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Deletion of uncoupling protein 1 (UCP1), a key mitochondrial protein involved in thermogenesis in brown adipose tissue (BAT)",
       "skeptic": "unsupported",
+      "skeptic_quote": "Deletion of uncoupling protein 1 (UCP1), a key mitochondrial protein involved in thermogenesis in brown adipose tissue (BAT), in the ApoE(-/-) strain completely protected mice from the cold-induced atherosclerotic lesions.",
       "error": null
     },
     {
@@ -734,7 +871,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "Even if only 7% of patients awaiting kidney transplantation participated in an optimized national KPD program, the health care system could save as much as $750 million.",
       "skeptic": "supported",
+      "skeptic_quote": "Even if only 7% of patients awaiting kidney transplantation participated in an optimized national KPD program, the health care system could save as much as $750 million.",
       "error": null
     },
     {
@@ -747,7 +886,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "A stable partnership is associated with a slower rate of progression to AIDS or death in HIV infected patients receiving HAART.",
       "skeptic": "unsupported",
+      "skeptic_quote": "A stable partnership is associated with a slower rate of progression to AIDS or death in HIV infected patients receiving HAART.",
       "error": null
     },
     {
@@ -760,7 +901,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "The relative risk estimate for breast cancer comparing women with high birthweight to women with low birthweight combining all studies including both pre- and postmenopausal breast cancer was 1.23",
       "skeptic": "supported",
+      "skeptic_quote": "The relative risk estimate for breast cancer comparing women with high birthweight to women with low birthweight combining all studies including both pre- and postmenopausal breast cancer was 1.23 (95% confidence interval 1.13-1.34).",
       "error": null
     },
     {
@@ -773,7 +916,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "the use of autologous MSCs compared with anti-IL-2 receptor antibody induction therapy resulted in lower incidence of acute rejection",
       "skeptic": "supported",
+      "skeptic_quote": "the use of autologous MSCs compared with anti-IL-2 receptor antibody induction therapy resulted in lower incidence of acute rejection",
       "error": null
     },
     {
@@ -786,7 +931,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -795,11 +942,13 @@
       "claim": "Statins decrease blood cholesterol.",
       "gold": "nei",
       "verdict": "partly_supported",
-      "quote": "lowering LDL should be the primary goal. Effective means to achieve this goal are currently available.",
+      "quote": "Effective means to achieve this goal are currently available.",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "Effective means to achieve this goal are currently available.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "If we are to eliminate coronary disease, lowering LDL should be the primary goal. Effective means to achieve this goal are currently available.",
       "error": null
     },
     {
@@ -812,7 +961,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Reduced IL-2 production achieved by either genetic mechanism correlates with reduced function of CD4+ CD25+ regulatory T cells",
       "skeptic": "unsupported",
+      "skeptic_quote": "Reduced IL-2 production achieved by either genetic mechanism correlates with reduced function of CD4+ CD25+ regulatory T cells, which are critical for maintaining immune homeostasis.",
       "error": null
     },
     {
@@ -820,12 +971,14 @@
       "doc_id": 13625993,
       "claim": "CRP is not predictive of postoperative mortality following Coronary Artery Bypass Graft (CABG) surgery.",
       "gold": "nei",
-      "verdict": "insufficient_evidence",
-      "quote": null,
-      "quote_in_source": false,
-      "needs_review": true,
+      "verdict": "unsupported",
+      "quote": "Prioritisation strategies based on the prognostic information conferred by C reactive protein, which is not currently measured in this context",
+      "quote_in_source": true,
+      "needs_review": false,
       "judge": "unsupported",
-      "skeptic": "insufficient_evidence",
+      "judge_quote": "Prioritisation strategies based on the prognostic information conferred by C reactive protein, which is not currently measured in this context",
+      "skeptic": "unsupported",
+      "skeptic_quote": "The prioritisation strategy using a risk score with C reactive protein was associated with lower QALYs and higher costs compared with a risk score using estimated glomerular filtration rate.",
       "error": null
     },
     {
@@ -838,7 +991,9 @@
       "quote_in_source": false,
       "needs_review": true,
       "judge": "partly_supported",
+      "judge_quote": "Higher sun exposure during childhood and early adolescence is associated with a reduced risk of multiple sclerosis.",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -851,7 +1006,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "Incidence and mortality rates have declined more in Finland.",
       "skeptic": "supported",
+      "skeptic_quote": "Incidence and mortality rates have declined more in Finland.",
       "error": null
     },
     {
@@ -864,7 +1021,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "Our study demonstrates that avian somatic cells possess an inherent sex identity and that, in birds, sexual differentiation is substantively cell autonomous.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Our study demonstrates that avian somatic cells possess an inherent sex identity and that, in birds, sexual differentiation is substantively cell autonomous.",
       "error": null
     },
     {
@@ -873,11 +1032,13 @@
       "claim": "The minor G allele of FOXO3 is related to more severe symptoms of Crohn's Disease.",
       "gold": "unsupported",
       "verdict": "unsupported",
-      "quote": "the minor (G) allele, despite not being associated with disease susceptibility, is associated with a milder course of Crohn's disease",
+      "quote": "the minor (G) allele, despite not being associated with disease susceptibility, is associated with a milder course of Crohn's disease and rheumatoid arthritis",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "the minor (G) allele, despite not being associated with disease susceptibility, is associated with a milder course of Crohn's disease and rheumatoid arthritis",
       "skeptic": "unsupported",
+      "skeptic_quote": "the minor (G) allele, despite not being associated with disease susceptibility, is associated with a milder course of Crohn's disease and rheumatoid arthritis",
       "error": null
     },
     {
@@ -890,7 +1051,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "the VgrG-PAAR spike complex is decorated with multiple effectors that are delivered simultaneously into target cells",
       "skeptic": "partly_supported",
+      "skeptic_quote": "form a sharp conical extension on the VgrG spike, which is further involved in attaching effector domains to the spike.",
       "error": null
     },
     {
@@ -903,7 +1066,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "The number of women dying from cervical cancer in 1997 was 7% lower than in 1996 and has fallen by over 25% since 1992.",
       "skeptic": "unsupported",
+      "skeptic_quote": "The number of women dying from cervical cancer in 1997 was 7% lower than in 1996 and has fallen by over 25% since 1992.",
       "error": null
     },
     {
@@ -914,9 +1079,11 @@
       "verdict": "insufficient_evidence",
       "quote": null,
       "quote_in_source": false,
-      "needs_review": false,
-      "judge": "insufficient_evidence",
+      "needs_review": true,
+      "judge": "unsupported",
+      "judge_quote": "We find that the intrinsic binding properties of RXR are masked in T3R-RXR and RAR-RXR heterodimers.",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -929,7 +1096,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Clinical descriptors can assist clinicians in identifying high-risk patients within the broad range of risk for outpatients with atherothrombosis.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Clinical descriptors can assist clinicians in identifying high-risk patients within the broad range of risk for outpatients with atherothrombosis.",
       "error": null
     },
     {
@@ -938,11 +1107,13 @@
       "claim": "p16INK4A accumulation is  linked to an abnormal wound response caused by the microinvasive step of advanced Oral Potentially Malignant Lesions (OPMLs).",
       "gold": "nei",
       "verdict": "unsupported",
-      "quote": "p16(INK4a) activation is a characteristic of all emerging cancers",
+      "quote": "Activation of p16(INK4a) was noted in the emerging neoplasm and surrounding stromal cells.",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "p16INK4a activation is a characteristic of all emerging cancers",
       "skeptic": "unsupported",
+      "skeptic_quote": "Activation of p16(INK4a) was noted in the emerging neoplasm and surrounding stromal cells.",
       "error": null
     },
     {
@@ -955,7 +1126,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -968,7 +1141,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "may not be appropriate for patients who present less than three hours after symptom onset",
       "skeptic": "partly_supported",
+      "skeptic_quote": "However, this method should be part of a comprehensive triage strategy and may not be appropriate for patients who present less than three hours after symptom onset.",
       "error": null
     },
     {
@@ -981,7 +1156,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "The mean incidence of cervical carcinoma in the early 1960s was 15.4 per 10(5) woman-years. In 1991, it was only 2.7 per 10(5) woman-years.",
       "skeptic": "supported",
+      "skeptic_quote": "The mean incidence of cervical carcinoma in the early 1960s was 15.4 per 10(5) woman-years. In 1991, it was only 2.7 per 10(5) woman-years.",
       "error": null
     },
     {
@@ -990,11 +1167,13 @@
       "claim": "Epidemiological disease burden from noncommunicable diseases is more prevalent in low economic settings.",
       "gold": "nei",
       "verdict": "unsupported",
-      "quote": "low physical activity, high BMI, and high fasting plasma glucose increased with SDI",
+      "quote": "low physical activity, high BMI, and high fasting plasma glucose increased with SDI.",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "low physical activity, high BMI, and high fasting plasma glucose increased with SDI.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Environmental risks and childhood undernutrition declined steadily with SDI; low physical activity, high BMI, and high fasting plasma glucose increased with SDI.",
       "error": null
     },
     {
@@ -1007,7 +1186,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "reduce the immune suppressive microenvironment through type I IFN signaling and improve response to immune checkpoint therapy",
       "skeptic": "supported",
+      "skeptic_quote": "We now find, in a mouse model of EOC, that clinically relevant doses of DNA methyltransferase and histone deacetylase inhibitors (DNMTi and HDACi, respectively) reduce the immune suppressive microenvironment through type I IFN signaling and improve response to immune checkpoint therapy.",
       "error": null
     },
     {
@@ -1020,7 +1201,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "Use of this combination treatment schema in mouse models of NSCLC reverses tumor immune evasion and modulates T cell exhaustion state towards memory and effector T cell phenotypes.",
       "skeptic": "supported",
+      "skeptic_quote": "Use of this combination treatment schema in mouse models of NSCLC reverses tumor immune evasion and modulates T cell exhaustion state towards memory and effector T cell phenotypes.",
       "error": null
     },
     {
@@ -1028,12 +1211,14 @@
       "doc_id": 4414547,
       "claim": "Activation of PPM1D suppresses p53 function.",
       "gold": "supported",
-      "verdict": "supported",
-      "quote": "the mutations result in enhanced suppression of p53 in response to ionizing radiation exposure, suggesting that the mutant alleles encode hyperactive PPM1D isoforms",
+      "verdict": "partly_supported",
+      "quote": "Functional studies demonstrate that the mutations result in enhanced suppression of p53 in response to ionizing radiation exposure, suggesting that the mutant alleles encode hyperactive PPM1D isoforms.",
       "quote_in_source": true,
-      "needs_review": false,
+      "needs_review": true,
       "judge": "supported",
-      "skeptic": "supported",
+      "judge_quote": "the mutations result in enhanced suppression of p53 in response to ionizing radiation exposure, suggesting that the mutant alleles encode hyperactive PPM1D isoforms",
+      "skeptic": "partly_supported",
+      "skeptic_quote": "Functional studies demonstrate that the mutations result in enhanced suppression of p53 in response to ionizing radiation exposure, suggesting that the mutant alleles encode hyperactive PPM1D isoforms.",
       "error": null
     },
     {
@@ -1046,7 +1231,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "Transmural LGE is determined reliably by PSIR and represents advanced cardiac amyloidosis.",
       "skeptic": "supported",
+      "skeptic_quote": "There is a continuum of cardiac involvement in systemic AL and ATTR amyloidosis. Transmural LGE is determined reliably by PSIR and represents advanced cardiac amyloidosis.",
       "error": null
     },
     {
@@ -1059,7 +1246,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Treatment with the G4-stabilizing compound pyridostatin (PDS) increases telomere fragility in BRCA2-deficient cells",
       "skeptic": "unsupported",
+      "skeptic_quote": "Treatment with the G4-stabilizing compound pyridostatin (PDS) increases telomere fragility in BRCA2-deficient cells",
       "error": null
     },
     {
@@ -1072,7 +1261,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -1080,12 +1271,14 @@
       "doc_id": 16322674,
       "claim": "Birth-weight is positively associated with breast cancer.",
       "gold": "supported",
-      "verdict": "supported",
-      "quote": "Birth weight was positively associated with breast cancer risk in studies based on birth records",
+      "verdict": "partly_supported",
+      "quote": "Birth weight was positively associated with breast cancer risk in studies based on birth records (pooled relative risk [RR] per one standard deviation [SD] [= 0.5 kg] increment in birth weight: 1.06; 95% confidence interval [CI] 1.02-1.09) and parental recall when the participants were children (1.02; 95% CI 0.99-1.05), but not in those based on adult self-reports, or maternal recall during the woman's adulthood (0.98; 95% CI 0.95-1.01) (p for heterogeneity between data sources = 0.003).",
       "quote_in_source": true,
-      "needs_review": false,
+      "needs_review": true,
       "judge": "supported",
-      "skeptic": "supported",
+      "judge_quote": "Birth weight was positively associated with breast cancer risk in studies based on birth records",
+      "skeptic": "partly_supported",
+      "skeptic_quote": "Birth weight was positively associated with breast cancer risk in studies based on birth records (pooled relative risk [RR] per one standard deviation [SD] [= 0.5 kg] increment in birth weight: 1.06; 95% confidence interval [CI] 1.02-1.09) and parental recall when the participants were children (1.02; 95% CI 0.99-1.05), but not in those based on adult self-reports, or maternal recall during the woman's adulthood (0.98; 95% CI 0.95-1.01) (p for heterogeneity between data sources = 0.003).",
       "error": null
     },
     {
@@ -1098,7 +1291,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "Perceived age, controlled for chronological age and sex, also correlated significantly with physical and cognitive functioning as well as with leucocyte telomere length.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Perceived age, controlled for chronological age and sex, also correlated significantly with physical and cognitive functioning as well as with leucocyte telomere length.",
       "error": null
     },
     {
@@ -1111,7 +1306,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "mutant oncogenic Ras was a dominant determinant of resistance, even in tumors with coexisting mutations in PIK3CA",
       "skeptic": "unsupported",
+      "skeptic_quote": "The identification of Ras and downstream signaling pathways driving resistance to PI3K inhibition might serve as an important guide for patient selection as inhibitors enter clinical trials and for the development of rational combinations with other molecularly targeted agents.",
       "error": null
     },
     {
@@ -1124,7 +1321,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -1137,7 +1336,9 @@
       "quote_in_source": false,
       "needs_review": true,
       "judge": "unsupported",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -1150,7 +1351,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -1159,11 +1362,13 @@
       "claim": "Ly6C hi monocytes have a lower inflammatory capacity than Ly6C lo monocytes.",
       "gold": "unsupported",
       "verdict": "unsupported",
-      "quote": "Under inflammatory conditions elicited either by acute infection with Listeria monocytogenes or chronic infection with Leishmania major, there was a significant increase in immature Ly-6C(high) monocytes",
+      "quote": "there was a significant increase in immature Ly-6C(high) monocytes",
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "there was a significant increase in immature Ly-6C(high) monocytes",
       "skeptic": "unsupported",
+      "skeptic_quote": "In addition, acute peritoneal inflammation recruited preferentially Ly-6C(med-high) monocytes.",
       "error": null
     },
     {
@@ -1176,7 +1381,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "partly_supported",
+      "judge_quote": "Screening for cervical cancer based on testing for human papillomavirus (HPV) increases the sensitivity of detection of high-grade (grade 2 or 3) cervical intraepithelial neoplasia",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Screening for cervical cancer based on testing for human papillomavirus (HPV) increases the sensitivity of detection of high-grade (grade 2 or 3) cervical intraepithelial neoplasia",
       "error": null
     },
     {
@@ -1189,7 +1396,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "partly_supported",
+      "judge_quote": "At 30-35 kg/m(2), median survival is reduced by 2-4 years; at 40-45 kg/m(2), it is reduced by 8-10 years",
       "skeptic": "unsupported",
+      "skeptic_quote": "At 30-35 kg/m(2), median survival is reduced by 2-4 years; at 40-45 kg/m(2), it is reduced by 8-10 years",
       "error": null
     },
     {
@@ -1197,12 +1406,14 @@
       "doc_id": 1049501,
       "claim": "Immune complex triggered cell death leads to extracellular release of neutrophil protein HMGB1.",
       "gold": "nei",
-      "verdict": "insufficient_evidence",
-      "quote": null,
-      "quote_in_source": false,
+      "verdict": "unsupported",
+      "quote": "Extracellular release of oxidized mitochondrial DNA is proinflammatory in vitro",
+      "quote_in_source": true,
       "needs_review": false,
-      "judge": "insufficient_evidence",
-      "skeptic": "insufficient_evidence",
+      "judge": "unsupported",
+      "judge_quote": "Extracellular release of oxidized mitochondrial DNA is proinflammatory in vitro",
+      "skeptic": "unsupported",
+      "skeptic_quote": "Extracellular release of oxidized mitochondrial DNA is proinflammatory in vitro",
       "error": null
     },
     {
@@ -1211,11 +1422,13 @@
       "claim": "Low nucleosome occupancy correlates with low methylation levels across species.",
       "gold": "unsupported",
       "verdict": "unsupported",
-      "quote": "Clustered methylation occurs at unprecedented densities and directly disfavors nucleosomes",
+      "quote": "Clustered methylation occurs at unprecedented densities and directly disfavors nucleosomes, contributing to nucleosome positioning between clusters.",
       "quote_in_source": true,
-      "needs_review": false,
-      "judge": "unsupported",
+      "needs_review": true,
+      "judge": "partly_supported",
+      "judge_quote": "Clustered methylation occurs at unprecedented densities and directly disfavors nucleosomes, contributing to nucleosome positioning between clusters.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Clustered methylation occurs at unprecedented densities and directly disfavors nucleosomes, contributing to nucleosome positioning between clusters.",
       "error": null
     },
     {
@@ -1228,7 +1441,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Despite the high incidence of febrile seizures, their contribution to the development of epilepsy later in life has remained controversial.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Despite the high incidence of febrile seizures, their contribution to the development of epilepsy later in life has remained controversial.",
       "error": null
     },
     {
@@ -1241,7 +1456,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Marked within-family clustering of both obesity and leanness is useful diagnostically",
       "skeptic": "unsupported",
+      "skeptic_quote": "Marked within-family clustering of both obesity and leanness is useful diagnostically",
       "error": null
     },
     {
@@ -1250,11 +1467,13 @@
       "claim": "Lymphadenopathy is observed in knockin mouse lacking the SHP-2 MAPK pathway.",
       "gold": "supported",
       "verdict": "partly_supported",
-      "quote": "The SHP2 signal-deficient mice (gp130F759/F759 were born normal but displayed splenomegaly and lymphadenopathy and an enhanced acute phase reaction.",
+      "quote": "The SHP2 signal-deficient mice (gp130F759/F759 were born normal but displayed splenomegaly and lymphadenopathy",
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "The SHP2 signal-deficient mice (gp130F759/F759 were born normal but displayed splenomegaly and lymphadenopathy",
       "skeptic": "partly_supported",
+      "skeptic_quote": "The SHP2 signal-deficient mice (gp130F759/F759 were born normal but displayed splenomegaly and lymphadenopathy",
       "error": null
     },
     {
@@ -1267,7 +1486,9 @@
       "quote_in_source": false,
       "needs_review": false,
       "judge": "insufficient_evidence",
+      "judge_quote": "",
       "skeptic": "insufficient_evidence",
+      "skeptic_quote": "",
       "error": null
     },
     {
@@ -1275,12 +1496,14 @@
       "doc_id": 10697096,
       "claim": "Chronic aerobic exercise alters endothelial function, improving vasodilating mechanisms mediated by NO.",
       "gold": "supported",
-      "verdict": "partly_supported",
-      "quote": "These results suggest that exercise training enhances bradykinin-induced vasodilation through increased endothelium-derived relaxing factor/nitric oxide production by the L-arginine/nitric oxide synthase pathway.",
+      "verdict": "supported",
+      "quote": "exercise training enhances bradykinin-induced vasodilation through increased endothelium-derived relaxing factor/nitric oxide production by the L-arginine/nitric oxide synthase pathway",
       "quote_in_source": true,
-      "needs_review": true,
+      "needs_review": false,
       "judge": "supported",
-      "skeptic": "partly_supported",
+      "judge_quote": "exercise training enhances bradykinin-induced vasodilation through increased endothelium-derived relaxing factor/nitric oxide production by the L-arginine/nitric oxide synthase pathway",
+      "skeptic": "supported",
+      "skeptic_quote": "These results suggest that exercise training enhances bradykinin-induced vasodilation through increased endothelium-derived relaxing factor/nitric oxide production by the L-arginine/nitric oxide synthase pathway.",
       "error": null
     },
     {
@@ -1289,11 +1512,13 @@
       "claim": "Stroke patients with prior use of direct oral anticoagulants have a lower risk of in-hospital mortality than stroke patients with prior use of warfarin.",
       "gold": "supported",
       "verdict": "partly_supported",
-      "quote": "Among patients with ICH, prior use of NOACs or warfarin was associated with higher in-hospital mortality compared with no OACs. Prior use of NOACs, compared with prior use of warfarin, was associated with lower risk of in-hospital mortality.",
+      "quote": "Compared with patients with prior use of warfarin, patients with prior use of NOACs had a lower risk of in-hospital mortality",
       "quote_in_source": true,
-      "needs_review": true,
-      "judge": "supported",
+      "needs_review": false,
+      "judge": "partly_supported",
+      "judge_quote": "Compared with patients with prior use of warfarin, patients with prior use of NOACs had a lower risk of in-hospital mortality",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Prior use of NOACs, compared with prior use of warfarin, was associated with lower risk of in-hospital mortality.",
       "error": null
     },
     {
@@ -1306,7 +1531,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "supported",
+      "judge_quote": "The relative risk estimate for breast cancer comparing women with high birthweight to women with low birthweight combining all studies including both pre- and postmenopausal breast cancer was 1.23",
       "skeptic": "supported",
+      "skeptic_quote": "The relative risk estimate for breast cancer comparing women with high birthweight to women with low birthweight combining all studies including both pre- and postmenopausal breast cancer was 1.23 (95% confidence interval 1.13-1.34).",
       "error": null
     },
     {
@@ -1319,7 +1546,9 @@
       "quote_in_source": true,
       "needs_review": true,
       "judge": "supported",
+      "judge_quote": "Individuals homozygous for the null variant (*2*2) experience adverse symptoms when drinking alcohol and consequently drink considerably less alcohol than wild-type homozygotes (*1*1) or heterozygotes.",
       "skeptic": "partly_supported",
+      "skeptic_quote": "Individuals homozygous for the null variant (*2*2) experience adverse symptoms when drinking alcohol and consequently drink considerably less alcohol than wild-type homozygotes (*1*1) or heterozygotes.",
       "error": null
     },
     {
@@ -1332,7 +1561,9 @@
       "quote_in_source": true,
       "needs_review": false,
       "judge": "unsupported",
+      "judge_quote": "Our conclusions are that genetic factors are certainly present.",
       "skeptic": "unsupported",
+      "skeptic_quote": "Our conclusions are that genetic factors are certainly present.",
       "error": null
     }
   ],
