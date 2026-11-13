@@ -91,7 +91,7 @@ def client(monkeypatch, tmp_path):
     web.JOBS.clear()
     calls = []
 
-    async def fake_run(text, files=None, on_progress=None, report_id=None):
+    async def fake_run(text, files=None, on_progress=None, report_id=None, on_partial=None):
         calls.append((text, files))
         on_progress("references", 1, 3)
         return make_report(report_id)
@@ -195,7 +195,7 @@ def test_unknown_job_404(client):
 def test_at_most_two_running(client, monkeypatch):
     release = threading.Event()
 
-    async def slow(text, files=None, on_progress=None, report_id=None):
+    async def slow(text, files=None, on_progress=None, report_id=None, on_partial=None):
         await asyncio.to_thread(release.wait, 5)
         return make_report(report_id)
 
@@ -423,7 +423,7 @@ def test_queue_refuses_beyond_four_waiting(client):
 
 
 def test_job_timeout_is_error_without_report(client, monkeypatch):
-    async def hang(text, files=None, on_progress=None, report_id=None):
+    async def hang(text, files=None, on_progress=None, report_id=None, on_partial=None):
         await asyncio.sleep(10)
 
     monkeypatch.setattr(pipeline, "run", hang)
@@ -466,3 +466,53 @@ def test_chat_busy_and_per_report_limit(client, monkeypatch):
 def test_ui_shareable_link_wording():
     page = (Path(web.STATIC) / "index.html").read_text()
     assert "Permanent" not in page and "Shareable link" in page and "newest 1000" in page
+
+
+def test_partial_report_is_served_while_running_and_not_saved(client, monkeypatch):
+    gate = threading.Event()
+
+    async def streaming(text, files=None, on_progress=None, report_id=None, on_partial=None):
+        on_progress("references", 1, 3)
+        full = make_report(report_id)
+        for n in (1, 2):
+            on_partial(
+                full.model_copy(
+                    update={"references": full.references[:n], "claims": [], "complete": False}
+                )
+            )
+        await asyncio.to_thread(gate.wait, 5)
+        return full
+
+    monkeypatch.setattr(pipeline, "run", streaming)
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    end = time.monotonic() + 5
+    while (job := client.get(f"/api/jobs/{job_id}").json())["report"] is None:
+        assert time.monotonic() < end
+        time.sleep(0.01)
+    assert job["status"] == "running" and job["report"]["complete"] is False
+    assert [a["reference"]["id"] for a in job["report"]["references"]] == ["1", "2"]
+    assert not (client.reports / f"{job_id}.json").exists()  # partial snapshots stay in memory
+    assert client.get(f"/api/jobs/{job_id}/export.json").status_code == 409
+    gate.set()
+    job = wait(client, job_id)
+    assert job["report"]["complete"] is True and len(job["report"]["references"]) == 3
+    saved = Report.model_validate_json((client.reports / f"{job_id}.json").read_text())
+    assert saved.complete and len(saved.claims) == 2
+
+
+def test_saved_sample_report_matches_sample_manuscript():
+    static = Path(web.__file__).parent / "static"
+    report = Report.model_validate_json((static / "sample-report.json").read_text())
+    assert report.complete
+    body, section, _ = split_manuscript((static / "sample.txt").read_text())
+    refs = [Reference(id=n, raw=raw) for n, raw in split_entries(section)]
+    cites, _ = find_citations(body, refs)
+    assert [a.reference.id for a in report.references] == [r.id for r in refs]
+    assert [a.reference.raw for a in report.references] == [r.raw for r in refs]
+    assert [(c.ref_id, c.sentence) for c in report.claims] == [
+        (rid, c.sentence) for c in cites for rid in c.ref_ids
+    ]
+    # served next to the page, and the UI labels it as a saved example
+    assert TestClient(web.app).get("/static/sample-report.json").status_code == 200
+    js = (static / "app.js").read_text()
+    assert "Saved example — computed on" in js and "results may differ in a live run" in js
