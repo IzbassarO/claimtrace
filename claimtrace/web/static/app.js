@@ -283,7 +283,36 @@ function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle =
   ].flat().filter(Boolean);
 }
 
+const REF_EXAMPLE = `References
+[1] Author A, Author B. Title of the paper. Journal. 2020;12:34-56. doi:10.1234/abcd
+[2] Author C. Title of the book. Publisher; 2019.`;
+
+// Nothing to audit (no references, no claims): one screen saying what to fix, no empty sections.
+function renderEmpty(r) {
+  $("results-h").textContent = "No reference list found in this manuscript";
+  const again = el("button", { type: "button" }, "Audit another manuscript");
+  again.addEventListener("click", reset);
+  $("empty").replaceChildren(
+    el("p", {}, "ClaimTrace needs the manuscript's reference list. Put it at the end, under a heading line such as ",
+      "“References”, “Bibliography”, “Literature cited” or “Works cited” ",
+      "(it may be numbered), with one entry per line, for example:"),
+    el("pre", { className: "example" }, REF_EXAMPLE),
+    el("div", { className: "actions" }, again),
+    r.warnings.length ? el("details", { className: "tech" }, el("summary", {}, `Technical details (${r.warnings.length})`),
+      el("ul", { className: "warnings" }, r.warnings.map((w) => el("li", {}, w)))) : null);
+}
+
 function renderReport(r) {
+  const empty = !r.references.length && !r.claims.length;
+  $("empty").hidden = !empty;
+  $("report").hidden = empty;
+  if (empty) {
+    renderEmpty(r);
+    show("results");
+    $("results-h").setAttribute("tabindex", "-1");
+    $("results-h").focus();
+    return;
+  }
   $("results-h").textContent = r.title || "Report";
   $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
   $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
@@ -291,9 +320,7 @@ function renderReport(r) {
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;
   const nm = r.claims.filter(claimMiddle).length;
-  $("summary").textContent = !r.references.length && !r.claims.length
-    ? "No references or citing sentences were found. Check that the text includes its reference list."
-    : [r.references.length ? `${nr} of ${plural(r.references.length, "reference")} ${need(nr)} attention` : "No references were found",
+  $("summary").textContent = [r.references.length ? `${nr} of ${plural(r.references.length, "reference")} ${need(nr)} attention` : "No references were found",
       r.claims.length ? `${nc} of ${plural(r.claims.length, "claim")} ${need(nc)} attention` : "No citing sentences were found or checked",
       nm ? `${nm} ${MIDDLE.toLowerCase()}` : ""].filter(Boolean).join(" · ");
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
