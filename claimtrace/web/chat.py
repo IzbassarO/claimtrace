@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from claimtrace.core.llm import ask_text, wrap_untrusted
 from claimtrace.core.schemas import Report
 
-# ponytail: hard cut on the report size sent to the model; summarise per section if reports grow
+# ponytail: hard cut on the reference part sent to the model; summarise per section if reports grow
 MAX_REPORT_CHARS = 150_000
 
 SYSTEM = (
@@ -28,13 +28,20 @@ class Turn(BaseModel):
 
 
 def report_json(report: Report) -> str:
-    data = report.model_dump(
-        mode="json", exclude={"references": {"__all__": {"matched": {"abstract"}}}}
-    )
-    text = json.dumps(data, ensure_ascii=False)
-    if len(text) > MAX_REPORT_CHARS:
-        text = text[:MAX_REPORT_CHARS] + " ... [report truncated]"
-    return text
+    """Summary, warnings and claims always go in whole; only the reference list is trimmed."""
+    head = json.dumps(report.model_dump(mode="json", exclude={"references"}), ensure_ascii=False)
+    budget = MAX_REPORT_CHARS - len(head)
+    drop = {"matched": {"abstract"}}
+    for slim in (drop, {**drop, "providers": True, "reference": {"raw"}}):
+        refs = json.dumps(
+            [r.model_dump(mode="json", exclude=slim) for r in report.references],
+            ensure_ascii=False,
+        )
+        if len(refs) <= budget:
+            break
+    else:
+        refs = refs[: max(budget, 0)] + " ... [references truncated]"
+    return head[:-1] + ', "references": ' + refs + "}"
 
 
 async def answer(report: Report, question: str, history: list[Turn]) -> str:
