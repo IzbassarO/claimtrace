@@ -3,6 +3,7 @@ Owner: T2 (docs/TASKS.md). Status semantics: docs/ARCHITECTURE.md."""
 
 import asyncio
 from collections.abc import Callable
+from difflib import SequenceMatcher
 
 import httpx
 
@@ -18,12 +19,15 @@ from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
     arxiv_from_doi,
+    arxiv_of,
+    compare,
     first_author_equal,
     id_equal,
     identifies,
     mismatches,
     norm_arxiv,
     norm_doi,
+    normalize_title,
     strip_notice,
     title_match,
     title_prefix,
@@ -43,15 +47,11 @@ PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
 
 
-def _arxiv_of(w: Work) -> str | None:
-    return norm_arxiv(w.arxiv_id) or arxiv_from_doi(w.doi)
-
-
 def _same_work(a: Work, b: Work) -> bool:
-    d, x = norm_doi(a.doi), _arxiv_of(a)
+    d, x = norm_doi(a.doi), arxiv_of(a)
     return (
         bool(d and d == norm_doi(b.doi))
-        or bool(x and x == _arxiv_of(b))
+        or bool(x and x == arxiv_of(b))
         or title_match(a.title, b.title)
     )
 
@@ -64,14 +64,22 @@ def _foreign_ids(ref: Reference, best: Work, works: list[Work]) -> list[Mismatch
         # untitled records prove nothing; versions of the same work are fine
         if w is best or not w.title or not best.title or _same_work(best, w):
             continue
-        if (rd and rd == norm_doi(w.doi)) or (not ref.arxiv_id and ra and ra == _arxiv_of(w)):
+        if (rd and rd == norm_doi(w.doi)) or (not ref.arxiv_id and ra and ra == arxiv_of(w)):
             field, cited = "doi", ref.doi
-        elif ra and ra == _arxiv_of(w):
+        elif ra and ra == arxiv_of(w):
             field, cited = "arxiv_id", ref.arxiv_id
         else:
             continue
         out[field] = Mismatch(field=field, cited=cited, found=f"resolves to: {w.title}")
     return list(out.values())
+
+
+def _head_similarity(cited: str, found: str) -> float:
+    """Similarity of the cited title to the found title's opening of the same length: a
+    truncated citation with small edits ('A decomposable attention model' vs 'Decomposable
+    attention models for ...')."""
+    c, f = normalize_title(cited), normalize_title(found)
+    return SequenceMatcher(None, c, f[: len(c)]).ratio() if len(c.split()) >= 3 else 0.0
 
 
 def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -> ReferenceAudit:
@@ -81,16 +89,20 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     if not identified:
         failed = [o.provider for o in outcomes if not o.ok]
         near = [w for w in works if title_match(ref.title, w.title)]
-        # not_found must mean "nothing close exists": same first author and year (±1) with a
-        # similar or prefix title is a possible match, left unchecked for a human
+        # not_found must mean "nothing close exists": same first author, year (±1) when both
+        # are known, and a prefix or very similar title is a possible match left for a human
         close = [
             w
             for w in works
             if ref.title
             and w.title
             and first_author_equal(ref.authors, w.authors)
-            and year_ok(ref.year, w.year)
-            and (title_similarity(ref.title, w.title) >= 0.6 or title_prefix(ref.title, w.title))
+            and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
+            and (
+                title_prefix(ref.title, w.title)
+                or max(title_similarity(ref.title, w.title), _head_similarity(ref.title, w.title))
+                >= 0.85
+            )
         ]
         notices = [w for w in works if title_match(ref.title, strip_notice(w.title))]
         if failed:
@@ -125,20 +137,29 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         return (
             not any(w is v for v in anchored),
             len(mismatches(ref, w)),
+            -sum(map(bool, (w.title, w.authors, w.year, w.doi))),  # coverage
             -sim,
             PRIORITY[w.provider],
         )
 
     best = min(identified, key=rank)
-    out.mismatches = mismatches(ref, best)
+    if not any(id_equal(ref, w) or title_match(ref.title, w.title) for w in identified) and any(
+        not _same_work(best, w) for w in identified
+    ):
+        titles = "; ".join(dict.fromkeys(f"'{w.title}'" for w in identified))
+        out.note = f"truncated title fits several works: {titles}"
+        return out
+    # every record of the same work counts: a field one provider lacks is not checked there,
+    # never an advantage over the provider that has it
+    group = [w for w in identified if w is best or _same_work(best, w)]
+    out.mismatches, checked = compare(ref, group)
     seen = {m.field for m in out.mismatches}
     out.mismatches += [m for m in _foreign_ids(ref, best, works) if m.field not in seen]
     matched = best.model_copy()
-    for w in sorted(identified, key=rank):
-        if w is not best and _same_work(best, w):
-            for f in MERGE_FIELDS:
-                if getattr(matched, f) is None and getattr(w, f) is not None:
-                    setattr(matched, f, getattr(w, f))
+    for w in sorted(group, key=rank):
+        for f in (*MERGE_FIELDS, "title", "authors", "year"):
+            if not getattr(matched, f) and getattr(w, f):
+                setattr(matched, f, getattr(w, f))
     retracted_by = [w.provider for w in identified if w.is_retracted]
     matched.is_retracted = bool(retracted_by)
     out.matched = matched
@@ -149,12 +170,21 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         if title_match(ref.title, best.title)
         else "truncated title + year + first author"
     )
-    out.note = f"identified via {best.provider} ({how})"
+    out.note = f"identified via {best.provider} ({how}); checked: {', '.join(checked) or 'ids'}"
     if retracted_by:
         out.status = RefStatus.retracted
         out.note += f"; retraction flagged by {', '.join(sorted(set(retracted_by)))}"
     elif out.mismatches:
         out.status = RefStatus.metadata_mismatch
+    elif not (
+        any(c.startswith("title") for c in checked)
+        and any(c.startswith(("authors", "year")) for c in checked)
+    ):
+        # verified needs the title and (first author or year) compared, not just an id resolved
+        out.note = (
+            f"identifier resolves to '{matched.title}'; "
+            "cited title/authors could not be extracted to compare"
+        )
     else:
         out.status = RefStatus.verified
     return out

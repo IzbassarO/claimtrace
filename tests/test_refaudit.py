@@ -303,7 +303,9 @@ async def test_arxiv_batched_and_semantic_scholar_with_key(monkeypatch):
         return httpx.Response(404)
 
     refs = [
-        Reference(id="v", raw="", title="Attention is all you need", arxiv_id="1706.03762v2"),
+        Reference(
+            id="v", raw="", title="Attention is all you need", year=2017, arxiv_id="1706.03762v2"
+        ),
         Reference(
             id="m",
             raw="",

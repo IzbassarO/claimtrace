@@ -217,19 +217,98 @@ def identifies(ref: Reference, w: Work) -> bool:
     )
 
 
+def arxiv_of(w: Work) -> str | None:
+    return norm_arxiv(w.arxiv_id) or arxiv_from_doi(w.doi)
+
+
+_NOT_A_NAME = {"", "et", "al", "others"}
+
+
+def missing_author(cited: list[str], found: list[str]) -> str | None:
+    """The first cited author not confirmed by `found`: the first author must be equal, every
+    co-author's family name must appear among the found names. A found list shorter than the
+    cited one may be truncated (big consortia): only that many cited authors are compared."""
+    if not first_author_equal(cited, found):
+        return cited[0] if cited else None
+    names = {t for a in found for t in re.findall(r"\w+", _fold(a))}
+    return next(
+        (a for a in cited[1 : len(found)] if family_name(a) not in _NOT_A_NAME | names),
+        None,
+    )
+
+
+def _in_raw(raw: str, title: str) -> bool:
+    """The found title, word for word, inside the raw reference string (>= 3 words), and the
+    raw string has no negation the title lacks ('No evidence that <title>'). An issue number
+    'No. 3' also counts as a negation: that only leaves the title unchecked."""
+    t = normalize_title(title)
+    return (
+        len(t.split()) >= 3
+        and f" {t} " in f" {normalize_title(raw)} "
+        and negations(raw) == negations(title)
+    )
+
+
+def compare(ref: Reference, works: list[Work]) -> tuple[list[Mismatch], list[str]]:
+    """Check a citation against the records of one work. A field is checked when some record
+    has it (a missing field is never an advantage) and mismatches when no record agrees.
+    Returns (mismatches, labels of the checked fields)."""
+    out: list[Mismatch] = []
+    checked: list[str] = []
+
+    def check(label, has, ok, cited, found):
+        rs = [w for w in works if has(w)]
+        if rs:
+            checked.append(label)
+            if not any(ok(w) for w in rs):
+                out.append(Mismatch(field=label.split()[0], cited=cited, found=found(rs[0])))
+
+    d1 = norm_doi(ref.doi)
+    a_doi = arxiv_from_doi(d1)
+    if d1:
+        # an arXiv-DOI record next to a cited journal DOI is a version, not a contradiction;
+        # a cited arXiv DOI is fine only if some record of this work carries that arXiv id
+        check(
+            "doi",
+            lambda w: (
+                (norm_doi(w.doi) and (a_doi or not arxiv_from_doi(w.doi)))
+                or (a_doi and arxiv_of(w))
+            ),
+            lambda w: norm_doi(w.doi) == d1 or bool(a_doi and arxiv_of(w) == a_doi),
+            ref.doi or d1,
+            lambda w: w.doi or f"arXiv:{arxiv_of(w)}",
+        )
+    if a1 := norm_arxiv(ref.arxiv_id):
+        check("arxiv_id", arxiv_of, lambda w: arxiv_of(w) == a1, ref.arxiv_id or a1, arxiv_of)
+    if ref.title:
+        check(
+            "title",
+            lambda w: w.title,
+            lambda w: title_match(ref.title, w.title),
+            ref.title,
+            lambda w: w.title,
+        )
+    elif ref.raw and any(w.title and _in_raw(ref.raw, w.title) for w in works):
+        checked.append("title (in raw reference)")  # found title stated verbatim in the raw
+    if ref.authors and (rs := [w for w in works if w.authors]):
+        checked.append(f"authors ({len(ref.authors)})")
+        if all(missing_author(ref.authors, w.authors) for w in rs):
+            fa = rs[0].authors
+            miss = missing_author(ref.authors, fa)
+            found = fa[0] if not first_author_equal(ref.authors, fa) else ", ".join(fa[:6])
+            out.append(Mismatch(field="authors", cited=miss, found=found))
+    if ref.year is not None:
+        check(
+            "year",
+            lambda w: w.year is not None,
+            lambda w: year_ok(ref.year, w.year),
+            str(ref.year),
+            lambda w: str(w.year),
+        )
+    order = ["title", "authors", "year", "doi", "arxiv_id"]
+    out.sort(key=lambda m: order.index(m.field))
+    return out, checked
+
+
 def mismatches(ref: Reference, w: Work) -> list[Mismatch]:
-    out = []
-    if ref.title and w.title and not title_match(ref.title, w.title):
-        out.append(Mismatch(field="title", cited=ref.title, found=w.title))
-    if ref.authors and w.authors and not first_author_equal(ref.authors, w.authors):
-        out.append(Mismatch(field="authors", cited=ref.authors[0], found=w.authors[0]))
-    if ref.year is not None and w.year is not None and not year_ok(ref.year, w.year):
-        out.append(Mismatch(field="year", cited=str(ref.year), found=str(w.year)))
-    d1, d2 = norm_doi(ref.doi), norm_doi(w.doi)
-    # a preprint's arXiv DOI next to a journal DOI is a version difference, not an error
-    if d1 and d2 and d1 != d2 and not (arxiv_from_doi(d1) or arxiv_from_doi(d2)):
-        out.append(Mismatch(field="doi", cited=ref.doi or d1, found=w.doi or d2))
-    a1, a2 = norm_arxiv(ref.arxiv_id), norm_arxiv(w.arxiv_id)
-    if a1 and a2 and a1 != a2:
-        out.append(Mismatch(field="arxiv_id", cited=ref.arxiv_id or a1, found=w.arxiv_id or a2))
-    return out
+    return compare(ref, [w])[0]

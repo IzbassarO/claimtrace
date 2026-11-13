@@ -17,10 +17,6 @@ def _work(title, year, author, doi=None):
     return Work(provider="crossref", title=title, year=year, authors=[author], doi=doi)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: truncated title that prefixes two works of the same author/year picks one",
-)
 def test_ambiguous_truncated_title_is_not_identified():
     ref = Reference(
         id="b1",
@@ -59,10 +55,6 @@ FABRICATED = [
 ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: similarity >= 0.6 safety net turns fabricated common-surname refs unchecked",
-)
 @pytest.mark.parametrize("cited, other", FABRICATED)
 def test_fabricated_reference_with_common_surname_is_not_found(cited, other):
     ref = Reference(
@@ -79,10 +71,6 @@ def test_fabricated_reference_with_common_surname_is_not_found(cited, other):
     assert refaudit.decide(ref, works, OK).status == RefStatus.not_found
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: truncated title + matching first author but no year -> not_found",
-)
 def test_truncated_title_without_year_is_not_not_found():
     ref = Reference(
         id="b26",

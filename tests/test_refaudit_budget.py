@@ -168,7 +168,9 @@ def test_crossref_jats_abstract_maps_sup_sub_and_strips_only_real_tags():
 
 
 async def test_arxiv_id_uses_free_datacite_doi_lookup():
-    ref = Reference(id="v", raw="", title="Attention is all you need", arxiv_id="1706.03762v5")
+    ref = Reference(
+        id="v", raw="", title="Attention is all you need", year=2017, arxiv_id="1706.03762v5"
+    )
     oa_work = {
         "id": "https://openalex.org/W2",
         "doi": "https://doi.org/10.48550/arxiv.1706.03762",
