@@ -115,7 +115,8 @@ def _ref_arxiv(ref: Reference) -> str | None:
 async def _openalex(ref: Reference, client, gate, crossref_task) -> list[Work]:
     """Free DOI lookups first; the billed title search only if Crossref did not identify the
     work (or failed) and the cited DOI found nothing on OpenAlex."""
-    doi = norm_doi(ref.doi)
+    aid = _ref_arxiv(ref)
+    doi = norm_doi(ref.doi) or (f"10.48550/arxiv.{aid}" if aid and ARXIV_ID.match(aid) else None)
     works = await openalex_doi(client, gate, doi) if doi else []
     if any(identifies(ref, w) for w in works):
         return works

@@ -165,3 +165,28 @@ def test_crossref_jats_abstract_maps_sup_sub_and_strips_only_real_tags():
         "</jats:p>"
     )
     assert _jats(jats) == "Abstract We used 10^5 cells, x_i < 3 and doses > 50 mg in E. coli."
+
+
+async def test_arxiv_id_uses_free_datacite_doi_lookup():
+    ref = Reference(id="v", raw="", title="Attention is all you need", arxiv_id="1706.03762v5")
+    oa_work = {
+        "id": "https://openalex.org/W2",
+        "doi": "https://doi.org/10.48550/arxiv.1706.03762",
+        "title": "Attention Is All You Need",
+        "publication_year": 2017,
+    }
+
+    def oa(req):
+        assert req.url.path == "/works/doi:10.48550/arxiv.1706.03762"
+        return httpx.Response(200, json=oa_work)
+
+    def handler(req):
+        if req.url.host == "api.openalex.org":
+            return oa(req)
+        if req.url.host == "export.arxiv.org":
+            return httpx.Response(503)
+        return httpx.Response(200, json=CR_EMPTY)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        [a] = await refaudit.audit_references([ref], client)
+    assert a.status == RefStatus.verified and a.matched.provider == "openalex"
