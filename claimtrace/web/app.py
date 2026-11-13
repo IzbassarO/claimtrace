@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from claimtrace import pipeline
+from claimtrace.core.http import redact
 from claimtrace.core.schemas import InputFile, Report
 from claimtrace.core.settings import get_settings
 from claimtrace.web import chat, export
@@ -74,7 +75,8 @@ async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
             job.status = "done"
         except Exception as e:
             log.exception("job %s failed", job.id)
-            job.error, job.status = f"{type(e).__name__}: {str(e)[:300]}", "error"
+            # redact before cutting so a key split at the cut cannot survive
+            job.error, job.status = redact(f"{type(e).__name__}: {e}")[:300], "error"
 
 
 def _evict() -> None:

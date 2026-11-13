@@ -2,8 +2,6 @@
 still show the model its claim verdicts, or "which claims are unsupported?" gets a confident
 "none"."""
 
-import pytest
-
 from claimtrace.core.schemas import (
     ClaimCheck,
     ProviderOutcome,
@@ -49,9 +47,6 @@ def ref_audit(i: int) -> ReferenceAudit:
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: chat report cut at 150k chars drops all claims for a 200-ref report"
-)
 def test_chat_report_keeps_claim_verdicts_at_reference_limit():
     n = get_settings().max_references  # 200 by default: a normal, allowed report size
     report = Report(
