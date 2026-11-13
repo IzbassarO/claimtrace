@@ -338,6 +338,7 @@ async def test_run_retrieval_bm25_vs_failing_embed(monkeypatch, tmp_path):
         raise OSError("no model")
 
     monkeypatch.setattr(run.retrieval, "fastembed_embed", boom)
+    monkeypatch.setattr(run.retrieval, "fastembed_rerank", lambda q, d: boom(d))
     res = await run.run_retrieval(None, 0)
     m = res["metrics"]
     assert m["n"] == 1 and m["haystack_chars_min"] >= 2500 and m["embed_errors"] > 0

@@ -1,5 +1,5 @@
 """Pick the source passages most relevant to a citing sentence: BM25 over all passages, then a
-dense rerank of the BM25 top candidates, fused by RRF."""
+dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top."""
 
 import asyncio
 import re
@@ -9,10 +9,12 @@ from collections.abc import Callable, Sequence
 from rank_bm25 import BM25Okapi
 
 Embed = Callable[[list[str]], Sequence[Sequence[float]]]
+Rerank = Callable[[str, list[str]], Sequence[float]]  # (query, passages) -> one score each
 
 WHOLE_TEXT_CHARS = 2500
 TOP_K = 6
 CANDIDATES = 40  # BM25 top passages that get embedded; embedding all of them is CPU-bound
+RERANK_POOL = 12  # fused top passages the cross-encoder scores
 _RRF_K = 60
 _SENT = re.compile(r"(?<=[.!?])\s+")
 _TOKEN = re.compile(r"\w+")
@@ -20,6 +22,7 @@ _MAX_SENT_WORDS = 120
 
 _lock = threading.Lock()
 _model = None
+_reranker = None
 _EMBED_BATCH = 16
 
 
@@ -34,6 +37,18 @@ def fastembed_embed(texts: list[str]) -> list[list[float]]:
 
             _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=2)
         return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
+
+
+def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
+    """Default cross-encoder (blocking; call in a thread). Loads once, lazily, under the same lock
+    as the embedder so the two ONNX models never run concurrently."""
+    global _reranker
+    with _lock:
+        if _reranker is None:
+            from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+            _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=2)
+        return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
 
 
 def passages(text: str) -> list[str]:
@@ -68,7 +83,9 @@ def _cosine_scores(vecs: Sequence[Sequence[float]]) -> list[float]:
     return [sum(a * b for a, b in zip(q, d, strict=True)) / (qn * norm(d)) for d in docs]
 
 
-async def retrieve(query: str, text: str, embed: Embed | None = None) -> list[str]:
+async def retrieve(
+    query: str, text: str, embed: Embed | None = None, rerank: Rerank | None = None
+) -> list[str]:
     """Short texts are returned whole; otherwise the top passages in document order."""
     if len(text) < WHOLE_TEXT_CHARS:
         return [text]
@@ -92,4 +109,15 @@ async def retrieve(query: str, text: str, embed: Embed | None = None) -> list[st
     for ranking in rankings:
         for rank, i in enumerate(ranking):
             fused[i] += 1.0 / (_RRF_K + rank + 1)
-    return [chunks[i] for i in sorted(sorted(fused, key=lambda i: -fused[i])[:TOP_K])]
+    order = sorted(fused, key=lambda i: -fused[i])
+    pool = order[:RERANK_POOL]
+    try:
+        scores = await asyncio.to_thread(
+            rerank or fastembed_rerank, query, [chunks[i] for i in pool]
+        )
+        if len(scores) != len(pool):
+            raise ValueError("reranker returned the wrong number of scores")
+        order = [pool[r] for r in _ranks(scores)]
+    except Exception:  # the reranker is a bonus: keep the hybrid order
+        pass
+    return [chunks[i] for i in sorted(order[:TOP_K])]

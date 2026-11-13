@@ -23,6 +23,7 @@ def _no_model_download(monkeypatch):
         raise RuntimeError("unit tests must not load fastembed")
 
     monkeypatch.setattr(retrieval, "fastembed_embed", boom)
+    monkeypatch.setattr(retrieval, "fastembed_rerank", lambda q, d: boom(d))
 
 
 def fake(*replies):
@@ -210,6 +211,33 @@ async def test_long_text_without_word_characters_does_not_crash():
     text = "!!! ??? ... " * 300
     out = await retrieval.retrieve("statins", text, embed=lambda t: 1 / 0)
     assert 0 < len(out) <= retrieval.TOP_K
+
+
+async def test_reranker_scores_only_the_fused_pool_and_reorders_it():
+    seen = []
+
+    def rerank(query, docs):
+        seen.append(len(docs))
+        return [1.0 if "Statins" in d else 0.0 for d in docs]
+
+    retrieval.TOP_K, top_k = 1, retrieval.TOP_K
+    try:
+        out = await retrieval.retrieve(
+            "weather statins", HUGE, embed=lambda t: 1 / 0, rerank=rerank
+        )
+    finally:
+        retrieval.TOP_K = top_k
+    assert seen == [retrieval.RERANK_POOL]
+    assert len(out) == 1 and "Statins reduced LDL" in out[0]
+
+
+@pytest.mark.parametrize("bad", [lambda q, d: 1 / 0, lambda q, d: [1.0]])
+async def test_reranker_failure_keeps_the_hybrid_order(bad):
+    hybrid = await retrieval.retrieve("statins lower LDL cholesterol", HUGE, embed=lambda t: 1 / 0)
+    out = await retrieval.retrieve(
+        "statins lower LDL cholesterol", HUGE, embed=lambda t: 1 / 0, rerank=bad
+    )
+    assert out == hybrid
 
 
 def test_passages_overlap_and_cover_everything():
