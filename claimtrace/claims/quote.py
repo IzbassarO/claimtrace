@@ -10,17 +10,19 @@ import re
 
 MIN_WORDS = 5
 
-_INVISIBLE = dict.fromkeys(map(ord, "­​‌‍⁠﻿"))
-_QUOTES = str.maketrans({c: "'" for c in "‘’‚‛"} | {c: '"' for c in "“”„‟"})
+_INVISIBLE = dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\u2060\ufeff"))
+_QUOTES = str.maketrans(
+    {c: "'" for c in "\u2018\u2019\u201a\u201b"} | {c: '"' for c in "\u201c\u201d\u201e\u201f"}
+)
 _WS = re.compile(r"\s+")
-_ELLIPSIS = re.compile(r"\.\s*\.\s*\.|…")
+_ELLIPSIS = re.compile(r"\.\s*\.\s*\.|\u2026")
 
 # Characters that glue two alphanumeric runs into one token: "1.5", "mg/kg", "didn't", "5-fold".
-_JOIN = set(".,/:^_'-‐‑–−×·")
+_JOIN = set(".,/:^_'-\u2010\u2011\u2013\u2212\u00d7\u00b7")
 # Characters that change the meaning of a number they precede: "-5", "<0.05", "±2".
-_SIGN = set("+-−±<>=≤≥~≈")
+_SIGN = set("+-\u2212\u00b1<>=\u2264\u2265~\u2248")
 # Characters that change the meaning of a number they follow: "50%", "10⁻³".
-_UNIT = set("%‰⁺⁻⁼⁽⁾₊₋")
+_UNIT = set("%\u2030\u207a\u207b\u207c\u207d\u207e\u208a\u208b")
 
 
 def normalize(text: str) -> str:
