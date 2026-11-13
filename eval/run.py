@@ -422,10 +422,31 @@ def _memo_embed(texts: list[str]):
     return _embed_memo[key]
 
 
-# name -> async (query, text) -> passages. Add a variant here (e.g. "rerank") to measure it.
+def _no_rerank(query: str, docs: list[str]):
+    raise RuntimeError("no cross-encoder")  # retrieve() keeps the fused order on any failure
+
+
+_rerank_memo: dict[tuple, list] = {}
+
+
+def _memo_rerank(query: str, docs: list[str]):
+    """Cross-encoder, memoised (the rank probe re-runs retrieve on the same pool). Failures are
+    counted with the embedder's: retrieve() swallows them (a broken model looks like hybrid)."""
+    key = (query, *docs)
+    if key not in _rerank_memo:
+        try:
+            _rerank_memo[key] = retrieval.fastembed_rerank(query, docs)
+        except Exception as e:
+            _embed_errors.append(f"rerank {type(e).__name__}: {e}"[:200])
+            raise
+    return _rerank_memo[key]
+
+
+# name -> async (query, text) -> passages. Add a variant here to measure it.
 RETRIEVAL_VARIANTS = {
-    "bm25": lambda q, t: retrieval.retrieve(q, t, embed=_no_embed),
-    "hybrid": lambda q, t: retrieval.retrieve(q, t, embed=_memo_embed),
+    "bm25": lambda q, t: retrieval.retrieve(q, t, embed=_no_embed, rerank=_no_rerank),
+    "hybrid": lambda q, t: retrieval.retrieve(q, t, embed=_memo_embed, rerank=_no_rerank),
+    "rerank": lambda q, t: retrieval.retrieve(q, t, embed=_memo_embed, rerank=_memo_rerank),
 }
 
 
@@ -483,10 +504,11 @@ async def run_retrieval(limit: int | None, seed: int) -> dict:
         await variant(items[0]["claim"], items[0]["text"])
     rows = []
     for it in items:
-        _embed_memo.clear()
         row = {"claim_id": it["claim_id"], "doc_id": it["doc_id"], "chars": len(it["text"])}
         row["variants"] = {}
         for name, variant in RETRIEVAL_VARIANTS.items():
+            _embed_memo.clear()  # per variant: rerank must pay for its own embeddings
+            _rerank_memo.clear()
             t0 = time.perf_counter()
             got = await variant(it["claim"], it["text"])
             ms = (time.perf_counter() - t0) * 1000
