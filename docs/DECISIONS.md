@@ -96,3 +96,12 @@ sweep, PR #44), fix in progress.
 - **Merge gate hardened**: aborts on uncommitted worktree changes or if main isn't an ancestor
   after the merge (PR #68 was merged from a branch whose main-merge had silently failed; the
   combined main was re-verified: 519 passed, CI green).
+- **A1 section-aware passages — rejected; section label — kept (PR #73)**: paragraph/section
+  passages made retrieval worse on the haystack suite (n=209): product recall@6 0.990 → 0.971,
+  MRR 0.852 → 0.834 (likely: one-sentence overlap across unrelated paragraphs). Passages were
+  reverted to main's; the report now shows the source section of a verified quote ("§ 3 Results")
+  only when exactly one section contains it, otherwise nothing (no label beats a wrong one).
+- **DOI extraction hardening (PRs #67, #72)**: percent-decoding, invisible characters, multi-DOI
+  arXiv fields, SICI `<>`, Markdown links, Unicode hyphens, smart quotes, URL query/fragment, HTML
+  tags, hyphen line-wraps — each from a tester case where a real paper came out `not_found` or a
+  DOI mismatch.
