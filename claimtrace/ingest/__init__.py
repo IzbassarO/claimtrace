@@ -7,6 +7,7 @@ from bibtexparser.bparser import BibTexParser
 from bibtexparser.customization import convert_to_unicode
 
 from claimtrace.core.schemas import InputFile, Manuscript, Reference
+from claimtrace.core.settings import get_settings
 from claimtrace.ingest.extract import extract_references
 from claimtrace.ingest.tei import body_text, grobid_tei, parse_tei
 from claimtrace.ingest.text import (
@@ -23,15 +24,22 @@ TEXT_EXT = (".txt", ".md")
 
 
 def _bib_raw(src: str, key: str) -> str | None:
-    """The verbatim `@type{key, ...}` entry (brace-matched), or None."""
-    m = re.search(rf"@\w+\s*[{{(]\s*{re.escape(key)}\s*,", src)
+    """The verbatim `@type{key, ...}` / `@type(key, ...)` entry, brace-matched from the entry's
+    opening delimiter (escaped `\\{` / `\\}` skipped), or None."""
+    m = re.search(rf"@\w+\s*([{{(])\s*{re.escape(key)}\s*,", src)
     if not m:
         return None
-    depth = 0
-    for i in range(m.end() - 1, len(src)):
-        depth += {"{": 1, "}": -1}.get(src[i], 0)
-        if depth == 0 and src[i] == "}":
+    close = "}" if m.group(1) == "{" else ")"
+    depth, i = 0, m.start(1)
+    while i < len(src):
+        c = src[i]
+        if c == "\\":
+            i += 2
+            continue
+        depth += {"{": 1, "}": -1}.get(c, 0)
+        if depth == 0 and c == close:
             return src[m.start() : i + 1]
+        i += 1
     return None
 
 
@@ -122,7 +130,10 @@ async def _from_text(ms: Manuscript, text: str, bib_refs: list[Reference]) -> No
         if section:
             ms.warnings.append("Reference section in the text ignored; using the .bib file")
     elif section:
-        entries = split_entries(section)
+        entries, limit = split_entries(section), get_settings().max_references
+        if len(entries) > limit:  # before the LLM: 10 000 entries must not mean 500 batches
+            ms.warnings.append(f"{len(entries) - limit} references skipped (limit {limit})")
+            entries = entries[:limit]
         pairs = [(num or f"r{i + 1}", raw) for i, (num, raw) in enumerate(entries)]
         ms.references, warns = await extract_references(pairs)
         ms.warnings += warns

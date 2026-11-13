@@ -391,3 +391,76 @@ def test_sample_manuscript_is_served_and_parses():
     refs = [Reference(id=n, raw=raw) for n, raw in entries]
     cites, warns = find_citations(body, refs)
     assert [c.ref_ids for c in cites] == [["1"], ["2"], ["3"]] and warns == []
+
+
+def test_upload_limit_rejects_before_parsing(client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "max_upload_mb", 1)
+    big = b"a" * (2 * 1024 * 1024 + 10)  # over max + 1 MB slack
+    # Content-Length path
+    r = client.post("/api/jobs", files=[("files", ("a.txt", big, "text/plain"))])
+    assert r.status_code == 413 and "max 1 MB" in r.json()["detail"]
+    # chunked path (no Content-Length): counted while streaming
+    body = (
+        b'--B\r\nContent-Disposition: form-data; name="files"; filename="a.txt"\r\n'
+        b"Content-Type: text/plain\r\n\r\n" + big + b"\r\n--B--\r\n"
+    )
+    chunks = (body[i : i + 65536] for i in range(0, len(body), 65536))
+    ctype = {"content-type": "multipart/form-data; boundary=B"}
+    r = client.post("/api/jobs", content=chunks, headers=ctype)
+    assert r.status_code == 413 and "content-length" not in r.request.headers
+    assert not web.JOBS and not client.calls
+
+
+def test_queue_refuses_beyond_four_waiting(client):
+    for i in range(web.MAX_QUEUED):
+        web.JOBS[f"q{i}"] = web.Job(id=f"q{i}")  # queued
+    r = client.post("/api/jobs", data={"text": "x"})
+    assert r.status_code == 503 and "waiting" in r.json()["detail"]
+    del web.JOBS["q0"]
+    assert client.post("/api/jobs", data={"text": "x"}).status_code == 200
+
+
+def test_job_timeout_is_error_without_report(client, monkeypatch):
+    async def hang(text, files=None, on_progress=None, report_id=None):
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(pipeline, "run", hang)
+    monkeypatch.setattr(web, "JOB_TIMEOUT_S", 0.05)
+    job = wait(client, client.post("/api/jobs", data={"text": "x"}).json()["id"])
+    assert job["status"] == "error" and "timed out" in job["error"] and job["report"] is None
+
+
+def test_job_rate_limit_per_client_ip(client):
+    def post(ip):
+        return client.post("/api/jobs", data={"text": "x"}, headers={"X-Forwarded-For": ip})
+
+    assert all(post("1.2.3.4, 10.0.0.1").status_code == 200 for _ in range(web.RATE_JOBS))
+    r = post("1.2.3.4")
+    assert r.status_code == 429
+    assert post("5.6.7.8").status_code == 200  # other clients are not affected
+
+
+def test_chat_busy_and_per_report_limit(client, monkeypatch):
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    wait(client, job_id)
+
+    async def fake_answer(report, question, history):
+        return "ok"
+
+    monkeypatch.setattr(chat, "answer", fake_answer)
+    ask = lambda: client.post(f"/api/jobs/{job_id}/chat", json={"question": "q"})  # noqa: E731
+    sem = web.app.state.chat_running
+    for _ in range(web.MAX_CHAT_RUNNING):
+        sem._value -= 1  # occupy every slot, as two running chats would
+    r = ask()
+    assert r.status_code == 429 and "busy" in r.json()["detail"]
+    for _ in range(web.MAX_CHAT_RUNNING):
+        sem._value += 1
+    assert all(ask().status_code == 200 for _ in range(web.MAX_CHAT_PER_REPORT))
+    r = ask()
+    assert r.status_code == 429 and "limit" in r.json()["detail"]
+
+
+def test_ui_shareable_link_wording():
+    page = (Path(web.STATIC) / "index.html").read_text()
+    assert "Permanent" not in page and "Shareable link" in page and "newest 1000" in page
