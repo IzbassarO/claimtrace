@@ -1,0 +1,430 @@
+{
+  "id": "https://openalex.org/W2144981148",
+  "doi": "https://doi.org/10.1371/journal.pmed.0020124",
+  "title": "Why Most Published Research Findings Are False",
+  "display_name": "Why Most Published Research Findings Are False",
+  "publication_year": 2005,
+  "authorships": [
+    {
+      "author": {
+        "display_name": "John P. A. Ioannidis"
+      }
+    }
+  ],
+  "ids": {
+    "openalex": "https://openalex.org/W2144981148",
+    "doi": "https://doi.org/10.1371/journal.pmed.0020124",
+    "mag": "2144981148",
+    "pmid": "https://pubmed.ncbi.nlm.nih.gov/16060722",
+    "pmcid": "https://www.ncbi.nlm.nih.gov/pmc/articles/1182327"
+  },
+  "primary_location": {
+    "source": {
+      "display_name": "PLoS Medicine"
+    }
+  },
+  "best_oa_location": {
+    "pdf_url": null
+  },
+  "is_retracted": false,
+  "abstract_inverted_index": {
+    "There": [
+      0
+    ],
+    "is": [
+      1,
+      18,
+      59,
+      81,
+      93,
+      105,
+      138
+    ],
+    "increasing": [
+      2
+    ],
+    "concern": [
+      3
+    ],
+    "that": [
+      4,
+      14,
+      130
+    ],
+    "most": [
+      5,
+      132
+    ],
+    "current": [
+      6,
+      153
+    ],
+    "published": [
+      7
+    ],
+    "research": [
+      8,
+      16,
+      57,
+      143,
+      157
+    ],
+    "findings": [
+      9,
+      158
+    ],
+    "are": [
+      10,
+      72,
+      77,
+      117
+    ],
+    "false.": [
+      11
+    ],
+    "The": [
+      12
+    ],
+    "probability": [
+      13
+    ],
+    "a": [
+      15,
+      56,
+      70,
+      82,
+      120,
+      142
+    ],
+    "claim": [
+      17,
+      144
+    ],
+    "true": [
+      19,
+      41,
+      64
+    ],
+    "may": [
+      20,
+      159
+    ],
+    "depend": [
+      21
+    ],
+    "on": [
+      22,
+      32
+    ],
+    "study": [
+      23,
+      133
+    ],
+    "power": [
+      24
+    ],
+    "and": [
+      25,
+      85,
+      100,
+      108,
+      111,
+      113,
+      135,
+      182
+    ],
+    "bias,": [
+      26
+    ],
+    "the": [
+      27,
+      33,
+      38,
+      46,
+      66,
+      166,
+      174,
+      180
+    ],
+    "number": [
+      28,
+      84
+    ],
+    "of": [
+      29,
+      40,
+      88,
+      125,
+      165,
+      176,
+      184
+    ],
+    "other": [
+      30,
+      109
+    ],
+    "studies": [
+      31,
+      67
+    ],
+    "same": [
+      34
+    ],
+    "question,": [
+      35
+    ],
+    "and,": [
+      36
+    ],
+    "importantly,": [
+      37
+    ],
+    "ratio": [
+      39
+    ],
+    "to": [
+      42,
+      62,
+      145
+    ],
+    "no": [
+      43
+    ],
+    "relationships": [
+      44,
+      47
+    ],
+    "among": [
+      45
+    ],
+    "probed": [
+      48
+    ],
+    "in": [
+      49,
+      69,
+      96,
+      119,
+      123
+    ],
+    "each": [
+      50
+    ],
+    "scientific": [
+      51,
+      121,
+      154
+    ],
+    "field.": [
+      52
+    ],
+    "In": [
+      53,
+      169
+    ],
+    "this": [
+      54,
+      170
+    ],
+    "framework,": [
+      55
+    ],
+    "finding": [
+      58
+    ],
+    "less": [
+      60
+    ],
+    "likely": [
+      61,
+      140
+    ],
+    "be": [
+      63,
+      146,
+      161
+    ],
+    "when": [
+      65,
+      74,
+      79,
+      103,
+      114
+    ],
+    "conducted": [
+      68
+    ],
+    "field": [
+      71,
+      122
+    ],
+    "smaller;": [
+      73,
+      78
+    ],
+    "effect": [
+      75
+    ],
+    "sizes": [
+      76
+    ],
+    "there": [
+      80,
+      92,
+      104
+    ],
+    "greater": [
+      83,
+      94,
+      106
+    ],
+    "lesser": [
+      86
+    ],
+    "preselection": [
+      87
+    ],
+    "tested": [
+      89
+    ],
+    "relationships;": [
+      90
+    ],
+    "where": [
+      91
+    ],
+    "flexibility": [
+      95
+    ],
+    "designs,": [
+      97
+    ],
+    "definitions,": [
+      98
+    ],
+    "outcomes,": [
+      99
+    ],
+    "analytical": [
+      101
+    ],
+    "modes;": [
+      102
+    ],
+    "financial": [
+      107
+    ],
+    "interest": [
+      110
+    ],
+    "prejudice;": [
+      112
+    ],
+    "more": [
+      115,
+      139
+    ],
+    "teams": [
+      116
+    ],
+    "involved": [
+      118
+    ],
+    "chase": [
+      124
+    ],
+    "statistical": [
+      126
+    ],
+    "significance.": [
+      127
+    ],
+    "Simulations": [
+      128
+    ],
+    "show": [
+      129
+    ],
+    "for": [
+      131,
+      141,
+      151,
+      179
+    ],
+    "designs": [
+      134
+    ],
+    "settings,": [
+      136
+    ],
+    "it": [
+      137
+    ],
+    "false": [
+      147
+    ],
+    "than": [
+      148
+    ],
+    "true.": [
+      149
+    ],
+    "Moreover,": [
+      150
+    ],
+    "many": [
+      152
+    ],
+    "fields,": [
+      155
+    ],
+    "claimed": [
+      156
+    ],
+    "often": [
+      160
+    ],
+    "simply": [
+      162
+    ],
+    "accurate": [
+      163
+    ],
+    "measures": [
+      164
+    ],
+    "prevailing": [
+      167
+    ],
+    "bias.": [
+      168
+    ],
+    "essay,": [
+      171
+    ],
+    "I": [
+      172
+    ],
+    "discuss": [
+      173
+    ],
+    "implications": [
+      175
+    ],
+    "these": [
+      177
+    ],
+    "problems": [
+      178
+    ],
+    "conduct": [
+      181
+    ],
+    "interpretation": [
+      183
+    ],
+    "research.": [
+      185
+    ]
+  }
+}

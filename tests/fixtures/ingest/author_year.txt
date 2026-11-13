@@ -1,0 +1,18 @@
+Sleep and memory consolidation
+
+Sleep supports memory consolidation (Smith et al., 2020; Doe & Roe, 2019a). Doe and Roe (2019b)
+replicated this in adolescents. Müller (2018) found no effect in older adults, cf. the
+review by García et al. (2021). Daytime naps (e.g., Walker, 2017) may help too.
+An uncited claim with a year (in 2015) and a ratio (n = 2020) is not a citation.
+
+References
+
+Doe, A., & Roe, B. (2019a). Sleep spindles predict recall. Journal of Sleep Research, 28(2), e12345.
+
+Doe, A., & Roe, B. (2019b). Sleep spindles in adolescents. Journal of Sleep Research, 28(5), e12399.
+
+Garcia, M., Lopez, R., & Chen, Y. (2021). Memory and sleep: a review. Neuron, 109, 1-15. https://doi.org/10.1016/j.neuron.2021.01.001
+
+Muller, H. (2018). Sleep in old age. Sleep, 41(3).
+
+Smith, J., Jones, K., & Lee, P. (2020). Sleep consolidates declarative memory. Nature Neuroscience, 23, 100-110.
