@@ -2,12 +2,14 @@
 
 import asyncio
 import hashlib
+import ipaddress
 import json
 import logging
 import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -101,6 +103,47 @@ class OpenAlexTransport(httpx.AsyncBaseTransport):
         return resp
 
 
+class BlockedURL(httpx.TransportError):
+    """Request to a non-public address (SSRF guard). Callers treat it like any network failure."""
+
+
+async def _resolve(host: str, port: int) -> set[str]:
+    infos = await asyncio.get_running_loop().getaddrinfo(host, port)
+    return {i[4][0] for i in infos}
+
+
+class PublicOnlyTransport(httpx.AsyncBaseTransport):
+    """SSRF guard: every request, including each redirect hop (the client sends every hop
+    through its transport), must use http(s) and resolve only to public IPs. The configured
+    GROBID host is the one internal service allowed."""
+
+    def __init__(self, inner: httpx.AsyncBaseTransport):
+        self.inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        url = request.url
+        grobid = urlsplit(get_settings().grobid_url)
+        if (url.host, url.port) != (grobid.hostname, grobid.port):
+            await _check_public(url, request)
+        return await self.inner.handle_async_request(request)
+
+
+async def _check_public(url: httpx.URL, request: httpx.Request) -> None:
+    if url.scheme not in ("http", "https") or not url.host:
+        raise BlockedURL(f"blocked scheme: {url.scheme}", request=request)
+    port = url.port or (443 if url.scheme == "https" else 80)
+    try:
+        addrs = {str(ipaddress.ip_address(url.host))}
+    except ValueError:
+        try:
+            addrs = await _resolve(url.host, port)
+        except OSError as e:
+            raise httpx.ConnectError(f"DNS failed for {url.host}", request=request) from e
+    # ponytail: resolve-then-connect leaves a DNS-rebinding window; pin IPs if this matters
+    if not addrs or not all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs):
+        raise BlockedURL(f"blocked non-public address for {url.host}", request=request)
+
+
 def make_client(timeout: float = 30.0) -> httpx.AsyncClient:
     email = get_settings().contact_email
     ua = "ClaimTrace/0.1 (citation audit" + (f"; mailto:{email})" if email else ")")
@@ -109,8 +152,8 @@ def make_client(timeout: float = 30.0) -> httpx.AsyncClient:
         follow_redirects=True,
         headers={"User-Agent": ua},
         limits=httpx.Limits(max_connections=20),
-        transport=OpenAlexTransport(
-            httpx.AsyncHTTPTransport(limits=httpx.Limits(max_connections=20))
+        transport=PublicOnlyTransport(
+            OpenAlexTransport(httpx.AsyncHTTPTransport(limits=httpx.Limits(max_connections=20)))
         ),
         event_hooks={"request": [_add_openalex_key]},
     )

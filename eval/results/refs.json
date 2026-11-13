@@ -1,12 +1,12 @@
 {
   "suite": "refs",
-  "created": "2026-11-13T18:42:33+00:00",
+  "created": "2026-11-13T19:20:05+00:00",
   "metrics": {
     "n": 196,
-    "accuracy": 0.9744897959183674,
+    "accuracy": 0.9642857142857143,
     "false_verified": 2,
     "false_not_found": 0,
-    "unchecked_rate": 0.01020408163265306,
+    "unchecked_rate": 0.02040816326530612,
     "per_mutation": {
       "unchanged": {
         "n": 38,
@@ -44,11 +44,11 @@
       },
       "fabricated": {
         "n": 38,
-        "correct": 36,
-        "accuracy": 0.9473684210526315,
+        "correct": 34,
+        "accuracy": 0.8947368421052632,
         "statuses": {
-          "not_found": 36,
-          "unchecked": 2
+          "not_found": 34,
+          "unchecked": 4
         }
       },
       "retracted": {
@@ -518,9 +518,11 @@
       "id": "9-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "not_found",
+      "status": "unchecked",
       "mismatches": [],
-      "providers_failed": []
+      "providers_failed": [
+        "crossref"
+      ]
     },
     {
       "id": "10-unchanged",
@@ -748,11 +750,9 @@
       "id": "14-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "unchecked",
+      "status": "not_found",
       "mismatches": [],
-      "providers_failed": [
-        "crossref"
-      ]
+      "providers_failed": []
     },
     {
       "id": "15-unchanged",
@@ -980,9 +980,11 @@
       "id": "19-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "not_found",
+      "status": "unchecked",
       "mismatches": [],
-      "providers_failed": []
+      "providers_failed": [
+        "crossref"
+      ]
     },
     {
       "id": "20-unchanged",
@@ -1026,9 +1028,11 @@
       "id": "20-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "not_found",
+      "status": "unchecked",
       "mismatches": [],
-      "providers_failed": []
+      "providers_failed": [
+        "crossref"
+      ]
     },
     {
       "id": "21-unchanged",
@@ -1256,9 +1260,11 @@
       "id": "25-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "not_found",
+      "status": "unchecked",
       "mismatches": [],
-      "providers_failed": []
+      "providers_failed": [
+        "crossref"
+      ]
     },
     {
       "id": "26-unchanged",
@@ -1534,11 +1540,9 @@
       "id": "31-fabricated",
       "mutation": "fabricated",
       "expected": "not_found",
-      "status": "unchecked",
+      "status": "not_found",
       "mismatches": [],
-      "providers_failed": [
-        "crossref"
-      ]
+      "providers_failed": []
     },
     {
       "id": "32-unchanged",
@@ -1864,7 +1868,7 @@
     }
   ],
   "params": {
-    "limit": 100,
+    "limit": null,
     "seed": 0
   }
 }
