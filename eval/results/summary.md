@@ -2,24 +2,40 @@
 
 ## refs
 
-2026-11-13T19:32:31+00:00 · params `{"limit": null, "seed": 0}`
+2026-11-13T19:53:38+00:00 · params `{"limit": null, "seed": 0}`
 
 | metric | value |
 |---|---|
-| n | 196 |
-| accuracy | 0.954 |
+| n | 1728 |
+| accuracy | 0.956 |
 | false_verified | 0 |
 | false_not_found | 0 |
-| unchecked_rate | 0.036 |
+| unchecked_rate | 0.039 |
+| openalex_searches | 192 |
 
 | mutation | n | accuracy | statuses |
 |---|---|---|---|
-| unchanged | 38 | 0.947 | metadata_mismatch 2, verified 36 |
-| year_plus_3 | 38 | 1.000 | metadata_mismatch 38 |
-| negated_title | 38 | 1.000 | metadata_mismatch 38 |
-| swapped_first_author | 38 | 1.000 | metadata_mismatch 38 |
-| fabricated | 38 | 0.816 | not_found 31, unchecked 7 |
+| unchanged | 393 | 0.977 | metadata_mismatch 9, verified 384 |
+| year_plus_3 | 393 | 1.000 | metadata_mismatch 393 |
+| negated_title | 393 | 1.000 | metadata_mismatch 393 |
+| swapped_first_author | 393 | 1.000 | metadata_mismatch 393 |
+| fabricated | 150 | 0.553 | not_found 83, unchecked 67 |
 | retracted | 6 | 1.000 | retracted 6 |
+
+## retrieval
+
+2026-11-13T20:02:09+00:00 · params `{"limit": null, "seed": 0}`
+
+| metric | value |
+|---|---|
+| n | 209 |
+| haystack_chars_min | 23517 |
+| embed_errors | 0 |
+
+| variant | recall@6 | mrr | mean_latency_ms |
+|---|---|---|---|
+| bm25 | 0.938 | 0.747 | 3.177 |
+| hybrid | 0.976 | 0.798 | 2303.662 |
 
 ## scifact
 

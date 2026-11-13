@@ -260,9 +260,6 @@ def test_collapsed_group_count_is_pluralised():
     assert "1 supported claim" in text(out["claims"])
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: supported claim citing an unchecked reference is collapsed, no note"
-)
 def test_supported_claim_citing_unchecked_reference_is_not_hidden():
     # ref 1 matched by title, but its cited DOI could not be confirmed (doi.org failed):
     # unchecked; sources still fetch the matched record, so the claim comes back 'supported'
@@ -292,5 +289,7 @@ def test_supported_claim_citing_unchecked_reference_is_not_hidden():
         ],
     )
     out = render(report)
-    # today: inside the collapsed "1 supported claim" group, with no word about the reference
+    # shown open in the middle group, with a note about the reference
     assert "Oceans warmed" not in collapsed(out["claims"])
+    assert "Oceans warmed" in text(out["claims"])
+    assert "The cited reference could not be confirmed." in text(out["claims"])
