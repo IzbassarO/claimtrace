@@ -61,7 +61,7 @@ async def _fetch(
     full_text = [
         ("europepmc", lambda: _europepmc(w, client)),
         ("arxiv", lambda: _arxiv(w, client, pdf_to_text, tried)),
-        (PREPRINT_ORIGIN, lambda: _biorxiv(w, client, pdf_to_text, tried)),
+        ("biorxiv", lambda: _biorxiv(w, client, pdf_to_text, tried)),
         ("unpaywall", lambda: _unpaywall(w, client, pdf_to_text, tried)),
         ("openalex", lambda: _openalex_pdf(w, client, pdf_to_text, tried)),
     ]
@@ -392,9 +392,6 @@ async def _arxiv(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, s
 # bioRxiv / medRxiv DOIs: 10.1101/2020.03.22.002386 or old style 10.1101/123456. Other 10.1101
 # DOIs (Genome Research "gr.…", Genes & Dev "gad.…") belong to journals, not preprint servers.
 _PREPRINT_DOI = re.compile(r"^10\.1101/(?:\d{4}\.\d{2}\.\d{2}\.)?\d{6,}$")
-# ponytail: SourceText.origin has no "biorxiv" value yet (contract change requested in the PR);
-# the url still names biorxiv.org / medrxiv.org.
-PREPRINT_ORIGIN = "unpaywall"
 
 
 async def _biorxiv(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, str] | None:

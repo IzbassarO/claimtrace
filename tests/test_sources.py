@@ -355,9 +355,8 @@ async def test_biorxiv_latest_version_pdf():
     }
     async with client(routes, seen) as c:
         s = await src.fetch_source(audit(doi=BIO_DOI), c, fake_pdf_to_text())
-    assert (
-        s.kind == "full_text" and s.url == f"https://www.biorxiv.org/content/{BIO_DOI}v3.full.pdf"
-    )
+    assert s.kind == "full_text" and s.origin == "biorxiv"
+    assert s.url == f"https://www.biorxiv.org/content/{BIO_DOI}v3.full.pdf"
     assert "api.unpaywall.org/v2/" + BIO_DOI not in seen  # bioRxiv comes before Unpaywall
 
 
@@ -370,7 +369,7 @@ async def test_medrxiv_when_biorxiv_has_no_record():
     }
     async with client(routes) as c:
         s = await src.fetch_source(audit(doi=med), c, fake_pdf_to_text())
-    assert s.url == f"https://www.medrxiv.org/content/{med}v2.full.pdf"
+    assert s.origin == "biorxiv" and s.url == f"https://www.medrxiv.org/content/{med}v2.full.pdf"
 
 
 async def test_cshl_journal_doi_is_not_sent_to_biorxiv():
