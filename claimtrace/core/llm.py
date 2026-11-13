@@ -4,7 +4,9 @@ Rules (AGENTS.md): no temperature, no forced tool calling. The model answers JSO
 the prompt; we validate with pydantic and retry once with the validation error.
 """
 
+import asyncio
 import json
+import logging
 import secrets
 from functools import lru_cache
 from typing import Literal, TypeVar
@@ -14,7 +16,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, ValidationError
 
 from claimtrace.core.settings import get_settings
-from claimtrace.core.timing import span
+from claimtrace.core.timing import current, span
 
 Role = Literal["extract", "judge", "skeptic"]
 T = TypeVar("T", bound=BaseModel)
@@ -30,6 +32,85 @@ UNTRUSTED_NOTICE = (
 
 class LLMError(RuntimeError):
     pass
+
+
+log = logging.getLogger(__name__)
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_BACKOFF_S = 5.0
+
+
+class _Limiter:
+    """Concurrent calls per role (per event loop). The limit can drop at runtime: after a 429 it
+    falls to `floor` for the rest of the process, so a burst setting can't keep hammering a
+    provider that pushes back."""
+
+    def __init__(self, limit: int, floor: int):
+        self.limit, self.floor, self.active = limit, floor, 0
+        self.cond = asyncio.Condition()
+
+    async def __aenter__(self):
+        async with self.cond:
+            await self.cond.wait_for(lambda: self.active < self.limit)
+            self.active += 1
+
+    async def __aexit__(self, *exc):
+        async with self.cond:
+            self.active -= 1
+            self.cond.notify_all()
+
+    def throttle(self) -> None:
+        if self.limit > self.floor:
+            log.warning("rate limited: concurrency %d -> %d", self.limit, self.floor)
+            self.limit = self.floor
+
+
+# ponytail: one limiter per (event loop, role); loops are few (app: one; tests: one per test)
+_limiters: dict[tuple[int, str], _Limiter] = {}
+
+
+def concurrency(role: str) -> int:
+    s = get_settings()
+    if role == "skeptic" and s.llm_concurrency_skeptic > 0:
+        return s.llm_concurrency_skeptic
+    return s.llm_concurrency
+
+
+def _limiter(role: str) -> _Limiter:
+    key = (id(asyncio.get_running_loop()), role)
+    if key not in _limiters:
+        n = max(1, concurrency(role))
+        _limiters[key] = _Limiter(n, floor=min(n, max(1, get_settings().llm_concurrency)))
+    return _limiters[key]
+
+
+def _rate_limited(e: Exception) -> bool:
+    status = getattr(e, "status_code", None) or getattr(
+        getattr(e, "response", None), "status_code", None
+    )
+    return status == 429 or "RateLimit" in type(e).__name__
+
+
+async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) -> BaseMessage:
+    """One model call under the role's limiter; 429 ⇒ lower the limit, wait, retry (the job never
+    fails on a rate limit alone: the caller turns a final error into insufficient_evidence)."""
+    lim = _limiter(role)
+    for attempt in range(RATE_LIMIT_RETRIES + 1):
+        async with lim:
+            try:
+                with span(f"llm_{role}"):
+                    msg = await model.ainvoke(messages)
+            except Exception as e:
+                if not _rate_limited(e) or attempt == RATE_LIMIT_RETRIES:
+                    raise
+                lim.throttle()
+            else:
+                usage = getattr(msg, "usage_metadata", None) or {}
+                if (t := current()) and usage:
+                    t.counts[f"tokens_in_{role}"] += int(usage.get("input_tokens", 0))
+                    t.counts[f"tokens_out_{role}"] += int(usage.get("output_tokens", 0))
+                return msg
+        await asyncio.sleep(RATE_LIMIT_BACKOFF_S * (attempt + 1))
+    raise AssertionError("unreachable")
 
 
 def wrap_untrusted(name: str, text: str) -> str:
@@ -105,8 +186,7 @@ async def ask_json(
         HumanMessage(user),
     ]
     for attempt in range(2):
-        with span(f"llm_{role}"):
-            reply = message_text(await model.ainvoke(messages))
+        reply = message_text(await _invoke(role, model, messages))
         try:
             return schema.model_validate_json(extract_json(reply))
         except (ValidationError, ValueError) as e:
@@ -123,5 +203,4 @@ async def ask_text(role: Role, system: str, user: str) -> str:
     """Free-text answer (used by the report chat)."""
     model = get_model(role)
     sys_msg = SystemMessage(f"{system}\n\n{UNTRUSTED_NOTICE}")
-    msg = await model.ainvoke([sys_msg, HumanMessage(user)])
-    return message_text(msg)
+    return message_text(await _invoke(role, model, [sys_msg, HumanMessage(user)]))

@@ -22,7 +22,7 @@ from pathlib import Path
 from claimtrace import claims, ingest, refaudit, sources
 from claimtrace.core import timing
 from claimtrace.core.http import make_client
-from claimtrace.core.llm import provider_of
+from claimtrace.core.llm import concurrency, provider_of
 from claimtrace.core.schemas import (
     Citation,
     ClaimCheck,
@@ -325,7 +325,8 @@ async def run(
                     queue.task_done()
 
         workers = [
-            asyncio.ensure_future(worker()) for _ in range(max(1, get_settings().llm_concurrency))
+            asyncio.ensure_future(worker())
+            for _ in range(max(1, concurrency("judge"), concurrency("skeptic")))
         ]
         progress("references", 0, len(refs))
         if pairs:
