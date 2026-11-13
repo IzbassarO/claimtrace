@@ -120,8 +120,13 @@ async function trySample() {
   try {
     const resp = await fetch("/static/sample-report.json");
     if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
-    jobId = null;
+    jobId = null; // the sample is no job: no polling, chat, export or share link for it
+    chatHistory = [];
     streamed = false;
+    seen = new Map();
+    lastShown = "";
+    openKeys.clear();
+    $("chat-log").replaceChildren();
     renderReport(await resp.json(), { saved: true });
   } catch (e) {
     formMessage(e.message);
@@ -165,13 +170,18 @@ function resumePolling() {
   poll();
 }
 
+// Every reference audit has finished (stages overlap: sources/claims start while refs still run).
+// The pipeline marks t_references_end in the partial timings only once done == total.
+const refsDone = (r) => !!r && (r.complete !== false || "t_references_end" in (r.timings || {}));
+
 // Stage checklist: done / current / to do, plus the live status line and progress bar.
 function renderStages(job) {
   const cur = job.status === "queued" ? -1 : job.stage === "done" ? STAGES.length : STAGES.findIndex(([k]) => k === job.stage);
-  $("stages").replaceChildren(...STAGES.map(([, label], i) => {
-    const state = i < cur ? "done" : i === cur ? "current" : "todo";
-    const count = state === "current" && job.total ? ` ${job.done} of ${job.total}` : "";
-    return el("li", { className: `st-${state}`, ...(state === "current" ? { "aria-current": "step" } : {}) },
+  const refsBusy = job.stage !== "done" && !refsDone(job.report);
+  $("stages").replaceChildren(...STAGES.map(([key, label], i) => {
+    const state = i < cur && !(key === "references" && refsBusy) ? "done" : i <= cur ? "current" : "todo";
+    const count = i === cur && job.total ? ` ${job.done} of ${job.total}` : "";
+    return el("li", { className: `st-${state}`, ...(i === cur ? { "aria-current": "step" } : {}) },
       label, count ? el("span", { className: "count" }, count) : null,
       el("span", { className: "sr-only" }, { done: " (done)", current: " (in progress)", todo: "" }[state]));
   }));
@@ -372,13 +382,17 @@ function renderReport(r, opts = {}) {
     $("live-bar").max = 1;
     $("live-bar").value = 1;
   }
-  // references are final once the job has moved past their stage
-  const refsPending = pending && ["queued", "ingest", "references"].includes(opts.job?.stage || "queued");
+  // references are final only once every audit has finished, whatever stage the job shows
+  const refsPending = pending && !refsDone(r);
   $("refs-wait").hidden = !refsPending;
   $("claims-wait").hidden = !pending;
   $("results-h").textContent = r.title || "Report";
-  $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
-  $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
+  // the saved sample is no job: no export or shareable link (they would point at another report)
+  for (const id of ["export-json", "export-md", "copy-link", "share"]) $(id).hidden = !!opts.saved;
+  if (!opts.saved) {
+    $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
+    $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
+  }
   refStatus = new Map(r.references.map((a) => [a.reference.id, a.status]));
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;

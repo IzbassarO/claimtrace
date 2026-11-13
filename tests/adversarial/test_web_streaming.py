@@ -26,10 +26,6 @@ from claimtrace.core.schemas import (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: job.stage leaves references while refs still audit; UI shows the list as final",
-)
 async def test_partial_reference_list_is_not_shown_as_final(monkeypatch):
     # Ref 1 is verified fast and cited; refs 2 and 3 are slow and end up not_found. The web job
     # exposes (job.stage, job.partial) to the poller exactly as recorded here.
@@ -88,10 +84,6 @@ async def test_partial_reference_list_is_not_shown_as_final(monkeypatch):
         assert out["refs-wait"]["hidden"] is False, (stage, refs_text)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: saved sample view keeps the previous job's shareable link / copy-link",
-)
 def test_saved_sample_does_not_offer_the_previous_reports_link():
     # A user audits their own manuscript (job A), clicks "Audit another manuscript", then
     # "Try the sample". The sample is shown with "Shareable link (anyone with it can view this
@@ -127,3 +119,26 @@ def test_saved_sample_does_not_offer_the_previous_reports_link():
     shown_link = text(out["permalink"])
     hidden = out["share"].get("hidden") is True
     assert hidden or "AAAAAAAAAAAAAAAAAAAAAA" not in shown_link, shown_link
+
+
+def test_checklist_marks_references_done_only_when_every_audit_finished():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node not installed")
+    harness = HARNESS.replace('"saved", "saved-note", "report"]', '"stages"]')
+
+    def states(timings: dict) -> list[str]:
+        report = Report(id="x", complete=False, timings=timings).model_dump(mode="json")
+        job = {"status": "running", "stage": "claims", "done": 1, "total": 4, "report": report}
+        r = subprocess.run(
+            [node, "-e", harness, str(JS)],
+            input=json.dumps([f"renderStages({json.dumps(job)});"]),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert r.returncode == 0, r.stderr
+        return [li["cls"] for li in json.loads(r.stdout)["stages"]["kids"]]
+
+    assert states({}) == ["st-done", "st-current", "st-done", "st-current"]
+    assert states({"t_references_end": 1.0}) == ["st-done", "st-done", "st-done", "st-current"]
