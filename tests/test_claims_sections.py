@@ -41,6 +41,15 @@ def test_heading_vocabulary_numbering_and_float_labels():
     fl = retrieval._FLOAT_LABEL
     assert all(fl.match(b) for b in ("Figure 2.", "Fig. 2", "Table II", "Table 1: Outcomes"))
     assert not fl.match("Table 1 shows the baseline characteristics.")
+    supp = ("Fig. S1", "Extended Data Fig. 3", "Supplementary Figure 1.", "S1 Fig", "S2 Table.")
+    assert all(fl.match(b) for b in supp + ("Supplementary Table 2",))
+    assert not fl.match("Supplementary Table 2 lists every site.")
+
+
+def test_unknown_heading_ends_section_but_numbered_subsection_does_not():
+    text = "3 Results\n\n3.1 Primary outcome\n\nFirst result here.\n\nCase presentation\n\n"
+    text += "Second paragraph here."
+    assert [s for s, _ in retrieval.paragraphs(text)] == ["3 Results", "3 Results", None, None]
 
 
 def test_quote_in_results_is_labelled_results():

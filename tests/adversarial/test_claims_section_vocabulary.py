@@ -18,10 +18,6 @@ def _text(*blocks: str) -> str:
     return "\n\n".join(blocks)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: text under an unrecognised top-level heading inherits the previous section",
-)
 @pytest.mark.parametrize(
     ("before", "heading"),
     [
@@ -43,10 +39,6 @@ def test_unrecognised_section_heading_does_not_inherit_previous_label(before, he
     assert section_of(QUOTE, text) in (None, heading)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: structured abstract whose headings never recur in the body is labelled as body",
-)
 def test_structured_abstract_without_repeated_heading_is_not_results():
     text = _text(
         "Walking and blood pressure in older adults",
@@ -71,10 +63,6 @@ def test_structured_abstract_without_repeated_heading_is_not_results():
     assert section_of(QUOTE, text) is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: 'Extended Data Fig. 1' / 'Supplementary Figure 1.' / 'S1 Fig' not float labels",
-)
 @pytest.mark.parametrize(
     "label", ["Extended Data Fig. 1", "Supplementary Figure 1.", "S1 Fig", "Supplementary Table 2"]
 )

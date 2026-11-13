@@ -29,10 +29,18 @@ _SECTION = re.compile(
     r"|results and discussion|evaluation|analysis|discussion|conclusions?|limitations"
     r"|future work|supplementary)"
 )
-# 'Figure 2.', 'Fig. 2', 'Table II', 'Table 1: ...'; not 'Table 1 shows ...' (body text)
+# 'Figure 2.', 'Fig. 2', 'Table II', 'Table 1: ...', 'Fig. S1', 'Extended Data Fig. 1',
+# 'Supplementary Table 2', 'S1 Fig'; not 'Table 1 shows ...' (body text)
 _FLOAT_LABEL = re.compile(
-    r"(?i)(?:fig(?:ure)?\.?|table|box|scheme)\s*(?:[a-z]?\d+[a-z]?|[ivxlc]+)\b\s*(?:$|[.:])"
+    r"(?i)(?:(?:extended data|supplementary)\s+)?"
+    r"(?:(?:fig(?:ure)?\.?|table|box|scheme)\s*(?:[a-z]?\d+[a-z]?|[ivxlc]+)"
+    r"|s\d+\s+(?:fig(?:ure)?|table))\b\s*(?:$|[.:])"
 )
+_NUMBERED = re.compile(r"(?i)(?:\d+(?:\.\d+)*|[ivx]+)\.?\s")  # '2 ', '3. ', 'III. ', '2.1 '
+_SUBSECTION = re.compile(r"\d+\.\d")  # '2.1 Participants': stays in its section
+# a one-line title: no table cells, no sentence end ('Case presentation', '2 Patients and methods')
+_HEADING_LIKE = re.compile(r"[A-Z0-9][^\n|]*[^\s.,:;!?]")
+_HEADING_MAX_WORDS = 8
 
 _lock = threading.Lock()
 _model = None
@@ -86,14 +94,24 @@ def _section_name(block: str) -> str | None:
     return m.group(1).lower().rstrip("s") if m else None
 
 
+def _heading_like(block: str) -> bool:
+    return bool(_HEADING_LIKE.fullmatch(block)) and len(block.split()) <= _HEADING_MAX_WORDS
+
+
 def paragraphs(text: str) -> list[tuple[str | None, str]]:
     """(section heading or None, paragraph) per blank-line separated block; recognised headings
     are not paragraphs. Never guesses: text before the first recognised heading (title, authors,
-    abstract) is None; a heading name seen twice means a structured abstract, so everything
-    before that repeat is None too; after a 'Figure 2' / 'Table II' label the section is None
-    until the next recognised heading, so captions and text after an inline float get no label."""
+    abstract) is None; when the paper numbers its headings ('1 Introduction'), unnumbered ones
+    (a structured abstract's 'Results') do not count; a heading name seen twice means a
+    structured abstract, so everything before that repeat is None too; any other heading-like
+    line ('Case presentation', '2 Patients and methods', except numbered subsections like
+    '2.1 Participants') and a 'Figure 2' / 'Table II' label end the section: None until the next
+    recognised heading, so text under an unknown heading and captions get no label."""
     blocks = [b for b in (b.strip() for b in _BLOCK.split(text)) if b]
     names = [_section_name(b) for b in blocks]
+    numbered = [bool(n and _NUMBERED.match(b)) for b, n in zip(blocks, names, strict=True)]
+    if any(numbered):
+        names = [n if num else None for n, num in zip(names, numbered, strict=True)]
     seen, body = set(), 0
     for i, name in enumerate(names):
         if name and name in seen:
@@ -106,7 +124,7 @@ def paragraphs(text: str) -> list[tuple[str | None, str]]:
         if name:
             section = block if i >= body else None
             continue
-        if _FLOAT_LABEL.match(block):
+        if _FLOAT_LABEL.match(block) or (_heading_like(block) and not _SUBSECTION.match(block)):
             section = None
         out.append((section, block))
     return out
