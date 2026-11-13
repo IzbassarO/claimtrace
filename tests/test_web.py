@@ -22,6 +22,7 @@ from claimtrace.core.schemas import (
     Work,
 )
 from claimtrace.core.settings import get_settings
+from claimtrace.ingest.text import find_citations, split_entries, split_manuscript
 from claimtrace.web import app as web
 from claimtrace.web import chat, export
 
@@ -300,3 +301,18 @@ def test_chat_report_trims_references_before_claims(monkeypatch):
     cut = chat.report_json(rep)
     assert "[references truncated]" in cut and '"citation_id": "c1"' in cut
     assert cut.startswith(full[: head - 1])
+
+
+def test_sample_manuscript_is_served_and_parses():
+    resp = TestClient(web.app).get("/static/sample.txt")
+    assert resp.status_code == 200
+    body, section, warning = split_manuscript(resp.text)
+    assert section and warning is None
+    entries = split_entries(section)
+    assert [n for n, _ in entries] == ["1", "2", "3"]
+    assert "10.1109/CVPR.2016.90" in entries[0][1]
+    assert "10.1371/journal.pmed.0020124" in entries[1][1]
+    assert "doi" not in entries[2][1].lower()
+    refs = [Reference(id=n, raw=raw) for n, raw in entries]
+    cites, warns = find_citations(body, refs)
+    assert [c.ref_ids for c in cites] == [["1"], ["2"], ["3"]] and warns == []
