@@ -70,6 +70,12 @@ def parse_bib(src: str) -> list[Reference]:
     return refs
 
 
+def _lf(s: str) -> str:
+    """Browsers submit textarea text with CRLF and Windows files use it too; every line-based
+    rule below (reference heading, entry prefixes) expects plain LF."""
+    return s.replace("\r\n", "\n").replace("\r", "\n")
+
+
 async def parse_inputs(text: str | None, files: list[InputFile]) -> Manuscript:
     """Pasted text and/or files -> Manuscript. The first manuscript source wins (pasted text,
     then .txt/.md, then .pdf); .bib files supply the references when present. Per-item problems
@@ -78,11 +84,11 @@ async def parse_inputs(text: str | None, files: list[InputFile]) -> Manuscript:
     manuscripts: list[tuple[str, str | bytes]] = []  # (kind, content)
     bib_refs: list[Reference] = []
     if text and text.strip():
-        manuscripts.append(("text", text))
+        manuscripts.append(("text", _lf(text)))
     for f in files:
         ext = "." + f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
         if ext in TEXT_EXT:
-            manuscripts.append(("text", f.content.decode("utf-8-sig", errors="replace")))
+            manuscripts.append(("text", _lf(f.content.decode("utf-8-sig", errors="replace"))))
         elif ext == ".pdf":
             manuscripts.append(("pdf", f.content))
         elif ext == ".bib":
