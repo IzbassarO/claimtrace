@@ -1,5 +1,5 @@
-"""Source text for an identified reference: Europe PMC / arXiv / Unpaywall full text, else the
-abstract. Owner: T3.
+"""Source text for an identified reference: Europe PMC / arXiv / bioRxiv-medRxiv / Unpaywall /
+OpenAlex-location full text, else the abstract. Owner: T3.
 
 Every source is tried in order; any exception or empty answer in one source falls through to the
 next. Text is only ever copied from what a provider returned, never synthesised.
@@ -39,10 +39,13 @@ async def fetch_source(
     if w is None:
         return None
     ref_id = audit.reference.id
+    tried: set[str] = set()  # PDF urls already downloaded for this reference
     full_text = [
         ("europepmc", lambda: _europepmc(w, client)),
-        ("arxiv", lambda: _arxiv(w, client, pdf_to_text)),
-        ("unpaywall", lambda: _unpaywall(w, client, pdf_to_text)),
+        ("arxiv", lambda: _arxiv(w, client, pdf_to_text, tried)),
+        (PREPRINT_ORIGIN, lambda: _biorxiv(w, client, pdf_to_text, tried)),
+        ("unpaywall", lambda: _unpaywall(w, client, pdf_to_text, tried)),
+        ("openalex", lambda: _openalex_pdf(w, client, pdf_to_text, tried)),
     ]
     for origin, get in full_text:
         try:
@@ -285,16 +288,62 @@ async def _pdf_text(client, url: str, pdf_to_text: PdfToText) -> tuple[str, str]
     return (text, url) if text else None
 
 
+async def _first_pdf(
+    urls, w: Work, client, pdf_to_text: PdfToText, tried: set[str]
+) -> tuple[str, str] | None:
+    """First candidate url whose PDF converts to text that passes the wrong-document guard.
+    A url already tried for this reference is skipped; any failure moves to the next url."""
+    for u in dict.fromkeys(u for u in urls if u):
+        if u in tried:
+            continue
+        tried.add(u)
+        try:
+            got = await _pdf_text(client, u, pdf_to_text)
+        except Exception as e:
+            log.info("sources: pdf %s failed: %s", u, type(e).__name__)
+            continue
+        if not got:
+            continue
+        if looks_like(got[0], w.title, w.authors):
+            return got
+        # wrong document at this url: the next candidate may still be the right one
+        log.info("sources: pdf %s rejected by wrong-document guard", u)
+    return None
+
+
 # ponytail: no arXiv rate limiter here (pipeline runs <= 6 fetches at once); add a shared
 # 3 s spacing if arXiv starts answering 403/429 for PDF downloads.
-async def _arxiv(w: Work, client, pdf_to_text: PdfToText) -> tuple[str, str] | None:
+async def _arxiv(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, str] | None:
     aid = _arxiv_id(w)
     if not aid:
         return None
-    return await _pdf_text(client, f"https://arxiv.org/pdf/{aid}", pdf_to_text)
+    return await _first_pdf([f"https://arxiv.org/pdf/{aid}"], w, client, pdf_to_text, tried)
 
 
-async def _unpaywall(w: Work, client, pdf_to_text: PdfToText) -> tuple[str, str] | None:
+# bioRxiv / medRxiv DOIs: 10.1101/2020.03.22.002386 or old style 10.1101/123456. Other 10.1101
+# DOIs (Genome Research "gr.…", Genes & Dev "gad.…") belong to journals, not preprint servers.
+_PREPRINT_DOI = re.compile(r"^10\.1101/(?:\d{4}\.\d{2}\.\d{2}\.)?\d{6,}$")
+# ponytail: SourceText.origin has no "biorxiv" value yet (contract change requested in the PR);
+# the url still names biorxiv.org / medrxiv.org.
+PREPRINT_ORIGIN = "unpaywall"
+
+
+async def _biorxiv(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, str] | None:
+    doi = (w.doi or "").lower()
+    if not _PREPRINT_DOI.match(doi):
+        return None
+    for server in ("biorxiv", "medrxiv"):
+        r = await request(client, "GET", f"https://api.biorxiv.org/details/{server}/{doi}")
+        if r.status_code != 200:
+            continue
+        versions = [int(v["version"]) for v in r.json().get("collection") or []]
+        if versions:
+            url = f"https://www.{server}.org/content/{doi}v{max(versions)}.full.pdf"
+            return await _first_pdf([url], w, client, pdf_to_text, tried)
+    return None
+
+
+async def _unpaywall(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, str] | None:
     url = None
     email = get_settings().contact_email
     if w.doi and email:
@@ -309,19 +358,28 @@ async def _unpaywall(w: Work, client, pdf_to_text: PdfToText) -> tuple[str, str]
                 url = ((r.json().get("best_oa_location") or {}).get("url_for_pdf")) or None
         except Exception as e:  # Unpaywall down: still try the OA url refaudit found
             log.info("sources: unpaywall lookup failed: %s", type(e).__name__)
-    for u in dict.fromkeys(u for u in (url, w.oa_pdf_url) if u):
-        try:
-            got = await _pdf_text(client, u, pdf_to_text)
-        except Exception as e:
-            log.info("sources: pdf %s failed: %s", u, type(e).__name__)
-            continue
-        if not got:
-            continue
-        if looks_like(got[0], w.title, w.authors):
-            return got
-        # wrong document at this url: the next OA candidate may still be the right one
-        log.info("sources: pdf %s rejected by wrong-document guard", u)
-    return None
+    return await _first_pdf([url, w.oa_pdf_url], w, client, pdf_to_text, tried)
+
+
+MAX_OA_LOCATIONS = 4  # bounds downloads for works with many repository copies
+
+
+async def _openalex_work(w: Work, client: httpx.AsyncClient) -> dict | None:
+    """Free OpenAlex entity lookup by DOI (cached by core.http; never a paid search)."""
+    if not w.doi:
+        return None
+    r = await request(client, "GET", f"https://api.openalex.org/works/doi:{quote(w.doi)}")
+    return r.json() if r.status_code == 200 else None
+
+
+async def _openalex_pdf(w: Work, client, pdf_to_text: PdfToText, tried) -> tuple[str, str] | None:
+    d = await _openalex_work(w, client)
+    if not d:
+        return None
+    locs = [d.get("best_oa_location"), d.get("primary_location"), *(d.get("locations") or [])]
+    urls = [(loc or {}).get("pdf_url") for loc in locs]
+    urls = [u for u in dict.fromkeys(u for u in urls if u) if u not in tried]
+    return await _first_pdf(urls[:MAX_OA_LOCATIONS], w, client, pdf_to_text, tried)
 
 
 # ---------- abstracts ----------
@@ -360,12 +418,8 @@ def rebuild_inverted(index: dict[str, list[int]]) -> str:
 
 
 async def _openalex_abstract(w: Work, client: httpx.AsyncClient) -> str | None:
-    if not w.doi:
-        return None
-    r = await request(client, "GET", f"https://api.openalex.org/works/doi:{quote(w.doi)}")
-    if r.status_code != 200:
-        return None
-    inv = r.json().get("abstract_inverted_index")
+    d = await _openalex_work(w, client)
+    inv = (d or {}).get("abstract_inverted_index")
     return rebuild_inverted(inv) if inv else None
 
 

@@ -46,3 +46,22 @@ sweep, PR #44), fix in progress.
 
 - Live PDF tests are **skipped** while the human's CVAT stack is running (Docker VM memory);
   GROBID is not started.
+- **Refaudit work grouping (PR #47)**: title + equal first author groups records without a year
+  check (preprint 2014 vs journal 2017); authorless records on title + year ±1. Different first
+  authors never group. Tightened in the next round after the tester found same-author/same-title
+  different works (round 3).
+- **UI "needs attention" (PR #48)**: claims need attention when `unsupported` or `needs_review`;
+  `partly_supported` / `insufficient_evidence` / `source_not_found` are a separate open group
+  ("partly supported or not checkable"). Counting them as attention gave "44 of 58" on the
+  Attention paper — noise, not a signal.
+- **Compose project name pinned to `claimtrace-hg` (PR #49)** so volumes are the same on the
+  server and locally.
+- **Incident (Fri ~15:05 ET)**: while verifying restarts (PR #49) GROBID was started via
+  `depends_on` although the human's CVAT stack was running. Noticed by the lead, GROBID stopped
+  within ~20 min; all 17 CVAT containers stayed up (no restarts, no exits). From now on every
+  local `up` uses `--no-deps app caddy`.
+- **A5 more full text (PR #51) — accepted**: abstract-only 26.5% → 20.4%, PDFs found 42.9% →
+  49.0% on 49 fixed DOIs; +20 s over 49 DOIs (117 → 137 s). No effect on false verdicts
+  (selection of sources only). NCBI `oa.fcgi` (404 / ftp only) and CORE (needs a key) skipped;
+  bioRxiv often behind Cloudflare (429) — no bypass attempted. GROBID unavailable during the
+  measurement, so PDF counts are an upper bound (guard not applied without text).
