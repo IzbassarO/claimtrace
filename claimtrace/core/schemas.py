@@ -177,3 +177,5 @@ class Report(BaseModel):
     # t_* = first time an event happened, busy_* = cumulative seconds per operation (overlapping
     # when concurrent), n_* = counts; see core/timing.py
     timings: dict[str, float] = Field(default_factory=dict)
+    # False on the partial snapshots streamed while a job runs (see pipeline.run on_partial)
+    complete: bool = True
