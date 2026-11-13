@@ -95,3 +95,26 @@ async def test_coverage_report(monkeypatch):
     for cls in ("full_text", "pdf", "abstract", "none", "no_metadata"):
         print(f"{cls:12} {counts[cls]:3}  {100 * counts[cls] / n:5.1f}%")
     print("pdf hosts:", Counter(w for _, cls, w in rows if cls == "pdf"))
+
+
+async def test_cache_timing(monkeypatch, tmp_path):
+    """fetch_source over the list twice with an empty sources cache: cold vs warm.
+    Only the sources cache starts empty (the OpenAlex response cache is the usual one)."""
+    s = src.get_settings().model_copy(update={"cache_dir": str(tmp_path)})
+    async with make_client() as c:
+        works = [await work_for(doi, c) for doi in DOIS]
+        monkeypatch.setattr(src, "get_settings", lambda: s)
+        audits = [
+            ReferenceAudit(reference=Reference(id=str(i), raw=""), status="verified", matched=w)
+            for i, w in enumerate(works)
+            if w
+        ]
+        times = []
+        for _ in ("cold", "warm"):
+            t0 = time.monotonic()
+            got = [await src.fetch_source(a, c, no_grobid) for a in audits]
+            times.append((time.monotonic() - t0, sum(g is not None for g in got)))
+    cached = len(list((tmp_path / "sources").glob("*.json")))
+    print(f"\n{len(audits)} DOIs, {cached} cached")
+    for label, (t, n) in zip(("cold", "warm"), times, strict=True):
+        print(f"{label}: {t:6.1f}s  ({n} with text, {t / len(audits) * 1000:.0f} ms/DOI)")
