@@ -191,7 +191,10 @@ async def run(
     files: list[InputFile] | None = None,
     on_progress: Progress | None = None,
     report_id: str | None = None,
+    on_partial: Callable[[Report], None] | None = None,
 ) -> Report:
+    """`on_partial(report)` (optional) receives partial snapshots (`complete=False`) as reference
+    audits and claim checks finish; the returned report is the final one (`complete=True`)."""
     user_progress = on_progress or (lambda *_: None)
     t = timing.start()
 

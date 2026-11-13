@@ -55,6 +55,18 @@ Errors: entry points must not raise for per-item problems (one bad reference, on
 down); they encode them in the result. The pipeline still guards each call and degrades to
 `insufficient_evidence` / no source.
 
+## Pipeline entry point
+
+```python
+# claimtrace/pipeline.py
+async def run(text, files=None, on_progress=None, report_id=None,
+              on_partial: Callable[[Report], None] | None = None) -> Report
+```
+
+`on_partial` receives partial `Report` snapshots (`complete=False`: references audited so far,
+claims checked so far) while the job runs; the return value is the final report
+(`complete=True`). `Report.timings` carries the per-stage timing breakdown.
+
 ## Status semantics
 
 **References** (`RefStatus`)
