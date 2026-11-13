@@ -58,6 +58,7 @@ def make_report(report_id="r1") -> Report:
             sentence="Salt reduction lowers blood pressure [1].",
             verdict=Verdict.supported,
             quote=QUOTE,
+            section="3 Results",
             evidence_kind=EvidenceKind.abstract,
             source_url="https://example.org/a",
             judge=ModelOpinion(verdict="supported", quote=QUOTE, rationale="Direct match."),
@@ -240,6 +241,7 @@ def test_markdown_content():
     assert "- Provider failures: crossref (HTTP 503)" in md
     assert "### c1 -> [1] supported" in md
     assert f'- Verbatim quote (abstract only): "{QUOTE}"' in md
+    assert "- Section: 3 Results" in md
     assert "### c2 -> [3] source_not_found" in md and "(needs review)" not in md
     assert "Only the first 200 of 250" in md
 

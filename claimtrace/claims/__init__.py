@@ -3,7 +3,7 @@
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from claimtrace.claims.quote import verify_quote
-from claimtrace.claims.retrieval import Embed, retrieve
+from claimtrace.claims.retrieval import Embed, retrieve, section_of
 from claimtrace.core.llm import ask_json, wrap_untrusted
 from claimtrace.core.schemas import Citation, ClaimCheck, ModelOpinion, SourceText, Verdict
 
@@ -93,6 +93,7 @@ async def check_claim(
         **base,
         verdict=Verdict(verdict),
         quote=quote,
+        section=section_of(quote, source.text) if quote else None,
         evidence_kind=source.kind,
         source_url=source.url,
         needs_review=needs_review,

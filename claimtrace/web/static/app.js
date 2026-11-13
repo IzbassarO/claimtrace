@@ -262,8 +262,8 @@ function claimCard(c) {
       c.quote
         ? [el("p", { className: "label" }, "The source says"), el("blockquote", { className: "quote" }, c.quote)]
         : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
-      el("p", { className: "provenance" }, kind || null, kind && c.source_url ? " · " : "",
-        c.source_url ? link(c.source_url, "source") : null),
+      el("p", { className: "provenance" }, kind || null, kind && c.section ? ` · § ${c.section}` : "",
+        kind && c.source_url ? " · " : "", c.source_url ? link(c.source_url, "source") : null),
       c.note ? el("p", { className: "quiet" }, c.note) : null,
       c.judge || c.skeptic ? el("details", {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null));
 }
