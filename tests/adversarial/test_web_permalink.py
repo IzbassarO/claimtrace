@@ -4,14 +4,11 @@ the browser rejects the whole script, so no button works and /r/<id> permalinks 
 import re
 from pathlib import Path
 
-import pytest
-
 from claimtrace.web import app as web
 
 JS = Path(web.__file__).parent / "static" / "app.js"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: app.js has merge conflict markers, UI script is dead")
 def test_app_js_has_no_conflict_markers_and_wires_both_features():
     js = JS.read_text()
     assert not re.search(r"^(<{7}|={7}|>{7})", js, re.M), "conflict markers: SyntaxError in browser"

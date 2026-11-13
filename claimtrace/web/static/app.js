@@ -267,12 +267,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("job-form").addEventListener("submit", submitJob);
   $("chat-form").addEventListener("submit", ask);
   $("new-job").addEventListener("click", reset);
-<<<<<<< HEAD
   $("copy-link").addEventListener("click", copyLink);
-  const m = location.pathname.match(/^\/r\/([\w-]+)$/);
-=======
   $("sample").addEventListener("click", trySample);
-  const m = location.hash.match(/^#job=([\w-]+)$/);
->>>>>>> origin/main
+  const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);
 });

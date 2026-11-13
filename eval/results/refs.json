@@ -1,0 +1,1870 @@
+{
+  "suite": "refs",
+  "created": "2026-11-13T18:42:33+00:00",
+  "metrics": {
+    "n": 196,
+    "accuracy": 0.9744897959183674,
+    "false_verified": 2,
+    "false_not_found": 0,
+    "unchecked_rate": 0.01020408163265306,
+    "per_mutation": {
+      "unchanged": {
+        "n": 38,
+        "correct": 37,
+        "accuracy": 0.9736842105263158,
+        "statuses": {
+          "verified": 37,
+          "metadata_mismatch": 1
+        }
+      },
+      "year_plus_3": {
+        "n": 38,
+        "correct": 38,
+        "accuracy": 1.0,
+        "statuses": {
+          "metadata_mismatch": 38
+        }
+      },
+      "negated_title": {
+        "n": 38,
+        "correct": 38,
+        "accuracy": 1.0,
+        "statuses": {
+          "metadata_mismatch": 38
+        }
+      },
+      "swapped_first_author": {
+        "n": 38,
+        "correct": 36,
+        "accuracy": 0.9473684210526315,
+        "statuses": {
+          "metadata_mismatch": 36,
+          "verified": 2
+        }
+      },
+      "fabricated": {
+        "n": 38,
+        "correct": 36,
+        "accuracy": 0.9473684210526315,
+        "statuses": {
+          "not_found": 36,
+          "unchecked": 2
+        }
+      },
+      "retracted": {
+        "n": 6,
+        "correct": 6,
+        "accuracy": 1.0,
+        "statuses": {
+          "retracted": 6
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "0-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "0-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "0-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "0-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "0-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "1-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "1-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "1-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "1-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "1-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "2-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "2-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "2-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "2-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "2-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "3-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "3-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "3-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "3-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "3-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "4-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "4-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "4-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "4-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "4-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "5-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "5-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "5-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "5-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "5-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "6-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "6-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "6-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "6-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "6-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "7-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "7-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "7-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "7-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "7-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "8-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "8-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "8-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "8-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "8-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "9-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "9-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "9-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "9-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "9-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "10-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "10-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "10-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "10-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "10-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "11-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "11-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "11-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "11-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "11-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "12-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "12-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "12-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "12-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "12-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "13-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "13-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "13-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "13-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "13-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "14-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "14-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "14-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "14-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "14-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "unchecked",
+      "mismatches": [],
+      "providers_failed": [
+        "crossref"
+      ]
+    },
+    {
+      "id": "15-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "15-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "15-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "15-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "15-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "16-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "16-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "16-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "16-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "16-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "17-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "17-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "17-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "17-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "17-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "18-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "18-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "18-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "18-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "18-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "19-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "19-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "19-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "19-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "19-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "20-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "20-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "20-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "20-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "20-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "21-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "21-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "21-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "21-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "21-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "22-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "22-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "22-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "22-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "22-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "23-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "23-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "23-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "23-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "23-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "24-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "24-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "24-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "24-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "24-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "25-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "25-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "25-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "25-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "25-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "26-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "26-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "26-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "26-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "26-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "27-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "27-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "27-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "27-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "27-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "28-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "28-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "28-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "28-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "28-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "29-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "29-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors",
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "29-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title",
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "29-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "29-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "30-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "30-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "30-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "30-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "30-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "31-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "31-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "31-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "31-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "31-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "unchecked",
+      "mismatches": [],
+      "providers_failed": [
+        "crossref"
+      ]
+    },
+    {
+      "id": "32-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "32-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "32-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "32-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "32-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "33-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "33-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "33-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "33-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "33-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "34-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "34-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "34-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "34-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "34-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "35-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "35-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "35-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "35-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "35-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "36-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "36-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "36-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "36-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "36-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "37-unchanged",
+      "mutation": "unchanged",
+      "expected": "verified",
+      "status": "verified",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "37-year_plus_3",
+      "mutation": "year_plus_3",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "year"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "37-negated_title",
+      "mutation": "negated_title",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "title"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "37-swapped_first_author",
+      "mutation": "swapped_first_author",
+      "expected": "metadata_mismatch",
+      "status": "metadata_mismatch",
+      "mismatches": [
+        "authors"
+      ],
+      "providers_failed": []
+    },
+    {
+      "id": "37-fabricated",
+      "mutation": "fabricated",
+      "expected": "not_found",
+      "status": "not_found",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "38-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "39-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "40-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "41-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "42-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    },
+    {
+      "id": "43-retracted",
+      "mutation": "retracted",
+      "expected": "retracted",
+      "status": "retracted",
+      "mismatches": [],
+      "providers_failed": []
+    }
+  ],
+  "params": {
+    "limit": 100,
+    "seed": 0
+  }
+}
