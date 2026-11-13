@@ -5,6 +5,8 @@ string or is dropped with a warning."""
 import asyncio
 import json
 import re
+from collections.abc import Callable
+from itertools import pairwise
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
@@ -14,7 +16,7 @@ from claimtrace.core.schemas import Reference
 from claimtrace.core.settings import get_settings
 from claimtrace.ingest.text import family, find_arxiv, find_doi, year_candidates
 
-BATCH = 20
+FIRST, BATCH = 5, 20  # a small first chunk gets the reference audit going early
 SYSTEM = (
     "You split bibliographic reference strings into fields. For every item return its index, "
     "the title, the authors and the venue (journal, conference, book or publisher), each copied "
@@ -122,15 +124,24 @@ def apply_guarded(ref: Reference, item: _Item, warnings: list[str]) -> None:
         )
 
 
+def chunks(refs: list[Reference]) -> list[list[Reference]]:
+    """Whole entries only: the first FIRST, then BATCH at a time."""
+    bounds = [0, *range(FIRST, len(refs), BATCH), len(refs)]
+    return [refs[a:b] for a, b in pairwise(bounds) if a < b]
+
+
 async def extract_references(
-    entries: list[tuple[str, str]], model: BaseChatModel | None = None
+    entries: list[tuple[str, str]],
+    model: BaseChatModel | None = None,
+    on_chunk: Callable[[list[Reference]], None] | None = None,
 ) -> tuple[list[Reference], list[str]]:
-    """[(id, raw)] -> References. LLM failure keeps the regex fields and adds a warning."""
+    """[(id, raw)] -> References. LLM failure keeps the regex fields and adds a warning.
+    `on_chunk(refs)` gets each chunk's final References as soon as that chunk is done."""
     refs = [regex_reference(i, raw) for i, raw in entries]
-    warnings: list[str] = []
     sem = asyncio.Semaphore(max(1, get_settings().llm_concurrency))
 
-    async def run(batch: list[Reference]) -> None:
+    async def run(batch: list[Reference]) -> list[str]:
+        warnings: list[str] = []
         lines = "\n".join(json.dumps({"index": k, "text": r.raw}) for k, r in enumerate(batch))
         user = "Reference strings, one JSON object per line:\n" + wrap_untrusted(
             "references", lines
@@ -143,10 +154,13 @@ async def extract_references(
                 f"Reference field extraction failed for {batch[0].id}..{batch[-1].id} "
                 f"({type(e).__name__}); only DOI/arXiv/year used"
             )
-            return
-        for item in out.items:
-            if 0 <= item.index < len(batch):
-                apply_guarded(batch[item.index], item, warnings)
+        else:
+            for item in out.items:
+                if 0 <= item.index < len(batch):
+                    apply_guarded(batch[item.index], item, warnings)
+        if on_chunk:
+            on_chunk(batch)
+        return warnings
 
-    await asyncio.gather(*(run(refs[i : i + BATCH]) for i in range(0, len(refs), BATCH)))
-    return refs, warnings
+    per_chunk = await asyncio.gather(*(run(c) for c in chunks(refs)))
+    return refs, [w for ws in per_chunk for w in ws]  # chunk order, not completion order

@@ -1,0 +1,96 @@
+Author year streaming manuscript
+
+Statins help (Smith, 1981). Others agree (Lee, 1982).
+
+References
+
+Lee, A. (1981). Author year paper 1 on
+lipid outcomes. Journal 1.
+
+Garcia, A. (1982). Author year paper 2 on
+lipid outcomes. Journal 2.
+https://doi.org/10.2000/ay.2
+
+Kim, A. (1983). Author year paper 3 on
+lipid outcomes. Journal 3.
+
+Brown, A. (1984). Author year paper 4 on
+lipid outcomes. Journal 4.
+https://doi.org/10.2000/ay.4
+
+Novak, A. (1985). Author year paper 5 on
+lipid outcomes. Journal 5.
+
+Ito, A. (1986). Author year paper 6 on
+lipid outcomes. Journal 6.
+https://doi.org/10.2000/ay.6
+
+Rossi, A. (1987). Author year paper 7 on
+lipid outcomes. Journal 7.
+
+Khan, A. (1988). Author year paper 8 on
+lipid outcomes. Journal 8.
+https://doi.org/10.2000/ay.8
+
+Muller, A. (1989). Author year paper 9 on
+lipid outcomes. Journal 9.
+
+Smith, A. (1990). Author year paper 10 on
+lipid outcomes. Journal 10.
+https://doi.org/10.2000/ay.10
+
+Lee, A. (1991). Author year paper 11 on
+lipid outcomes. Journal 11.
+
+Garcia, A. (1992). Author year paper 12 on
+lipid outcomes. Journal 12.
+https://doi.org/10.2000/ay.12
+
+Kim, A. (1993). Author year paper 13 on
+lipid outcomes. Journal 13.
+
+Brown, A. (1994). Author year paper 14 on
+lipid outcomes. Journal 14.
+https://doi.org/10.2000/ay.14
+
+Novak, A. (1995). Author year paper 15 on
+lipid outcomes. Journal 15.
+
+Ito, A. (1996). Author year paper 16 on
+lipid outcomes. Journal 16.
+https://doi.org/10.2000/ay.16
+
+Rossi, A. (1997). Author year paper 17 on
+lipid outcomes. Journal 17.
+
+Khan, A. (1998). Author year paper 18 on
+lipid outcomes. Journal 18.
+https://doi.org/10.2000/ay.18
+
+Muller, A. (1999). Author year paper 19 on
+lipid outcomes. Journal 19.
+
+Smith, A. (2000). Author year paper 20 on
+lipid outcomes. Journal 20.
+https://doi.org/10.2000/ay.20
+
+Lee, A. (2001). Author year paper 21 on
+lipid outcomes. Journal 21.
+
+Garcia, A. (2002). Author year paper 22 on
+lipid outcomes. Journal 22.
+https://doi.org/10.2000/ay.22
+
+Kim, A. (2003). Author year paper 23 on
+lipid outcomes. Journal 23.
+
+Brown, A. (2004). Author year paper 24 on
+lipid outcomes. Journal 24.
+https://doi.org/10.2000/ay.24
+
+Novak, A. (2005). Author year paper 25 on
+lipid outcomes. Journal 25.
+
+Ito, A. (2006). Author year paper 26 on
+lipid outcomes. Journal 26.
+https://doi.org/10.2000/ay.26
