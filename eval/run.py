@@ -504,11 +504,11 @@ async def run_retrieval(limit: int | None, seed: int) -> dict:
         await variant(items[0]["claim"], items[0]["text"])
     rows = []
     for it in items:
-        _embed_memo.clear()
-        _rerank_memo.clear()
         row = {"claim_id": it["claim_id"], "doc_id": it["doc_id"], "chars": len(it["text"])}
         row["variants"] = {}
         for name, variant in RETRIEVAL_VARIANTS.items():
+            _embed_memo.clear()  # per variant: rerank must pay for its own embeddings
+            _rerank_memo.clear()
             t0 = time.perf_counter()
             got = await variant(it["claim"], it["text"])
             ms = (time.perf_counter() - t0) * 1000
