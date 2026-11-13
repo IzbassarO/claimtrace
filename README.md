@@ -46,7 +46,7 @@ Development: `uv sync`, then `uv run ruff check . && uv run pytest -q` (offline;
 flowchart LR
     U[Browser<br/>static UI, textContent only] -->|HTTPS| C[Caddy]
     C --> W[FastAPI web<br/>jobs, limits, reports on disk]
-    W --> P[pipeline.run<br/>LangGraph]
+    W --> P[pipeline.run<br/>streaming conveyor]
     P --> I[ingest<br/>text / .bib / PDF]
     I -->|PDF| G[(GROBID)]
     I -->|field extraction<br/>verbatim guard| X[LLM: extract]
