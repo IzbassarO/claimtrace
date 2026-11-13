@@ -1,35 +1,51 @@
-"""The only place modules meet. Linear LangGraph: ingest -> audit -> sources -> claims -> report.
+"""The only place modules meet. A streaming conveyor, not a sequence of stages:
 
-Progress callback: on_progress(stage, done, total).
+ingest -> every reference audit starts; as soon as one finishes, its source is fetched (if it is
+cited and identified); as soon as a source is ready, its claims are queued; claim workers
+(LLM_CONCURRENCY) take problem references first. Partial reports are streamed via `on_partial`.
+
+Progress callback: on_progress(stage, done, total). Timings: `Report.timings` (core/timing.py).
 """
 
 import asyncio
+import hashlib
+import inspect
+import itertools
+import json
+import logging
+import os
 import uuid
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Callable
-from typing import TypedDict
-
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph import END, START, StateGraph
+from pathlib import Path
 
 from claimtrace import claims, ingest, refaudit, sources
 from claimtrace.core import timing
 from claimtrace.core.http import make_client
+from claimtrace.core.llm import provider_of
 from claimtrace.core.schemas import (
+    Citation,
     ClaimCheck,
     InputFile,
     Manuscript,
+    Reference,
     ReferenceAudit,
+    RefStatus,
     Report,
     SourceText,
     Verdict,
 )
 from claimtrace.core.settings import get_settings
 
+log = logging.getLogger(__name__)
+
 SOURCE_TIMEOUT_S = 90  # whole fetch of one source (PDF download + GROBID), not per read
 MAX_SENTENCE_CHARS = 2000  # longer "sentences" are tables/extraction noise; caps report size
+SOURCE_CONCURRENCY = 6
+MAX_CACHED_VERDICTS = 5000
 
 Progress = Callable[[str, int, int], None]
+Partial = Callable[[Report], None]
 
 
 async def _timed_pdf_to_text(pdf: bytes) -> str:
@@ -37,73 +53,57 @@ async def _timed_pdf_to_text(pdf: bytes) -> str:
         return await ingest.pdf_to_text(pdf)
 
 
-class State(TypedDict, total=False):
-    text: str | None
-    files: list[InputFile]
-    manuscript: Manuscript
-    audits: list[ReferenceAudit]
-    sources: dict[str, SourceText]
-    claims: list[ClaimCheck]
-    report: Report
+# ---------- verdict cache (claim + source text + models + prompts) ----------
 
 
-def _ctx(config: RunnableConfig):
-    c = config["configurable"]
-    return c["client"], c["progress"]
+def _verdict_dir() -> Path:
+    return Path(get_settings().cache_dir) / "verdicts"
 
 
-async def _ingest(state: State, config: RunnableConfig) -> State:
-    _, progress = _ctx(config)
-    progress("ingest", 0, 1)
-    with timing.span("ingest"):
-        ms = await ingest.parse_inputs(state.get("text"), state.get("files", []))
-    limit = get_settings().max_references
-    if len(ms.references) > limit:
-        ms.warnings.append(f"Only the first {limit} of {len(ms.references)} references audited.")
-        ms.references = ms.references[:limit]
-    progress("ingest", 1, 1)
-    return {"manuscript": ms}
+def _verdict_key(c: Citation, src: SourceText) -> str:
+    s = get_settings()
+    parts = [
+        c.sentence,
+        src.kind,
+        hashlib.sha256(src.text.encode()).hexdigest(),
+        f"{provider_of('judge')}/{s.llm_judge_model}",
+        f"{provider_of('skeptic')}/{s.llm_skeptic_model}",
+        hashlib.sha256((claims.JUDGE_SYSTEM + claims.SKEPTIC_SYSTEM).encode()).hexdigest(),
+    ]
+    return hashlib.sha256(json.dumps(parts).encode()).hexdigest()
 
 
-async def _audit(state: State, config: RunnableConfig) -> State:
-    client, progress = _ctx(config)
-    refs = state["manuscript"].references
-    progress("references", 0, len(refs))
-    audits = await refaudit.audit_references(
-        refs, client, lambda d, t: progress("references", d, t)
-    )
-    return {"audits": audits}
+def _cached_verdict(c: Citation, ref_id: str, src: SourceText) -> ClaimCheck | None:
+    try:
+        data = json.loads((_verdict_dir() / f"{_verdict_key(c, src)}.json").read_text())
+        return ClaimCheck.model_validate(data | {"citation_id": c.id, "ref_id": ref_id})
+    except (OSError, ValueError):
+        return None
 
 
-async def _sources(state: State, config: RunnableConfig) -> State:
-    client, progress = _ctx(config)
-    cited = {r for c in state["manuscript"].citations for r in c.ref_ids}
-    todo = [a for a in state["audits"] if a.reference.id in cited and a.matched]
-    done, out = 0, {}
-    sem = asyncio.Semaphore(6)
-
-    async def one(a: ReferenceAudit):
-        nonlocal done
-        async with sem:
-            try:
-                async with asyncio.timeout(SOURCE_TIMEOUT_S):
-                    with timing.span("source_fetch"):
-                        src = await sources.fetch_source(a, client, _timed_pdf_to_text)
-            except Exception:  # incl. TimeoutError: degrade to "no source", never crash the job
-                src = None
-        if src:
-            out[a.reference.id] = src
-        done += 1
-        progress("sources", done, len(todo))
-
-    progress("sources", 0, len(todo))
-    await asyncio.gather(*(one(a) for a in todo))
-    return {"sources": out}
+def _store_verdict(c: Citation, src: SourceText, res: ClaimCheck) -> None:
+    # Only clean model answers are reusable; a failed call must be retried next time.
+    if res.judge is None or res.skeptic is None:
+        return
+    d = _verdict_dir()
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        f = d / f"{_verdict_key(c, src)}.json"
+        tmp = f.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(res.model_dump_json())
+        tmp.replace(f)
+        files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        # ponytail: O(n) scan per write; fine at 5000 files, index it if the cap grows
+        for old in files[: max(0, len(files) - MAX_CACHED_VERDICTS)]:
+            old.unlink(missing_ok=True)
+    except OSError as e:
+        log.warning("verdict cache write failed: %s", e)
 
 
-async def _claims(state: State, config: RunnableConfig) -> State:
-    _, progress = _ctx(config)
-    ms, srcs = state["manuscript"], state["sources"]
+# ---------- helpers ----------
+
+
+def _pairs(ms: Manuscript) -> list[tuple[Citation, str]]:
     known = {r.id for r in ms.references}
     long_ = [c for c in ms.citations if len(c.sentence) > MAX_SENTENCE_CHARS]
     if long_:
@@ -122,68 +122,61 @@ async def _claims(state: State, config: RunnableConfig) -> State:
     if len(pairs) > limit:
         ms.warnings.append(f"Only the first {limit} of {len(pairs)} citation pairs checked.")
         pairs = pairs[:limit]
-    sem = asyncio.Semaphore(get_settings().llm_concurrency)
-    done = 0
-
-    async def one(c, r) -> ClaimCheck:
-        nonlocal done
-        async with sem:
-            try:
-                with timing.span("claim_check"):
-                    res = await claims.check_claim(c, r, srcs.get(r))
-            except Exception as e:  # LLM outage -> honest "insufficient_evidence", not a verdict
-                res = ClaimCheck(
-                    citation_id=c.id,
-                    ref_id=r,
-                    sentence=c.sentence,
-                    verdict=Verdict.insufficient_evidence,
-                    needs_review=True,
-                    note=f"check failed: {type(e).__name__}",
-                )
-        done += 1
-        progress("claims", done, len(pairs))
-        return res
-
-    progress("claims", 0, len(pairs))
-    return {"claims": list(await asyncio.gather(*(one(c, r) for c, r in pairs)))}
+    return pairs
 
 
-def _report(state: State, config: RunnableConfig) -> State:
-    ms = state["manuscript"]
-    report = Report(
-        id=config["configurable"]["report_id"],
-        title=ms.title,
-        references=state["audits"],
-        claims=state["claims"],
-        warnings=ms.warnings,
-        summary={
-            "references": dict(Counter(a.status.value for a in state["audits"])),
-            "claims": dict(Counter(c.verdict.value for c in state["claims"])),
-        },
+def _suspicious_first(refs: list[Reference]) -> list[int]:
+    """Audit order: references with problem signals (no identifier, no title or no year) first,
+    so likely problems show up early in the streamed report."""
+
+    def looks_fine(r: Reference) -> bool:
+        return bool(r.doi or r.arxiv_id) and bool(r.title and r.year)
+
+    return sorted(range(len(refs)), key=lambda i: looks_fine(refs[i]))
+
+
+def _failed(c: Citation, r: str, e: Exception) -> ClaimCheck:
+    # LLM outage -> honest "insufficient_evidence", not a verdict
+    return ClaimCheck(
+        citation_id=c.id,
+        ref_id=r,
+        sentence=c.sentence,
+        verdict=Verdict.insufficient_evidence,
+        needs_review=True,
+        note=f"check failed: {type(e).__name__}",
     )
-    return {"report": report}
 
 
-def build_graph():
-    g = StateGraph(State)
-    for name, fn in [
-        ("ingest", _ingest),
-        ("audit", _audit),
-        ("sources", _sources),
-        ("claims", _claims),
-        ("report", _report),
-    ]:
-        g.add_node(name, fn)
-    g.add_edge(START, "ingest")
-    g.add_edge("ingest", "audit")
-    g.add_edge("audit", "sources")
-    g.add_edge("sources", "claims")
-    g.add_edge("claims", "report")
-    g.add_edge("report", END)
-    return g.compile()
+def _report(rid, ms, audits, checks, complete: bool) -> Report:
+    return Report(
+        id=rid,
+        title=ms.title,
+        references=audits,
+        claims=checks,
+        warnings=list(ms.warnings),
+        summary={
+            "references": dict(Counter(a.status.value for a in audits)),
+            "claims": dict(Counter(c.verdict.value for c in checks)),
+        },
+        complete=complete,
+    )
 
 
-GRAPH = build_graph()
+async def _audit(refs, client, on_progress, on_result, priority) -> list[ReferenceAudit]:
+    params = inspect.signature(refaudit.audit_references).parameters
+    if "on_result" in params:
+        kw = {"on_result": on_result}
+        if "priority" in params:
+            kw["priority"] = priority
+        return await refaudit.audit_references(refs, client, on_progress, **kw)
+    # older refaudit without streaming: deliver results when all are done
+    audits = await refaudit.audit_references(refs, client, on_progress)
+    for i, a in enumerate(audits):
+        on_result(i, a)
+    return audits
+
+
+# ---------- entry point ----------
 
 
 async def run(
@@ -191,12 +184,13 @@ async def run(
     files: list[InputFile] | None = None,
     on_progress: Progress | None = None,
     report_id: str | None = None,
-    on_partial: Callable[[Report], None] | None = None,
+    on_partial: Partial | None = None,
 ) -> Report:
     """`on_partial(report)` (optional) receives partial snapshots (`complete=False`) as reference
     audits and claim checks finish; the returned report is the final one (`complete=True`)."""
     user_progress = on_progress or (lambda *_: None)
     t = timing.start()
+    rid = report_id or uuid.uuid4().hex[:12]
 
     def progress(stage: str, done: int, total: int) -> None:
         t.mark(f"{stage}_start")
@@ -206,18 +200,116 @@ async def run(
             t.mark(f"{stage}_end")
         user_progress(stage, done, total)
 
-    async with make_client() as client:
-        state = await GRAPH.ainvoke(
-            {"text": text, "files": files or []},
-            config={
-                "configurable": {
-                    "client": client,
-                    "progress": progress,
-                    "report_id": report_id or uuid.uuid4().hex[:12],
-                }
-            },
+    progress("ingest", 0, 1)
+    with timing.span("ingest"):
+        ms = await ingest.parse_inputs(text, files or [])
+    limit = get_settings().max_references
+    if len(ms.references) > limit:
+        ms.warnings.append(f"Only the first {limit} of {len(ms.references)} references audited.")
+        ms.references = ms.references[:limit]
+    progress("ingest", 1, 1)
+
+    refs = ms.references
+    pairs = _pairs(ms)
+    pairs_by_ref: dict[str, list[tuple[int, Citation]]] = defaultdict(list)
+    for k, (c, r) in enumerate(pairs):
+        pairs_by_ref[r].append((k, c))
+    to_fetch = sum(1 for r in refs if r.id in pairs_by_ref)
+
+    audits: dict[int, ReferenceAudit] = {}
+    checks: dict[int, ClaimCheck] = {}
+    counters = {"sources": 0, "claims": 0}
+    queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+    seq = itertools.count()
+    fetches: list[asyncio.Task] = []
+    source_sem = asyncio.Semaphore(SOURCE_CONCURRENCY)
+
+    def emit() -> None:
+        if not on_partial:
+            return
+        snap = _report(
+            rid,
+            ms,
+            [audits[i] for i in sorted(audits)],
+            [checks[k] for k in sorted(checks)],
+            complete=False,
         )
-    report = state["report"]
+        snap.timings = t.as_dict()
+        try:
+            on_partial(snap)
+        except Exception:  # a UI callback must never break the audit
+            log.exception("on_partial failed")
+
+    async with make_client() as client:
+
+        async def fetch_and_queue(audit: ReferenceAudit) -> None:
+            src = None
+            if audit.matched:
+                async with source_sem:
+                    try:
+                        async with asyncio.timeout(SOURCE_TIMEOUT_S):
+                            with timing.span("source_fetch"):
+                                src = await sources.fetch_source(audit, client, _timed_pdf_to_text)
+                    except Exception:  # incl. TimeoutError: degrade to "no source"
+                        src = None
+            counters["sources"] += 1
+            progress("sources", counters["sources"], to_fetch)
+            problem = audit.status != RefStatus.verified
+            for k, c in pairs_by_ref[audit.reference.id]:
+                queue.put_nowait((0 if problem else 1, next(seq), k, c, audit.reference.id, src))
+
+        def on_result(i: int, audit: ReferenceAudit) -> None:
+            audits[i] = audit
+            emit()
+            if audit.reference.id in pairs_by_ref:
+                fetches.append(asyncio.ensure_future(fetch_and_queue(audit)))
+
+        async def worker() -> None:
+            while True:
+                _, _, k, c, r, src = await queue.get()
+                try:
+                    res = _cached_verdict(c, r, src) if src else None
+                    if res is None:
+                        try:
+                            with timing.span("claim_check"):
+                                res = await claims.check_claim(c, r, src)
+                            if src:
+                                _store_verdict(c, src, res)
+                        except Exception as e:
+                            res = _failed(c, r, e)
+                    elif tc := timing.current():
+                        tc.counts["verdict_cache_hit"] += 1
+                    checks[k] = res
+                    counters["claims"] += 1
+                    progress("claims", counters["claims"], len(pairs))
+                    emit()
+                finally:
+                    queue.task_done()
+
+        workers = [
+            asyncio.ensure_future(worker()) for _ in range(max(1, get_settings().llm_concurrency))
+        ]
+        progress("references", 0, len(refs))
+        if pairs:
+            progress("claims", 0, len(pairs))
+        try:
+            audit_list = await _audit(
+                refs,
+                client,
+                lambda d, n: progress("references", d, n),
+                on_result,
+                _suspicious_first(refs),
+            )
+            # a fetch may still be appending its claims; wait for every fetch, then the queue
+            while any(not f.done() for f in fetches):
+                await asyncio.gather(*fetches)
+            await queue.join()
+        finally:
+            for w in workers:
+                w.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+
+    report = _report(rid, ms, audit_list, [checks[k] for k in sorted(checks)], complete=True)
     report.timings = t.as_dict()
     progress("done", 1, 1)
     return report

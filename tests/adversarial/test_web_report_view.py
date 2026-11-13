@@ -4,6 +4,7 @@ Runs the real app.js in node with a tiny fake DOM (no network, no browser); skip
 """
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -38,7 +39,8 @@ class Node_ {
   focus() {}
   get textContent() { return this.kids.map((k) => k.textContent).join(""); }
   set textContent(v) { this.kids = [new Text_(String(v))]; }
-  dump() { return { tag: this.tag, cls: this.className, kids: this.kids.map((k) => k.dump()) }; }
+  dump() { return { tag: this.tag, cls: this.className, hidden: this.hidden, attrs: this.attrs,
+                    kids: this.kids.map((k) => k.dump()) }; }
 }
 class Text_ {
   constructor(t) { this.t = t; }
@@ -56,20 +58,27 @@ const ctx = { document, URL, location: { origin: "http://x", pathname: "/" },
               history: { replaceState() {} }, console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv.at(-1), "utf8"), ctx);
-ctx.renderReport(JSON.parse(fs.readFileSync(0, "utf8")));
+// stdin: a list of renderReport argument lists, or strings of JS run in the page between calls
+for (const c of JSON.parse(fs.readFileSync(0, "utf8")))
+  typeof c === "string" ? vm.runInContext(c, ctx) : ctx.renderReport(...c);
 const out = {};
-for (const id of ["summary", "refs", "claims"]) out[id] = ids[id].dump();
+for (const id of ["summary", "refs", "claims", "refs-wait", "claims-wait", "live", "live-stage",
+                  "saved", "saved-note", "report"]) out[id] = document.getElementById(id).dump();
 process.stdout.write(JSON.stringify(out));
 """
 
 
 def render(report: Report) -> dict:
+    return render_calls([[report.model_dump(mode="json")]])
+
+
+def render_calls(calls: list) -> dict:
     node = shutil.which("node")
     if node is None:
         pytest.skip("node not installed")
     r = subprocess.run(
         [node, "-e", HARNESS, str(JS)],
-        input=report.model_dump_json(),
+        input=json.dumps(calls),
         capture_output=True,
         text=True,
         timeout=30,
@@ -293,3 +302,77 @@ def test_supported_claim_citing_unchecked_reference_is_not_hidden():
     assert "Oceans warmed" not in collapsed(out["claims"])
     assert "Oceans warmed" in text(out["claims"])
     assert "The cited reference could not be confirmed." in text(out["claims"])
+
+
+# ---------- streaming: partial snapshots rendered while the job runs ----------
+
+
+def audit(i: str, status: RefStatus) -> ReferenceAudit:
+    return ReferenceAudit(reference=ref(i, f"Title {i}"), status=status, providers=ok)
+
+
+def partial(*audits: ReferenceAudit, complete=False) -> dict:
+    return Report(id="x", references=list(audits), complete=complete).model_dump(mode="json")
+
+
+def running(stage: str) -> dict:
+    return {"job": {"status": "running", "stage": stage, "done": 1, "total": 3}}
+
+
+def ref_order(out) -> list[str]:
+    return re.findall(r"ref (\d+)", text(out["refs"]))
+
+
+def test_partial_report_counts_only_what_is_done_and_marks_sections():
+    both = partial(audit("1", RefStatus.not_found), audit("2", RefStatus.verified))
+    out = render_calls([[both, running("references")]])
+    summary = text(out["summary"])
+    assert summary.startswith("So far: 1 of 2 references needs attention"), summary
+    assert "no claims checked yet" in summary
+    assert "No citing sentences were found" not in summary  # not a final statement yet
+    assert out["refs-wait"]["hidden"] is False and out["claims-wait"]["hidden"] is False
+    assert "Still checking" in (JS.parent / "index.html").read_text()
+    assert out["live"]["hidden"] is False and out["report"]["cls"] == "running"
+    # references are final once the job moved on to claims
+    out = render_calls([[partial(audit("1", RefStatus.not_found)), running("claims")]])
+    assert out["refs-wait"]["hidden"] is True and out["claims-wait"]["hidden"] is False
+
+
+def test_streamed_items_keep_arrival_order_including_the_final_render():
+    # severity order would put not_found (ref 2) above metadata_mismatch (ref 1)
+    a1, a2 = audit("1", RefStatus.metadata_mismatch), audit("2", RefStatus.not_found)
+    out = render_calls(
+        [[partial(a1), running("references")], [partial(a1, a2), running("sources")]]
+    )
+    assert ref_order(out) == ["1", "2"]
+    out = render_calls([[partial(a1), running("references")], [partial(a1, a2, complete=True)]])
+    assert ref_order(out) == ["1", "2"]  # no re-sort under the reader's eyes at the end
+    assert out["claims-wait"]["hidden"] is True and out["report"]["cls"] == ""
+    assert text(out["live-stage"]) == "Audit complete."
+    assert not text(out["summary"]).startswith("So far")
+    # a report loaded already finished is still sorted worst first
+    assert ref_order(render_calls([[partial(a1, a2, complete=True)]])) == ["2", "1"]
+
+
+def test_opened_group_stays_open_across_partial_renders():
+    v1, v2 = audit("1", RefStatus.verified), audit("2", RefStatus.verified)
+    out = render_calls(
+        [
+            [partial(v1), running("references")],
+            'openKeys.add("fine-references")',  # the reader opened the collapsed group
+            [partial(v1, v2), running("references")],
+        ]
+    )
+    fine = [k for k in out["refs"]["kids"] if k["cls"] == "fine"][0]
+    assert "open" in fine["attrs"] and "2 verified references" in text(fine)
+
+
+def test_saved_sample_is_labelled_as_saved():
+    r = Report(id="sample", references=[audit("1", RefStatus.verified)])
+    r.created_at = r.created_at.replace(year=2026, month=11, day=13, hour=12)
+    out = render_calls([[r.model_dump(mode="json"), {"saved": True}]])
+    assert out["saved"]["hidden"] is False and out["report"]["cls"] == "saved"
+    assert text(out["saved-note"]) == (
+        "Saved example — computed on 13 November 2026; results may differ in a live run."
+    )
+    assert out["live"]["hidden"] is True

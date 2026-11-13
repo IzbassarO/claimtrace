@@ -30,6 +30,12 @@ let jobId = null;
 let chatHistory = [];
 const BACKOFF_S = [2, 4, 8, 16, 30]; // ~1 min of retries before showing the Retry button
 let failures = 0;
+// Streaming: partial reports render while the job runs. Items keep their arrival order (no
+// re-sorting under the reader's eyes); `seen` maps item key -> arrival index.
+let streamed = false;
+let seen = new Map();
+let lastShown = "";
+const openKeys = new Set(); // <details data-key> the reader opened, kept open across re-renders
 
 // el("p", {className: "x"}, "text", childNode, null) -> element; strings become text nodes.
 function el(tag, props, ...children) {
@@ -107,10 +113,27 @@ async function submitJob(ev) {
   }
 }
 
-// Same flow as pasted text: fill the textarea (so the user sees what was sent) and submit.
+// Saved example: a precomputed report of sample.txt, shown instantly (no job, no API cost).
 async function trySample() {
   formMessage("");
   $("sample").disabled = true;
+  try {
+    const resp = await fetch("/static/sample-report.json");
+    if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
+    jobId = null;
+    streamed = false;
+    renderReport(await resp.json(), { saved: true });
+  } catch (e) {
+    formMessage(e.message);
+  } finally {
+    $("sample").disabled = false;
+  }
+}
+
+// Same flow as pasted text: fill the textarea (so the user sees what was sent) and submit.
+async function runSampleLive() {
+  formMessage("");
+  show("input");
   try {
     const resp = await fetch("/static/sample.txt");
     if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
@@ -119,14 +142,16 @@ async function trySample() {
     $("job-form").requestSubmit();
   } catch (e) {
     formMessage(e.message);
-  } finally {
-    $("sample").disabled = false;
   }
 }
 
 function startPolling(id) {
   jobId = id;
   chatHistory = [];
+  streamed = false;
+  seen = new Map();
+  lastShown = "";
+  openKeys.clear();
   $("chat-log").replaceChildren();
   show("progress");
   renderStages({ status: "queued" });
@@ -152,8 +177,10 @@ function renderStages(job) {
   }));
   const label = job.status === "queued" ? "Queued: waiting for a free worker"
     : cur >= STAGES.length ? "Finishing" : (STAGES[cur] || [, "Working"])[1];
-  $("stage").textContent = job.total ? `${label}: ${job.done} of ${job.total}` : label;
-  if (job.total) { $("bar").max = job.total; $("bar").value = job.done; } else $("bar").removeAttribute("value");
+  for (const [line, bar] of [["stage", "bar"], ["live-stage", "live-bar"]]) {
+    $(line).textContent = job.total ? `${label}: ${job.done} of ${job.total}` : label;
+    if (job.total) { $(bar).max = job.total; $(bar).value = job.done; } else $(bar).removeAttribute("value");
+  }
 }
 
 async function poll() {
@@ -195,6 +222,12 @@ async function poll() {
     return;
   }
   renderStages(job);
+  const r = job.report;
+  if (r && (r.references.length || r.claims.length)) {
+    const shown = JSON.stringify(r);
+    if (shown !== lastShown) renderReport(r, { job });
+    lastShown = shown;
+  }
   setTimeout(poll, 1000);
 }
 
@@ -240,6 +273,13 @@ function refItem(a) {
     issues.length ? el("ul", { className: "issues" }, issues) : null);
 }
 
+const itemKey = (x) => (x.reference ? `r:${x.reference.id}` : `c:${x.citation_id}:${x.ref_id}`);
+
+// <details> that stays open across re-renders of a streaming report if the reader opened it.
+function details(key, props, ...children) {
+  return el("details", { ...props, "data-key": key, ...(openKeys.has(key) ? { open: "" } : {}) }, ...children);
+}
+
 function opinion(role, o) {
   if (!o) return el("p", {}, `${role}: no answer (model call failed).`);
   return el("div", { className: "opinion" },
@@ -265,20 +305,21 @@ function claimCard(c) {
       el("p", { className: "provenance" }, kind || null, kind && c.section ? ` · § ${c.section}` : "",
         kind && c.source_url ? " · " : "", c.source_url ? link(c.source_url, "source") : null),
       c.note ? el("p", { className: "quiet" }, c.note) : null,
-      c.judge || c.skeptic ? el("details", {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null));
+      c.judge || c.skeptic ? details(`why-${itemKey(c)}`, {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null));
 }
 
 // Problems first (worst first), everything fine collapsed in a <details>.
-function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle = () => false) {
-  const worst = (xs) => xs.sort((a, b) => rank(labels, key(a)) - rank(labels, key(b)));
+function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle = () => false, pending = false) {
+  const worst = (xs) => xs.sort(streamed ? (a, b) => seen.get(itemKey(a)) - seen.get(itemKey(b))
+    : (a, b) => rank(labels, key(a)) - rank(labels, key(b)));
   const bad = worst(items.filter(isProblem));
   const mid = worst(items.filter((x) => !isProblem(x) && isMiddle(x)));
   const fine = items.filter((x) => !isProblem(x) && !isMiddle(x));
-  if (!items.length) return [el("p", { className: "quiet" }, `No ${noun} were found in this manuscript.`)];
+  if (!items.length) return [el("p", { className: "quiet" }, pending ? `No ${noun} checked yet.` : `No ${noun} were found in this manuscript.`)];
   return [
-    bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention.`),
+    bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention${pending ? " so far" : ""}.`),
     mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), el("ol", { className: "items" }, mid.map(render))] : null,
-    fine.length ? el("details", { className: "fine" }, el("summary", {}, plural(fine.length, fineNoun)),
+    fine.length ? details(`fine-${noun}`, { className: "fine" }, el("summary", {}, plural(fine.length, fineNoun)),
       el("ol", { className: "items" }, fine.map(render))) : null,
   ].flat().filter(Boolean);
 }
@@ -302,8 +343,11 @@ function renderEmpty(r) {
       el("ul", { className: "warnings" }, r.warnings.map((w) => el("li", {}, w)))) : null);
 }
 
-function renderReport(r) {
+// opts.job: the running job (r is a partial snapshot); opts.saved: r is the saved sample report.
+function renderReport(r, opts = {}) {
+  const pending = r.complete === false;
   const empty = !r.references.length && !r.claims.length;
+  const first = $("results").hidden;
   $("empty").hidden = !empty;
   $("report").hidden = empty;
   if (empty) {
@@ -313,6 +357,25 @@ function renderReport(r) {
     $("results-h").focus();
     return;
   }
+  if (pending) streamed = true;
+  for (const x of [...r.references, ...r.claims]) if (!seen.has(itemKey(x))) seen.set(itemKey(x), seen.size);
+  $("report").className = pending ? "running" : opts.saved ? "saved" : "";
+  $("saved").hidden = !opts.saved;
+  if (opts.saved) {
+    const day = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    $("saved-note").textContent = `Saved example — computed on ${day}; results may differ in a live run.`;
+  }
+  // live line: while running, and kept (as "complete") after a streamed run so nothing shifts
+  $("live").hidden = !streamed;
+  if (streamed && !pending) {
+    $("live-stage").textContent = "Audit complete.";
+    $("live-bar").max = 1;
+    $("live-bar").value = 1;
+  }
+  // references are final once the job has moved past their stage
+  const refsPending = pending && ["queued", "ingest", "references"].includes(opts.job?.stage || "queued");
+  $("refs-wait").hidden = !refsPending;
+  $("claims-wait").hidden = !pending;
   $("results-h").textContent = r.title || "Report";
   $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
   $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
@@ -320,18 +383,23 @@ function renderReport(r) {
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;
   const nm = r.claims.filter(claimMiddle).length;
-  $("summary").textContent = [r.references.length ? `${nr} of ${plural(r.references.length, "reference")} ${need(nr)} attention` : "No references were found",
-      r.claims.length ? `${nc} of ${plural(r.claims.length, "claim")} ${need(nc)} attention` : "No citing sentences were found or checked",
-      nm ? `${nm} ${MIDDLE.toLowerCase()}` : ""].filter(Boolean).join(" · ");
+  $("summary").textContent = (pending ? "So far: " : "") + [
+    r.references.length ? `${nr} of ${plural(r.references.length, "reference")} ${need(nr)} attention`
+      : refsPending ? "no references checked yet" : "No references were found",
+    r.claims.length ? `${nc} of ${plural(r.claims.length, "claim")} ${need(nc)} attention`
+      : pending ? "no claims checked yet" : "No citing sentences were found or checked",
+    nm ? `${nm} ${MIDDLE.toLowerCase()}` : ""].filter(Boolean).join(" · ");
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
   $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refItem,
-    "references", "verified reference"));
+    "references", "verified reference", undefined, refsPending));
   $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimCard,
-    "citing sentences", "supported claim", claimMiddle));
-  showPermalink();
+    "citing sentences", "supported claim", claimMiddle, pending));
+  if (!opts.saved) showPermalink();
   show("results");
-  $("results-h").setAttribute("tabindex", "-1");
-  $("results-h").focus();
+  if (first) { // focus moves (and the page scrolls) only when the report first appears
+    $("results-h").setAttribute("tabindex", "-1");
+    $("results-h").focus();
+  }
 }
 
 // Shareable link to this report; anyone holding it can read the report while it is kept.
@@ -379,6 +447,7 @@ async function ask(ev) {
 
 function reset() {
   jobId = null;
+  $("saved").hidden = true;
   history.replaceState(null, "", "/");
   show("input");
   $("text").focus();
@@ -390,6 +459,12 @@ document.addEventListener("DOMContentLoaded", () => {
   $("new-job").addEventListener("click", reset);
   $("copy-link").addEventListener("click", copyLink);
   $("sample").addEventListener("click", trySample);
+  $("run-live").addEventListener("click", runSampleLive);
+  // toggle does not bubble: listen in the capture phase
+  document.addEventListener("toggle", (e) => {
+    const key = e.target.getAttribute && e.target.getAttribute("data-key");
+    if (key) (e.target.open ? openKeys.add(key) : openKeys.delete(key));
+  }, true);
   $("retry").addEventListener("click", resumePolling);
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);

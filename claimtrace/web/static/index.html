@@ -29,7 +29,7 @@
           <button id="submit" type="submit">Audit citations</button>
           <button id="sample" type="button" class="secondary" aria-describedby="sample-hint">Try a sample</button>
         </div>
-        <p id="sample-hint" class="sr-only">Audits a short sample manuscript with one correct
+        <p id="sample-hint" class="sr-only">Shows a saved audit of a short sample manuscript with one correct
           citation, one overstated claim and one fabricated reference.</p>
       </form>
     </section>
@@ -45,25 +45,33 @@
 
     <section id="results" aria-labelledby="results-h" hidden>
       <h1 id="results-h">Report</h1>
+      <div id="saved" class="notice" hidden>
+        <p id="saved-note"></p>
+        <button id="run-live" type="button" class="secondary">Run live</button>
+      </div>
+      <div id="live" class="live" hidden>
+        <p id="live-stage"></p>
+        <progress id="live-bar" aria-labelledby="live-stage"></progress>
+      </div>
       <div id="empty" hidden></div>
       <div id="report">
       <p id="summary" class="summary"></p>
       <ul id="warnings" class="warnings"></ul>
 
-      <p class="exports">
+      <p id="exports" class="exports">
         <a id="export-json" download>Download JSON</a>
         <a id="export-md" download>Download Markdown</a>
         <button id="copy-link" type="button" class="link">Copy link</button>
         <button id="new-job" type="button" class="link">Audit another manuscript</button>
         <span id="copy-status" role="status"></span>
       </p>
-      <p class="permalink">Shareable link (anyone with it can view this report; kept for the
+      <p id="share" class="permalink">Shareable link (anyone with it can view this report; kept for the
         newest 1000 reports on this server): <a id="permalink"></a></p>
 
-      <h2 id="refs-h">References</h2>
+      <h2 id="refs-h">References <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
       <div id="refs"></div>
 
-      <h2 id="claims-h">Claims</h2>
+      <h2 id="claims-h">Claims <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
       <div id="claims"></div>
 
       <section id="chat" aria-labelledby="chat-h">
