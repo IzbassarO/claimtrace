@@ -12,13 +12,26 @@ import httpx
 from claimtrace.core.http import redact, request
 from claimtrace.core.schemas import Reference, Work
 from claimtrace.core.settings import get_settings
-from claimtrace.refaudit.match import ARXIV_ID, arxiv_from_doi, family_name, norm_arxiv, norm_doi
+from claimtrace.refaudit.match import (
+    ARXIV_ID,
+    RETRACTED_PREFIX,
+    arxiv_from_doi,
+    family_name,
+    norm_arxiv,
+    norm_doi,
+)
 
 CROSSREF = "https://api.crossref.org"
 OPENALEX = "https://api.openalex.org"
 S2 = "https://api.semanticscholar.org/graph/v1"
 ARXIV = "https://export.arxiv.org/api/query"
 S2_FIELDS = "title,authors,year,externalIds,venue,url,abstract,openAccessPdf"
+# Crossref update types meaning the work no longer stands
+RETRACTING_UPDATES = {"retraction", "partial_retraction", "withdrawal", "removal"}
+# inline markup (CO<sub>2</sub>, <i>E. coli</i>) is dropped without a space
+_INLINE_TAG = re.compile(
+    r"</?(jats:)?(sub|sup|i|b|em|strong|italic|bold|sc|u|underline)\b[^>]*>", re.I
+)
 
 
 class ProviderError(RuntimeError):
@@ -58,12 +71,12 @@ def _clean(s: str | None) -> str | None:
     """Strip JATS/HTML tags and entities, collapse whitespace."""
     if not s:
         return None
-    s = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
+    s = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", _INLINE_TAG.sub("", s))).split())
     return s or None
 
 
 def _retracted_title(title: str | None) -> bool:
-    return bool(title and re.match(r"\s*retracted\s*[:.]", title, re.I))
+    return bool(title and RETRACTED_PREFIX.match(title))
 
 
 def _search_query(ref: Reference) -> str:
@@ -105,7 +118,7 @@ def parse_crossref(item: dict) -> Work:
         url=item.get("URL"),
         abstract=_clean(item.get("abstract")),
         is_retracted=_retracted_title(title)
-        or any(str(u.get("type", "")).lower() == "retraction" for u in updates),
+        or any(str(u.get("type", "")).lower() in RETRACTING_UPDATES for u in updates),
     )
 
 

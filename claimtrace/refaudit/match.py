@@ -12,7 +12,34 @@ from claimtrace.core.schemas import Mismatch, Reference, Work
 
 TITLE_THRESHOLD = 0.9
 NEGATIONS = {"not", "no", "without", "cannot", "never", "non", "nor", "none", "neither"}
-_RETRACTED_PREFIX = re.compile(r"^\s*(retracted|retraction|withdrawn)\s*[:.\-]\s*", re.I)
+# "RETRACTED ARTICLE: ", "Retraction Note: ", "WITHDRAWN: ", "Retracted - ", ...
+RETRACTED_PREFIX = re.compile(
+    r"^\s*(retracted(\s+article)?|retraction(\s+(note|notice))?(\s+to)?|notice\s+of\s+retraction"
+    r"|withdrawn(\s+article)?)\s*[:.\-–—]\s*",
+    re.I,
+)
+# a correction notice is a different record from the paper it corrects
+_NOTICE_PREFIX = re.compile(
+    r"^\s*((author|publisher)\s+)?(correction|erratum|corrigendum|addendum)s?\b\s*(to\b|[:.\-–—])",
+    re.I,
+)
+# words that flip a title's meaning beyond plain not/no: "lack of", "absence of", "fail to"
+_NEG_LACK = {"lack", "lacks", "lacking", "absence", "absent"}
+_NEG_FAIL = {"fail", "fails", "failed", "failing"}
+_NUMBER_WORDS = {
+    w: str(i)
+    for i, w in enumerate(
+        "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
+        "fifteen sixteen seventeen eighteen nineteen twenty".split()
+    )
+}
+_ROMAN = {
+    r: str(i)
+    for i, r in enumerate(
+        "i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx".split(), 1
+    )
+    if r != "x"  # "X-ray" far more often than ten
+}
 _ARXIV_DOI = re.compile(r"^10\.48550/arxiv\.(.+)$")
 ARXIV_ID = re.compile(r"^(\d{4}\.\d{4,5}|[a-z\-]+(\.[a-z]{2})?/\d{7})$")
 
@@ -24,7 +51,7 @@ def _fold(s: str) -> str:
 
 
 def strip_retracted(title: str) -> str:
-    return _RETRACTED_PREFIX.sub("", title)
+    return RETRACTED_PREFIX.sub("", title)
 
 
 def normalize_title(title: str) -> str:
@@ -32,41 +59,75 @@ def normalize_title(title: str) -> str:
     return " ".join(re.findall(r"\w+", t.replace("'", "")))
 
 
+def is_notice(title: str | None) -> bool:
+    return bool(title and _NOTICE_PREFIX.match(title))
+
+
+def strip_notice(title: str | None) -> str | None:
+    return _NOTICE_PREFIX.sub("", title).strip(" :.-–—\"“”'") if title else title
+
+
 def negations(title: str) -> set[str]:
     out = set()
-    for tok in re.findall(r"\w+(?:'\w+)?", _fold(title)):
+    toks = re.findall(r"\w+(?:'\w+)?", _fold(title))
+    for tok, nxt in zip(toks, toks[1:] + [""], strict=True):
         if tok == "cannot" or tok.endswith("n't"):
             out.add("not")
         elif tok in NEGATIONS:
             out.add(tok)
+        elif tok.startswith("non") and len(tok) > 5:  # nonsignificant == non-significant
+            out.add("non")
+        elif tok in _NEG_LACK:
+            out.add("lack")
+        elif tok in _NEG_FAIL and nxt == "to":
+            out.add("fail")
     return out
 
 
 def numbers(title: str) -> set[str]:
-    return {t for t in re.findall(r"\w+", _fold(title)) if any(c.isdigit() for c in t)}
+    out = set()
+    for t in re.findall(r"\w+", _fold(title)):
+        if any(c.isdigit() for c in t):
+            out.add(t)
+        elif n := _NUMBER_WORDS.get(t) or _ROMAN.get(t):
+            out.add(n)
+    return out
+
+
+def _pairs(a: str, b: str):
+    """Title pairs to compare: the full titles, and a side's main part (before ':') when only
+    the other side lacks a subtitle. Two different subtitles never reduce to equal mains."""
+    yield a, b
+    if ":" in a and ":" not in b:
+        yield a.split(":")[0], b
+    if ":" in b and ":" not in a:
+        yield a, b.split(":")[0]
+
+
+def _ratio(x: str, y: str, full: bool) -> float:
+    nx, ny = normalize_title(x), normalize_title(y)
+    if not (nx and ny) or (not full and min(len(nx.split()), len(ny.split())) < 3):
+        return 0.0  # a 1-2 word main title alone proves nothing
+    return SequenceMatcher(None, nx, ny).ratio()
 
 
 def title_similarity(a: str, b: str) -> float:
-    """Best ratio of the full titles or their main parts (before ':'), so a missing subtitle
-    still matches."""
-    best = 0.0
-    for x in {a, a.split(":")[0]}:
-        for y in {b, b.split(":")[0]}:
-            nx, ny = normalize_title(x), normalize_title(y)
-            if (x != a or y != b) and min(len(nx.split()), len(ny.split())) < 3:
-                continue  # a 1-2 word main title alone proves nothing
-            if nx and ny:
-                best = max(best, SequenceMatcher(None, nx, ny).ratio())
-    return best
+    a, b = strip_retracted(a), strip_retracted(b)
+    return max(_ratio(x, y, (x, y) == (a, b)) for x, y in _pairs(a, b))
 
 
 def title_match(cited: str | None, found: str | None) -> bool:
     if not cited or not found:
         return False
     a, b = strip_retracted(cited), strip_retracted(found)
-    if negations(a) != negations(b) or numbers(a) != numbers(b):
+    if is_notice(a) != is_notice(b):
         return False
-    return title_similarity(a, b) >= TITLE_THRESHOLD
+    return any(
+        negations(x) == negations(y)
+        and numbers(x) == numbers(y)
+        and _ratio(x, y, (x, y) == (a, b)) >= TITLE_THRESHOLD
+        for x, y in _pairs(a, b)
+    )
 
 
 def year_ok(cited: int | None, found: int | None) -> bool:

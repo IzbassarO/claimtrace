@@ -8,7 +8,13 @@ import pytest
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 from claimtrace.core.settings import get_settings
-from claimtrace.refaudit.providers import parse_arxiv, parse_crossref, parse_openalex, parse_s2
+from claimtrace.refaudit.providers import (
+    _clean,
+    parse_arxiv,
+    parse_crossref,
+    parse_openalex,
+    parse_s2,
+)
 
 FIX = Path(__file__).parent / "fixtures" / "refaudit"
 
@@ -136,6 +142,27 @@ def test_decide_prefers_id_equal_and_fewest_mismatches():
     journal = GOOD.model_copy(update={"doi": "10.1/j", "year": 2018})
     a = refaudit.decide(ref, [preprint, journal], [OK])
     assert a.status == RefStatus.verified and a.matched.doi == "10.1/j"
+
+
+def test_decide_wrong_arxiv_id_is_not_hidden_by_title_match():
+    ref = REF.model_copy(update={"arxiv_id": "1706.99999"})
+    other = Work(
+        provider="arxiv", title="A different paper entirely", year=2017, arxiv_id="1706.99999"
+    )
+    a = refaudit.decide(ref, [other, GOOD], [OK])
+    assert a.status == RefStatus.metadata_mismatch and a.matched.provider == "arxiv"
+
+
+def test_decide_only_a_correction_notice_is_unchecked_not_not_found():
+    notice = GOOD.model_copy(update={"title": "Erratum: " + GOOD.title})
+    a = refaudit.decide(REF, [notice], [OK])
+    assert a.status == RefStatus.unchecked and "correction" in a.note
+
+
+def test_clean_keeps_inline_markup_glued():
+    assert _clean("Elevated CO<sub>2</sub> in <i>E. coli</i><jats:p>x</jats:p>") == (
+        "Elevated CO2 in E. coli x"
+    )
 
 
 # ---------- end to end with MockTransport ----------

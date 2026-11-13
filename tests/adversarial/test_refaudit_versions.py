@@ -27,7 +27,6 @@ def offline(monkeypatch):
     get_settings.cache_clear()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: arXiv-id record preferred over exact journal match")
 def test_journal_year_with_arxiv_id_is_not_a_year_mismatch():
     t = "Sequential Monte Carlo samplers for Bayesian model selection"
     ref = Reference(id="1", raw="", title=t, year=2017, authors=["Smith J"], arxiv_id="1405.01234")
@@ -40,7 +39,6 @@ def test_journal_year_with_arxiv_id_is_not_a_year_mismatch():
     assert a.status == RefStatus.verified  # today: metadata_mismatch "year 2017 vs 2014"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: arXiv DOI never looked up on arXiv -> not_found")
 async def test_arxiv_doi_is_looked_up_on_arxiv():
     ref = Reference(
         id="v",
