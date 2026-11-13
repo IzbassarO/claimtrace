@@ -65,3 +65,22 @@ sweep, PR #44), fix in progress.
   (selection of sources only). NCBI `oa.fcgi` (404 / ftp only) and CORE (needs a key) skipped;
   bioRxiv often behind Cloudflare (429) — no bypass attempted. GROBID unavailable during the
   measurement, so PDF counts are an upper bound (guard not applied without text).
+- **Incident (Fri ~16:00 ET, lead error)**: PR #57 set pytest `--basetemp=.cache/pytest-tmp`;
+  `.cache/` does not exist in fresh checkouts, so CI and new worktrees errored on every test, and
+  the lead's merge one-liner hid the failure (`| tail -1` swallowed the exit code) while merging
+  #59. Fixed in #60 (`.pytest-tmp/` at the repo root). Since then every merge goes through a gate
+  script with `pipefail`, an explicit pass/fail parse and a wait for green CI.
+- **A4 number check — rejected (PR #61 closed)**: post-hoc on 100 SciFact rows nothing changes
+  (5/100 claims contain a clear number; the only `supported` one quotes both numbers): accuracy
+  0.91 → 0.91, false_supported_strict 1/60 → 1/60. The rule needs a numeric-heavy eval set to be
+  justified; the branch is kept.
+- **Eval harness (PR #58)**: retrieval suite = SciFact claims against a haystack (gold abstract +
+  20 distractor abstracts, ≥ 23.5k chars), metric evidence recall@6 / MRR, no LLM.
+  bm25 0.938 / 0.747 (3 ms), hybrid 0.976 / 0.798 (2.3 s CPU per claim). Refs set 399 seeds
+  (393 real + 6 retracted, medicine/CS/physics/social science/economics/biology), 1728 cases:
+  accuracy 0.956, false_verified 0, false_not_found 0; fabricated unchecked 67/150, 52 of them
+  Crossref failures under load. 192 paid OpenAlex searches (cap 250).
+- **Verdict ablation (SciFact n=100, seed 0)**: judge only 0.870 acc / 0.167 false-supported;
+  judge+skeptic 0.900 / 0.100; the quote gate changes nothing on SciFact abstracts (short texts,
+  all positive verdicts already quote verbatim) — its value is on full texts and adversarial
+  quotes, covered by unit/adversarial tests, not by this metric.
