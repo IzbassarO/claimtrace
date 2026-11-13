@@ -28,6 +28,7 @@ def _no_model_download(monkeypatch):
 
     monkeypatch.setattr(retrieval, "fastembed_embed", boom)
     monkeypatch.setattr(retrieval, "fastembed_rerank", lambda q, d: boom(d))
+    retrieval._indexes.clear()  # per-source cache: each test starts cold
 
 
 def fake(*replies):
@@ -198,6 +199,9 @@ async def test_only_bm25_candidates_are_embedded_on_a_long_text():
     assert calls == [1 + retrieval.CANDIDATES]  # one call: query + shortlist
     assert len(out) == retrieval.TOP_K
     assert any("Statins reduced LDL" in p for p in out)  # best BM25 passage survives the fusion
+    # a second claim citing the same source: its shortlist was embedded already, only the query
+    again = await retrieval.retrieve("statins lower LDL cholesterol", HUGE, embed=embed)
+    assert calls == [1 + retrieval.CANDIDATES, 1] and again == out
 
 
 async def test_embedding_failure_falls_back_to_bm25():

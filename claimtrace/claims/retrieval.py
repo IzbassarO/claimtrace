@@ -1,15 +1,21 @@
 """Pick the source passages most relevant to a citing sentence: BM25 over all passages, then a
 dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top.
-section_of() labels a verified quote with its source section (not used for retrieval)."""
+section_of() labels a verified quote with its source section (not used for retrieval).
+Passages, the BM25 index and passage embeddings are cached per source text: many claims cite the
+same source."""
 
 import asyncio
+import hashlib
 import re
 import threading
+from array import array
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
 from rank_bm25 import BM25Okapi
 
 from claimtrace.claims.quote import verify_quote
+from claimtrace.core.timing import span
 
 Embed = Callable[[list[str]], Sequence[Sequence[float]]]
 Rerank = Callable[[str, list[str]], Sequence[float]]  # (query, passages) -> one score each
@@ -132,6 +138,51 @@ def _ranks(scores: Sequence[float]) -> list[int]:
     return sorted(range(len(scores)), key=lambda i: -scores[i])
 
 
+class _Index:
+    """One source text: its passages, their BM25 index (None: no word characters, nothing to
+    rank) and, per embedder, the vectors of the passages embedded so far."""
+
+    def __init__(self, text: str):
+        self.chunks = passages(text)
+        corpus = [_tokens(c) for c in self.chunks]
+        self.bm25 = BM25Okapi(corpus) if any(corpus) else None
+        self.vecs: dict[Embed, dict[int, array]] = {}
+
+
+# ponytail: in-process LRU of the last 32 sources (a few MB each at most); keyed by sha256 so a
+# different text never reuses an index. Shared across runs; a disk cache only if restarts matter.
+_INDEX_SIZE = 32
+_indexes: OrderedDict[str, _Index] = OrderedDict()
+_index_lock = threading.Lock()
+
+
+def _index(text: str) -> _Index:
+    key = hashlib.sha256(text.encode()).hexdigest()
+    with _index_lock:
+        if (idx := _indexes.get(key)) is not None:
+            _indexes.move_to_end(key)
+            return idx
+    idx = _Index(text)  # built outside the lock; a duplicate build by a racing thread is harmless
+    with _index_lock:
+        _indexes[key] = idx
+        while len(_indexes) > _INDEX_SIZE:
+            _indexes.popitem(last=False)
+    return idx
+
+
+def _embed_candidates(idx: _Index, query: str, cands: list[int], embed: Embed) -> list:
+    """[query vector, *candidate vectors]; only candidates not embedded before are sent to the
+    model (with the query, in one call). Blocking: call in a thread."""
+    memo = idx.vecs.setdefault(embed, {})
+    missing = [i for i in cands if i not in memo]
+    vecs = embed([query, *(idx.chunks[i] for i in missing)])
+    if len(vecs) != 1 + len(missing):
+        raise ValueError("embedder returned the wrong number of vectors")
+    for i, v in zip(missing, vecs[1:], strict=True):
+        memo[i] = array("d", v)
+    return [vecs[0], *(memo[i] for i in cands)]
+
+
 def _cosine_scores(vecs: Sequence[Sequence[float]]) -> list[float]:
     q, docs = vecs[0], vecs[1:]
 
@@ -148,19 +199,21 @@ async def retrieve(
     """Short texts are returned whole; otherwise the top passages in document order."""
     if len(text) < WHOLE_TEXT_CHARS:
         return [text]
-    chunks = passages(text)
+    with span("retrieval"):
+        return await _retrieve(query, text, embed or fastembed_embed, rerank or fastembed_rerank)
+
+
+async def _retrieve(query: str, text: str, embed: Embed, rerank: Rerank) -> list[str]:
+    idx = _index(text)
+    chunks = idx.chunks
     if len(chunks) <= TOP_K:
         return chunks
-    corpus = [_tokens(c) for c in chunks]
-    if not any(corpus):  # no word characters at all: BM25 divides by zero, nothing to rank
+    if idx.bm25 is None:  # no word characters at all: BM25 divides by zero, nothing to rank
         return chunks[:TOP_K]
-    bm25 = _ranks(BM25Okapi(corpus).get_scores(_tokens(query)))[:CANDIDATES]
+    bm25 = _ranks(idx.bm25.get_scores(_tokens(query)))[:CANDIDATES]
     rankings = [bm25]
     try:
-        texts = [query, *(chunks[i] for i in bm25)]
-        vecs = await asyncio.to_thread(embed or fastembed_embed, texts)
-        if len(vecs) != 1 + len(bm25):
-            raise ValueError("embedder returned the wrong number of vectors")
+        vecs = await asyncio.to_thread(_embed_candidates, idx, query, bm25, embed)
         rankings.append([bm25[r] for r in _ranks(_cosine_scores(vecs))])
     except Exception:  # embedding is a bonus: BM25 alone still works
         pass
@@ -171,9 +224,7 @@ async def retrieve(
     order = sorted(fused, key=lambda i: -fused[i])
     pool = order[:RERANK_POOL]
     try:
-        scores = await asyncio.to_thread(
-            rerank or fastembed_rerank, query, [chunks[i] for i in pool]
-        )
+        scores = await asyncio.to_thread(rerank, query, [chunks[i] for i in pool])
         if len(scores) != len(pool):
             raise ValueError("reranker returned the wrong number of scores")
         order = [pool[r] for r in _ranks(scores)]
