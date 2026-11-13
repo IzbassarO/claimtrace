@@ -1,16 +1,11 @@
 """The 'exactly one preprint' exception must not join a preprint of a *different* paper."""
 
-import pytest
-
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 
 OK = [ProviderOutcome(provider=p, ok=True) for p in ("crossref", "openalex", "arxiv")]
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: preprint whose own journal DOI differs is grouped as a version"
-)
 def test_preprint_published_elsewhere_is_not_a_version_of_the_cited_paper():
     t = "A survey of graph neural networks"
     # cited: Smith's 2020 journal survey, but with the arXiv id of Smith's 2012 preprint, which
@@ -35,5 +30,4 @@ def test_preprint_published_elsewhere_is_not_a_version_of_the_cited_paper():
         doi="10.1016/j.neunet.2020.05.001",
     )
     a = refaudit.decide(ref, [pre, journal], OK)
-    # today: verified, matched = 2020 journal DOI + the 2012 preprint's arXiv id and abstract
     assert a.status != RefStatus.verified

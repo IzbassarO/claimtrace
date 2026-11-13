@@ -46,6 +46,7 @@ from claimtrace.refaudit.providers import (
 
 PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
+DOI_REGISTERED = "DOI is registered (doi.org) but not indexed by Crossref/OpenAlex; not compared"
 
 
 def _preprint(w: Work) -> bool:
@@ -53,9 +54,21 @@ def _preprint(w: Work) -> bool:
     return bool(arxiv_of(w) or (norm_doi(w.doi) or "").startswith("10.1101/"))
 
 
+def _published_elsewhere(a: Work, b: Work) -> bool:
+    """Exactly one is a preprint, and its own journal DOI (arXiv's 'published as') differs from
+    the other record's DOI: the preprint became a different paper."""
+    if _preprint(a) == _preprint(b):
+        return False
+    p, j = (a, b) if _preprint(a) else (b, a)
+    pd, jd = norm_doi(p.doi), norm_doi(j.doi)
+    own_journal = pd and not (arxiv_from_doi(pd) or pd.startswith("10.1101/"))
+    return bool(own_journal and jd and pd != jd)
+
+
 def _same_work(a: Work, b: Work) -> bool:
     """Same DOI, same arXiv id, or same title and first author and either year (±1) or exactly
-    one preprint (a preprint and its journal version may be years apart). Two journal records
+    one preprint (a preprint and its journal version may be years apart), unless the preprint
+    names a different journal DOI of its own. Two journal records
     of one title by one author years apart are two works (a 2012 and a 2019 editorial), and a
     record listing no authors joins only via a shared id: 'Deep learning' is LeCun 2015 and
     Goodfellow 2016."""
@@ -67,6 +80,7 @@ def _same_work(a: Work, b: Work) -> bool:
             title_match(a.title, b.title)
             and first_author_equal(a.authors, b.authors)
             and (year_ok(a.year, b.year) or _preprint(a) != _preprint(b))
+            and not _published_elsewhere(a, b)
         )
     )
 
@@ -145,6 +159,8 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             out.note = f"no match; provider failed: {', '.join(failed)}"
         elif not outcomes:
             out.note = "no provider could be queried"
+        elif any(o.provider == "doi.org" and o.candidates for o in outcomes):
+            out.note = DOI_REGISTERED  # the DOI exists somewhere: never not_found
         elif notices and not near:
             w = notices[0]
             out.note = f"{w.provider} has only a correction/erratum notice for this title"
@@ -202,7 +218,7 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     out.mismatches, checked = compare(ref, group)
     seen = {m.field for m in out.mismatches}
     out.mismatches += [m for m in _foreign_ids(ref, best, works) if m.field not in seen]
-    doi_unconfirmed = doi_note = None
+    doi_unconfirmed = None
     d1 = norm_doi(ref.doi)
     if d1 and "doi" not in {m.field for m in out.mismatches}:
         if not any(_carries_doi(w, d1) for w in works):
@@ -216,7 +232,8 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             elif reg is None or not reg.ok:
                 doi_unconfirmed = "cited DOI not in Crossref/OpenAlex, not confirmed by doi.org"
             elif reg.candidates:
-                doi_note = "DOI registered (not in Crossref/OpenAlex), not compared"
+                # exists, but nothing says it is this work's DOI (could be another deposit)
+                doi_unconfirmed = DOI_REGISTERED
             else:
                 out.mismatches.append(
                     Mismatch(field="doi", cited=ref.doi, found="does not resolve (doi.org)")
@@ -237,8 +254,6 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         else "truncated title + year + first author"
     )
     out.note = f"identified via {best.provider} ({how}); checked: {', '.join(checked) or 'ids'}"
-    if doi_note:
-        out.note += f"; {doi_note}"
     if retracted_by:
         out.status = RefStatus.retracted
         out.note += f"; retraction flagged by {', '.join(sorted(set(retracted_by)))}"
@@ -314,7 +329,7 @@ async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
         pairs.append(_outcome("arxiv", res))
     works = [w for _, ws in pairs for w in ws]
     d = norm_doi(ref.doi)
-    if d and any(identifies(ref, w) for w in works) and not any(_carries_doi(w, d) for w in works):
+    if d and not any(_carries_doi(w, d) for w in works):
         # decide() reads candidates as the doi.org answer: 1 = registered, 0 = no such DOI
         try:
             reg = await doi_registered(client, gates["doi"], d)

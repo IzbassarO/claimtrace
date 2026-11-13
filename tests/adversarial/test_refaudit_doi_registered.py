@@ -24,10 +24,6 @@ def offline(monkeypatch):
     get_settings.cache_clear()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: registered DataCite DOI, no title hit -> not_found; doi.org never asked",
-)
 async def test_registered_doi_without_title_hit_is_not_not_found():
     # Zenodo software release: DataCite DOI, not in Crossref or OpenAlex, title search finds nothing
     ref = Reference(
@@ -51,11 +47,9 @@ async def test_registered_doi_without_title_hit_is_not_not_found():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         [a] = await refaudit.audit_references([ref], client)
-    # today: not_found "no matching record in crossref, openalex" for a DOI that resolves
     assert a.status != RefStatus.not_found
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: registered DOI never compared, still verified")
 def test_registered_but_uncompared_doi_is_not_verified():
     # the cited arXiv paper is real, but the cited DOI is some other Zenodo deposit; doi.org only
     # says the handle exists, nothing compares it to the paper
@@ -74,5 +68,4 @@ def test_registered_but_uncompared_doi_is_not_verified():
         ProviderOutcome(provider="doi.org", ok=True, candidates=1)
     ]
     a = refaudit.decide(ref, [pre], outcomes)
-    # today: verified, note "DOI registered (not in Crossref/OpenAlex), not compared"
     assert a.status != RefStatus.verified

@@ -264,9 +264,11 @@ async def test_fabricated_reference_all_answered_is_not_found():
             else httpx.Response(200, json={"message": {"items": []}})
         )
     }
-    [a] = await run([ref], empty_cr | {"api.openalex.org": oa_empty})
+    no_handle = {"doi.org": lambda r: httpx.Response(404, json={"responseCode": 100})}
+    [a] = await run([ref], empty_cr | {"api.openalex.org": oa_empty} | no_handle)
     assert a.status == RefStatus.not_found
     assert all(p.ok for p in a.providers)
+    assert [p.provider for p in a.providers][-1] == "doi.org"
 
 
 async def test_wrong_doi_falls_back_to_title_search():
