@@ -4,26 +4,26 @@
 
 const $ = (id) => document.getElementById(id);
 
-const STAGES = {
-  ingest: "Reading the manuscript",
-  references: "Checking references",
-  sources: "Fetching cited sources",
-  claims: "Checking claims against sources",
-  done: "Finishing",
-};
+const STAGES = [
+  ["ingest", "Reading the manuscript"],
+  ["references", "Checking references"],
+  ["sources", "Fetching cited sources"],
+  ["claims", "Checking claims against sources"],
+];
+// value -> [label, level]; level picks the shape (ok, warn, bad, unknown), order = severity
 const STATUS = {
-  verified: "Verified",
-  metadata_mismatch: "Metadata mismatch",
-  retracted: "Retracted",
-  not_found: "Not found",
-  unchecked: "Unchecked (lookup failed)",
+  not_found: ["Not found", "bad"],
+  retracted: ["Retracted", "bad"],
+  metadata_mismatch: ["Metadata mismatch", "warn"],
+  unchecked: ["Unchecked (lookup failed)", "unknown"],
+  verified: ["Verified", "ok"],
 };
 const VERDICT = {
-  supported: "Supported",
-  partly_supported: "Partly supported",
-  unsupported: "Unsupported",
-  insufficient_evidence: "Insufficient evidence",
-  source_not_found: "Source not found",
+  unsupported: ["Unsupported", "bad"],
+  partly_supported: ["Partly supported", "warn"],
+  source_not_found: ["Source not found", "unknown"],
+  insufficient_evidence: ["Insufficient evidence", "unknown"],
+  supported: ["Supported", "ok"],
 };
 
 let jobId = null;
@@ -56,7 +56,13 @@ function link(url, text) {
   return el("span", {}, text || String(url));
 }
 
-const badge = (value, labels) => el("span", { className: `badge b-${value}` }, labels[value] || value);
+// Status label with a CSS shape, so it never depends on colour alone.
+function mark(value, labels) {
+  const [label, level] = labels[value] || [value, "unknown"];
+  return el("span", { className: `mark m-${level}` }, label);
+}
+
+const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); return i < 0 ? 0 : i; };
 
 async function apiError(resp) {
   try {
@@ -70,23 +76,32 @@ function show(section) {
   for (const id of ["input", "progress", "results"]) $(id).hidden = id !== section;
 }
 
+function formMessage(text, kind = "error") {
+  $("form-error").className = kind;
+  $("form-error").textContent = text;
+}
+
 async function submitJob(ev) {
   ev.preventDefault();
-  $("form-error").textContent = "";
+  formMessage("");
   const form = new FormData($("job-form"));
   if (!form.get("text").trim() && !$("files").files.length) {
-    $("form-error").textContent = "Paste manuscript text or choose at least one file.";
+    formMessage("Paste manuscript text or choose at least one file.");
     return;
   }
   $("submit").disabled = true;
   try {
     const resp = await fetch("/api/jobs", { method: "POST", body: form });
+    if (resp.status === 429 || resp.status === 503) {
+      formMessage(`${await apiError(resp)} Your text is still here; submit again when ready.`, "notice");
+      return;
+    }
     if (!resp.ok) throw new Error(await apiError(resp));
     const { id } = await resp.json();
     history.replaceState(null, "", `/r/${encodeURIComponent(id)}`);
     startPolling(id);
   } catch (e) {
-    $("form-error").textContent = e.message;
+    formMessage(e.message);
   } finally {
     $("submit").disabled = false;
   }
@@ -94,7 +109,7 @@ async function submitJob(ev) {
 
 // Same flow as pasted text: fill the textarea (so the user sees what was sent) and submit.
 async function trySample() {
-  $("form-error").textContent = "";
+  formMessage("");
   $("sample").disabled = true;
   try {
     const resp = await fetch("/static/sample.txt");
@@ -103,7 +118,7 @@ async function trySample() {
     $("files").value = "";
     $("job-form").requestSubmit();
   } catch (e) {
-    $("form-error").textContent = e.message;
+    formMessage(e.message);
   } finally {
     $("sample").disabled = false;
   }
@@ -114,8 +129,7 @@ function startPolling(id) {
   chatHistory = [];
   $("chat-log").replaceChildren();
   show("progress");
-  $("stage").textContent = "Queued";
-  $("bar").removeAttribute("value");
+  renderStages({ status: "queued" });
   resumePolling();
 }
 
@@ -126,9 +140,26 @@ function resumePolling() {
   poll();
 }
 
+// Stage checklist: done / current / to do, plus the live status line and progress bar.
+function renderStages(job) {
+  const cur = job.status === "queued" ? -1 : job.stage === "done" ? STAGES.length : STAGES.findIndex(([k]) => k === job.stage);
+  $("stages").replaceChildren(...STAGES.map(([, label], i) => {
+    const state = i < cur ? "done" : i === cur ? "current" : "todo";
+    const count = state === "current" && job.total ? ` ${job.done} of ${job.total}` : "";
+    return el("li", { className: `st-${state}`, ...(state === "current" ? { "aria-current": "step" } : {}) },
+      label, count ? el("span", { className: "count" }, count) : null,
+      el("span", { className: "sr-only" }, { done: " (done)", current: " (in progress)", todo: "" }[state]));
+  }));
+  const label = job.status === "queued" ? "Queued: waiting for a free worker"
+    : cur >= STAGES.length ? "Finishing" : (STAGES[cur] || [, "Working"])[1];
+  $("stage").textContent = job.total ? `${label}: ${job.done} of ${job.total}` : label;
+  if (job.total) { $("bar").max = job.total; $("bar").value = job.done; } else $("bar").removeAttribute("value");
+}
+
 async function poll() {
   const id = jobId;
   let job;
+  let busy = false;
   try {
     const resp = await fetch(`/api/jobs/${encodeURIComponent(id)}`);
     if (!resp.ok && resp.status < 500 && resp.status !== 429) {
@@ -136,16 +167,17 @@ async function poll() {
       const msg = await apiError(resp);
       if (id !== jobId) return;
       show("input");
-      $("form-error").textContent = msg;
+      formMessage(msg);
       return;
     }
+    busy = resp.status === 429 || resp.status === 503;
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     job = await resp.json();
   } catch (_) {
     // network or server trouble: keep the job id and retry with backoff
     if (id !== jobId) return;
     if (failures < BACKOFF_S.length) {
-      $("conn").textContent = "Connection lost, retrying…";
+      $("conn").textContent = busy ? "The server is busy, retrying…" : "Connection lost, retrying…";
       setTimeout(poll, BACKOFF_S[failures++] * 1000);
     } else {
       $("conn").textContent = "Connection lost. The audit may still be running on the server.";
@@ -159,79 +191,99 @@ async function poll() {
   if (job.status === "done") return renderReport(job.report);
   if (job.status === "error") {
     show("input");
-    $("form-error").textContent = `The audit failed: ${job.error || "unknown error"}`;
+    formMessage(`The audit failed: ${job.error || "unknown error"}`);
     return;
   }
-  const label = job.status === "queued" ? "Queued: waiting for a free worker" : STAGES[job.stage] || "Working";
-  $("stage").textContent = job.total ? `${label}: ${job.done} of ${job.total}` : label;
-  if (job.total) { $("bar").max = job.total; $("bar").value = job.done; } else $("bar").removeAttribute("value");
+  renderStages(job);
   setTimeout(poll, 1000);
 }
 
-function countsList(title, counts, labels) {
-  const items = Object.entries(counts || {});
-  return el("div", {}, el("p", { className: "sum-title" }, title),
-    items.length ? el("dl", {}, items.map(([k, n]) => [el("dt", {}, badge(k, labels)), el("dd", {}, n)]))
-      : el("p", { className: "muted" }, "none"));
-}
+const refAttention = (a) => a.status !== "verified";
+const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review;
+// partly supported or not checkable: shown open, below the claims that need attention
+const claimMiddle = (c) => !claimAttention(c) && c.verdict !== "supported";
+const MIDDLE = "Partly supported or could not be checked";
+const need = (n) => (n === 1 ? "needs" : "need");
 
-function refRow(a) {
+function refItem(a) {
   const ref = a.reference;
   const m = a.matched;
-  const cited = el("td", {}, ref.title || "", el("div", { className: "raw" }, ref.raw));
-  const found = el("td", {});
-  if (m) {
-    found.append(el("div", {}, m.title || "(untitled)", m.year ? ` (${m.year})` : ""));
-    const meta = el("div", { className: "muted" }, m.provider);
-    if (m.doi) meta.append(" · ", link(`https://doi.org/${m.doi}`, `doi:${m.doi}`));
-    else if (m.url) meta.append(" · ", link(m.url));
-    found.append(meta);
-  } else found.append(el("span", { className: "muted" }, "no record matched"));
+  const found = m
+    ? el("p", { className: "found" }, el("span", { className: "label" }, "Found: "),
+      m.title || "(untitled)", m.year ? ` (${m.year})` : "", ` · ${m.provider}`,
+      m.doi ? [" · ", link(`https://doi.org/${m.doi}`, `doi:${m.doi}`)] : m.url ? [" · ", link(m.url, "record")] : null)
+    : el("p", { className: "found quiet" }, a.status === "unchecked"
+      ? "The lookup failed, so this reference could not be checked."
+      : "No matching record was found.");
   const issues = [
-    ...a.mismatches.map((x) => el("li", {}, `${x.field}: cited "${x.cited}" → found "${x.found}"`)),
+    ...a.mismatches.map((x) => el("li", {}, `${x.field}: cited "${x.cited}", found "${x.found}"`)),
     ...a.providers.filter((p) => !p.ok).map((p) => el("li", {}, `${p.provider} failed${p.error ? `: ${p.error}` : ""}`)),
     a.note ? el("li", {}, a.note) : null,
   ].filter(Boolean);
-  return el("tr", {},
-    el("th", { scope: "row" }, ref.id),
-    el("td", {}, badge(a.status, STATUS)),
-    cited, found,
-    el("td", {}, issues.length ? el("ul", {}, issues) : el("span", { className: "muted" }, "none")));
+  return el("li", { className: "item" },
+    el("p", { className: "item-head" }, mark(a.status, STATUS), el("span", { className: "id" }, `ref ${ref.id}`)),
+    el("p", { className: "cited" }, ref.raw),
+    found,
+    issues.length ? el("ul", { className: "issues" }, issues) : null);
 }
 
 function opinion(role, o) {
   if (!o) return el("p", {}, `${role}: no answer (model call failed).`);
-  return el("div", {},
-    el("p", {}, el("strong", {}, `${role}: `), VERDICT[o.verdict] || o.verdict),
+  return el("div", { className: "opinion" },
+    el("p", {}, el("strong", {}, `${role}: `), (VERDICT[o.verdict] || [o.verdict])[0]),
     o.rationale ? el("p", {}, o.rationale) : null,
-    o.quote ? el("p", { className: "muted" }, `Quoted (not necessarily verified): "${o.quote}"`) : null);
+    o.quote ? el("p", { className: "quiet" }, `Quoted (not necessarily verified): "${o.quote}"`) : null);
 }
 
 function claimCard(c) {
-  const kind = { full_text: "Checked against full text", abstract: "Checked against abstract only" }[c.evidence_kind];
-  return el("article", { className: "card", "aria-label": `Claim ${c.citation_id} citing reference ${c.ref_id}` },
-    el("header", {},
-      el("span", { className: "ids" }, `${c.citation_id} → ref ${c.ref_id}`),
-      badge(c.verdict, VERDICT),
-      c.needs_review ? el("span", { className: "badge b-review" }, "Needs review") : null),
-    el("blockquote", {}, c.sentence),
-    c.quote ? [el("p", {}, el("strong", {}, "Verbatim quote from the source:")), el("blockquote", { className: "quote" }, c.quote)] : null,
-    kind ? el("p", { className: "muted" }, kind) : null,
-    c.source_url ? el("p", {}, "Source: ", link(c.source_url)) : null,
-    c.note ? el("p", { className: "muted" }, c.note) : null,
-    c.judge || c.skeptic ? el("details", {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null);
+  const kind = { full_text: "Checked against the full text", abstract: "Checked against the abstract only" }[c.evidence_kind];
+  return el("li", { className: "item claim" },
+    el("article", { "aria-label": `Claim ${c.citation_id} citing reference ${c.ref_id}` },
+      el("p", { className: "item-head" },
+        mark(c.verdict, VERDICT),
+        c.needs_review ? el("span", { className: "mark m-review" }, "Needs review") : null,
+        el("span", { className: "id" }, `${c.citation_id} → ref ${c.ref_id}`)),
+      el("p", { className: "label" }, "The manuscript says"),
+      el("p", { className: "sentence" }, c.sentence),
+      c.quote
+        ? [el("p", { className: "label" }, "The source says"), el("blockquote", { className: "quote" }, c.quote)]
+        : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
+      el("p", { className: "provenance" }, kind || null, kind && c.source_url ? " · " : "",
+        c.source_url ? link(c.source_url, "source") : null),
+      c.note ? el("p", { className: "quiet" }, c.note) : null,
+      c.judge || c.skeptic ? el("details", {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null));
+}
+
+// Problems first (worst first), everything fine collapsed in a <details>.
+function group(items, isProblem, labels, key, render, noun, fineLabel, isMiddle = () => false) {
+  const worst = (xs) => xs.sort((a, b) => rank(labels, key(a)) - rank(labels, key(b)));
+  const bad = worst(items.filter(isProblem));
+  const mid = worst(items.filter((x) => !isProblem(x) && isMiddle(x)));
+  const fine = items.filter((x) => !isProblem(x) && !isMiddle(x));
+  if (!items.length) return [el("p", { className: "quiet" }, `No ${noun} were found in this manuscript.`)];
+  return [
+    bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention.`),
+    mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), el("ol", { className: "items" }, mid.map(render))] : null,
+    fine.length ? el("details", { className: "fine" }, el("summary", {}, `${fine.length} ${fineLabel}`),
+      el("ol", { className: "items" }, fine.map(render))) : null,
+  ].flat().filter(Boolean);
 }
 
 function renderReport(r) {
-  $("results-h").textContent = r.title ? `Report: ${r.title}` : "Report";
+  $("results-h").textContent = r.title || "Report";
   $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
   $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
+  const nr = r.references.filter(refAttention).length;
+  const nc = r.claims.filter(claimAttention).length;
+  const nm = r.claims.filter(claimMiddle).length;
+  $("summary").textContent = !r.references.length && !r.claims.length
+    ? "No references or citing sentences were found. Check that the text includes its reference list."
+    : `${nr} of ${r.references.length} references ${need(nr)} attention · ${nc} of ${r.claims.length} claims ${need(nc)} attention${nm ? ` · ${nm} partly supported or not checkable` : ""}`;
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
-  $("summary").replaceChildren(
-    countsList("References", r.summary.references, STATUS),
-    countsList("Claims", r.summary.claims, VERDICT));
-  $("refs").tBodies[0].replaceChildren(...r.references.map(refRow));
-  $("claims").replaceChildren(...(r.claims.length ? r.claims.map(claimCard) : [el("p", { className: "muted" }, "No citing sentences were checked.")]));
+  $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refItem,
+    "references", "verified references"));
+  $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimCard,
+    "citing sentences", "supported claims", claimMiddle));
   showPermalink();
   show("results");
   $("results-h").setAttribute("tabindex", "-1");
