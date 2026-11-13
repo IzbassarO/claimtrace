@@ -46,11 +46,22 @@ def _in_raw(value: str, raw: str) -> bool:
     return bool(v) and v in _norm(raw)
 
 
-def _family_in_raw(author: str, raw: str) -> bool:
+def _title_in_raw(title: str, raw: str) -> bool:
+    """Verbatim AND a whole field: the match must end where the title field ends (., ?, !,
+    closing quote, '[Internet]'), so a truncated 'Aspirin does' of 'Aspirin does not ...' fails."""
+    v = _norm(title)
+    end = "" if v[-1:] in ("?", "!") else r"(?=$|[.?!]|,?[\"”’'»]|\s*\[)"
+    return bool(v) and re.search(rf"(?<!\w){re.escape(v)}{end}", _norm(raw)) is not None
+
+
+def _author_in_raw(author: str, raw: str) -> bool:
+    """Family name and every written-out given name (not initials) occur as words in `raw`."""
     fam = family(author)
     if sum(c.isalpha() for c in fam) < 2:
         return False
-    return re.search(rf"(?<!\w){re.escape(fam)}(?!\w)", raw, re.I) is not None
+    given = author.split(",", 1)[1] if "," in author else author.strip()[: -len(fam)]
+    words = [fam] + [w for w in re.split(r"[\s.\-]+", given) if len(w) > 1]
+    return all(re.search(rf"(?<!\w){re.escape(w)}(?!\w)", raw, re.I) for w in words)
 
 
 def regex_reference(ref_id: str, raw: str) -> Reference:
@@ -69,7 +80,7 @@ def apply_guarded(ref: Reference, item: _Item, warnings: list[str]) -> None:
     raw, dropped = ref.raw, []
     title = (item.title or "").strip().rstrip(".").strip()
     if title:
-        if _in_raw(title, raw):
+        if _title_in_raw(title, raw):
             ref.title = title
         else:
             dropped.append("title")
@@ -80,7 +91,7 @@ def apply_guarded(ref: Reference, item: _Item, warnings: list[str]) -> None:
         else:
             dropped.append("venue")
     authors = [a.strip() for a in item.authors if a.strip() and "et al" not in a.lower()]
-    ref.authors = [a for a in authors if _family_in_raw(a, raw)]
+    ref.authors = [a for a in authors if _author_in_raw(a, raw)]
     if len(ref.authors) < len(authors):
         dropped.append(f"{len(authors) - len(ref.authors)} author(s)")
     if item.year is not None:

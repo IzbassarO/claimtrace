@@ -6,9 +6,6 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from claimtrace.ingest.extract import _Item, apply_guarded, extract_references, regex_reference
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: year taken from the title (e.g. '1990-2016') instead of the imprint"
-)
 @pytest.mark.parametrize(
     "raw",
     [
@@ -24,18 +21,12 @@ async def test_year_not_taken_from_title_when_llm_down(raw):
     assert r.year in (2017, None)  # a title year would be reported as a 2+ year mismatch
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: truncated LLM title passes the verbatim guard and drops 'not'"
-)
 def test_truncated_title_is_not_accepted():
     r = regex_reference("1", "Smith A. Aspirin does not reduce mortality. Lancet. 2020;1:1.")
     apply_guarded(r, _Item(index=0, title="Aspirin does"), [])
     assert r.title in (None, "Aspirin does not reduce mortality")
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: LLM-invented given name accepted; only the family name is checked"
-)
 def test_fabricated_given_name_is_dropped():
     r = regex_reference("1", "Smith A. Aspirin and mortality. Lancet. 2020;1:1.")
     warnings: list[str] = []

@@ -15,7 +15,7 @@ XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
 
 
 async def grobid_tei(pdf: bytes) -> str:
-    """Raw TEI for a PDF. Raises RuntimeError('GROBID unavailable ...') on any failure."""
+    """Raw TEI for a PDF. Raises RuntimeError on any failure (incl. a 200 without usable TEI)."""
     url = get_settings().grobid_url.rstrip("/") + "/api/processFulltextDocument"
     data = {"segmentSentences": "1", "includeRawCitations": "1"}
     try:
@@ -31,6 +31,15 @@ async def grobid_tei(pdf: bytes) -> str:
         raise RuntimeError(f"GROBID unavailable: {type(e).__name__}") from e
     if resp.status_code != 200:
         raise RuntimeError(f"GROBID unavailable or failed: HTTP {resp.status_code}")
+    try:  # a 200 can still be a proxy error page or an empty TEI: never an "empty paper"
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as e:
+        raise RuntimeError("GROBID failed: answer is not XML") from e
+    if root.tag != f"{{{NS['t']}}}TEI":
+        raise RuntimeError("GROBID failed: answer is not TEI")
+    abstract = root.findall(".//t:teiHeader//t:abstract//t:p", NS)
+    if not any(_para_text(p) for p in abstract + body_paragraphs(root)):
+        raise RuntimeError("GROBID failed: no text extracted from the PDF")
     return resp.text
 
 

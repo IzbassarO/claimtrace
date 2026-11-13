@@ -44,9 +44,9 @@ def test_split_at_last_reference_heading():
     text = (
         "Intro mentions References in passing.\n\nReferences\nnot this\n\n## 5. References\nA. 2020"
     )
-    body, section = split_manuscript(text)
-    assert "not this" in body and section.strip() == "A. 2020"
-    assert split_manuscript("no refs here") == ("no refs here", None)
+    body, section, warn = split_manuscript(text)
+    assert "not this" in body and section.strip() == "A. 2020" and warn is None
+    assert split_manuscript("no refs here") == ("no refs here", None, None)
 
 
 def test_split_entries_numbered_wrapped_and_unnumbered():
@@ -316,3 +316,37 @@ async def _no_sleep(_):
 async def test_no_input():
     ms = await parse_inputs("   ", [])
     assert ms.references == [] and ms.warnings == ["No input to analyse"]
+
+
+# ---------- regressions around the adversarial fixes ----------
+
+
+def test_fixes_do_not_over_reach():
+    from claimtrace.ingest.extract import _Item, apply_guarded, regex_reference
+
+    smith = Reference(
+        id="s", raw="Smith, J. (2020). One. J Biol.", authors=["Smith, J."], year=2020
+    )
+    # a comma before a single narrative author is not an author list
+    (c,), warns = find_citations("However, Smith (2020) showed X.", [smith])
+    assert c.ref_ids == ["s"] and not warns
+    # the 3-author narrative is unresolved with a warning, never silently dropped
+    (c,), warns = find_citations("Jones, Smith and Lee (2020) showed X.", [smith])
+    assert c.ref_ids == [] and warns
+    # page locators are not year suffixes
+    (c,), _ = find_citations("Shown (Smith, 2020, p 5).", [smith])
+    assert c.ref_ids == ["s"]
+    # wrapped lowercase lines join; a particle-led name still starts an entry
+    assert len(split_entries("de Souza, A. (2019). X.\nvan Dijk, B. (2020). Y.")) == 2
+    # title ending in '?' and IEEE quoted title still pass the guard; given names in raw pass
+    r = regex_reference("1", 'J. Smith, "Does aspirin work?" in Proc. X, 2020.')
+    apply_guarded(r, _Item(index=0, title="Does aspirin work?"), [])
+    r2 = regex_reference("2", 'Smith, John, "Aspirin and mortality," in Proc. X, 2020.')
+    apply_guarded(r2, _Item(index=0, title="Aspirin and mortality", authors=["Smith, John"]), [])
+    assert (r.title, r2.title, r2.authors) == (
+        "Does aspirin work?",
+        "Aspirin and mortality",
+        ["Smith, John"],
+    )
+    # year ranges never count; parenthesised title year loses to a Vancouver imprint
+    assert year_candidates("Doe A. Trends 1990-2016. BMJ. 2018;1:1.") == [2018]

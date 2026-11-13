@@ -13,9 +13,6 @@ def ref(ref_id: str, raw: str, first_author: str | None = None):
     return r
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: narrative 'A, B and C (2020)' resolves to a paper led by B"
-)
 def test_three_author_narrative_not_attached_to_second_authors_paper():
     refs = [
         ref("jones", "Jones, A., Brown, B., & Smith, C. (2020). Title X. J Biol.", "Jones, A."),
@@ -25,16 +22,12 @@ def test_three_author_narrative_not_attached_to_second_authors_paper():
     assert "brown" not in c.ref_ids  # Brown-led paper is a different work
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: math interval '[0, 1]' is read as citing ref 1")
 def test_interval_zero_one_is_not_a_citation():
     refs = [ref("1", "Doe A. Sampling methods. J Stat. 2019;1:1-9.")]
     cites, _ = find_citations("We draw x uniformly from [0, 1] for every trial.", refs)
     assert all("1" not in c.ref_ids for c in cites)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: marker placed after the full stop is attached to the wrong sentence"
-)
 @pytest.mark.parametrize(
     "text",
     [
@@ -50,9 +43,6 @@ def test_post_period_marker_stays_with_its_sentence(text):
             assert "Statins" not in c.sentence  # ref 1 would be judged on the statin claim
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: '(Smith, 2020a, b)' silently drops 2020b, no citation or warning"
-)
 @pytest.mark.parametrize("text", ["Shown twice (Smith, 2020a, b).", "Smith (2020a, b) showed."])
 def test_year_suffix_shorthand_cites_both(text):
     refs = [
