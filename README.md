@@ -114,8 +114,19 @@ Verdicts on the same haystacks (LLM judge + skeptic + quote gate, n = 60, seed 0
 
 Small sample (60): read the direction, not the decimals.
 
-**Large PDF** ("Attention Is All You Need", 40 references, 58 claims, full Docker stack): 7 min,
-app peak 0.71 GB.
+**Speed** (cold caches, full Docker stack, same models; one run each — LLM latency varies a lot
+between runs, so read the order of magnitude):
+
+| document | time to first result: before → after | full time: before → after |
+|---|---|---|
+| "Attention Is All You Need" PDF, 40 refs / 58 claims | 533 s (report only at the end) → **9 s** | 533 s → **292 s** |
+| same, second run (providers 2–3× slower that hour) | — → 3.3 s | — → 352 s |
+| same paper as text (eval `timing`, no GROBID) | — → 25 s | — → 141 s |
+| review with 204 refs (PMC9820749), references only | — → 35 s | audit of 200 refs: 45.5 s (claims not run: LLM budget) |
+| built-in sample | ~20 s → **instant** (saved example; "Run live" ~20 s) | — |
+
+Where the time goes (40-ref PDF, after): skeptic model ~16 s per call vs judge ~3 s; claims
+stage dominates; app peak memory 1.19 GB. Target "40 refs in 3 min" is **not met yet**.
 
 ## Limitations
 
