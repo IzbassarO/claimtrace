@@ -1,0 +1,174 @@
+/* ClaimTrace — Direction C "Margin": the manuscript with an editor's margin notes.
+   Philosophy: minimal document, pencil and one pen. White page, grey pencil for
+   apparatus, one blue-black "pen" for the reviewer's hand. Status colour is the third,
+   redundant channel: every status also has a word and an underline style / SVG shape.
+   Contrast ratios are against --color-bg-primary (light: #ffffff, dark: #16181b). */
+
+:root {
+  color-scheme: light;
+
+  /* Colour — surfaces */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f7f5;   /* the margin column, faint */
+  --color-bg-tertiary: #f1f1ee;    /* inputs, wells */
+  --color-bg-inverse: #1d2330;
+  --color-surface-overlay: rgb(16 18 22 / 0.4);
+
+  /* Colour — text */
+  --color-text-primary: #1b1d21;   /* 16.9:1 */
+  --color-text-secondary: #555a63; /* pencil, 6.9:1 */
+  --color-text-tertiary: #6c717a;  /* disabled/meta, 4.9:1 */
+  --color-text-inverse: #ffffff;
+  --color-text-link: #1d3a6e;      /* pen, 11.2:1 */
+
+  /* Colour — rules */
+  --color-border-primary: #8a8f97; /* inputs, 3.3:1 non-text */
+  --color-border-secondary: #e3e3df; /* hairline rules */
+  --color-border-focus: #1d3a6e;
+
+  /* Colour — the pen (the only accent) */
+  --color-accent-primary: #1d3a6e;
+  --color-accent-primary-hover: #152c55;
+  --color-accent-primary-active: #0f2142;
+  --color-accent-secondary: #e8edf6; /* pen wash, used for the active sentence */
+
+  /* Colour — status (text colour, all >= 4.5:1 on white) */
+  --color-status-supported: #1f6b3a;    /* 6.5:1 */
+  --color-status-partly: #7a5600;       /* 6.7:1 */
+  --color-status-unsupported: #a3221b;  /* 7.5:1 */
+  --color-status-insufficient: #555a63; /* 6.9:1 — neutral on purpose */
+  --color-status-review: #1d3a6e;       /* the pen: a human must look */
+  --color-status-pending: #6c717a;      /* 4.9:1 */
+  --color-status-success: var(--color-status-supported);
+  --color-status-warning: var(--color-status-partly);
+  --color-status-error: var(--color-status-unsupported);
+  --color-status-info: var(--color-status-review);
+
+  /* Citation underline styles (shape channel for inline marks) */
+  --mark-supported: solid;
+  --mark-partly: dashed;
+  --mark-unsupported: wavy;
+  --mark-insufficient: dotted;
+
+  /* Spacing — 4px base, text-led */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+  --space-10: 8rem;
+
+  /* Type — system stacks only (no CDN). Humanist sans for the manuscript and UI,
+     old-style serif for the source's own words, mono only for identifiers. */
+  --font-family-body: Seravek, "Gill Sans Nova", Ubuntu, Calibri, "DejaVu Sans", source-sans-pro, sans-serif;
+  --font-family-display: var(--font-family-body);
+  --font-family-quote: "Iowan Old Style", "Palatino Linotype", "URW Palladio L", P052, Georgia, serif;
+  --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --font-size-xs: 0.8125rem;  /* 13 — identifiers only */
+  --font-size-sm: 0.9375rem;  /* 15 — margin apparatus */
+  --font-size-base: 1.0625rem;/* 17 — manuscript text */
+  --font-size-md: 1.1875rem;  /* 19 — the quote */
+  --font-size-lg: 1.375rem;
+  --font-size-xl: 1.75rem;
+  --font-size-2xl: 2.25rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.55;
+  --line-height-relaxed: 1.75;  /* manuscript text: room for underline marks */
+
+  --letter-spacing-tight: -0.015em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.04em;
+
+  /* Layout */
+  --max-width-content: 38rem;   /* manuscript measure ~70ch */
+  --width-margin: 21rem;        /* the margin column */
+  --max-width-page: 66rem;
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgb(16 18 22 / 0.06);
+  --shadow-focus: 0 0 0 3px var(--color-border-focus);
+
+  /* Motion (emil curves) — notes arrive, nothing else moves */
+  --duration-instant: 50ms;
+  --duration-fast: 140ms;
+  --duration-normal: 200ms;
+  --duration-slow: 280ms;
+  --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --easing-default: ease;
+
+  --breakpoint-md: 48rem;  /* below: margin notes fold under their sentence */
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg-primary: #16181b;
+  --color-bg-secondary: #1c1f23;
+  --color-bg-tertiary: #22262b;
+  --color-bg-inverse: #eceae5;
+  --color-text-primary: #e6e5e1;   /* 14.1:1 */
+  --color-text-secondary: #a9aeb6; /* 8.0:1 */
+  --color-text-tertiary: #8d929a;  /* 5.6:1 */
+  --color-text-inverse: #16181b;
+  --color-text-link: #a9c1ee;
+  --color-border-primary: #6f747c;
+  --color-border-secondary: #2c3036;
+  --color-border-focus: #a9c1ee;
+  --color-accent-primary: #a9c1ee;
+  --color-accent-primary-hover: #c3d4f3;
+  --color-accent-primary-active: #d8e3f7;
+  --color-accent-secondary: #1f2a3d;
+  --color-status-supported: #7cc893;
+  --color-status-partly: #e0b85a;
+  --color-status-unsupported: #f2958c;
+  --color-status-insufficient: #a9aeb6;
+  --color-status-review: #a9c1ee;
+  --color-status-pending: #8d929a;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg-primary: #16181b;
+    --color-bg-secondary: #1c1f23;
+    --color-bg-tertiary: #22262b;
+    --color-bg-inverse: #eceae5;
+    --color-text-primary: #e6e5e1;
+    --color-text-secondary: #a9aeb6;
+    --color-text-tertiary: #8d929a;
+    --color-text-inverse: #16181b;
+    --color-text-link: #a9c1ee;
+    --color-border-primary: #6f747c;
+    --color-border-secondary: #2c3036;
+    --color-border-focus: #a9c1ee;
+    --color-accent-primary: #a9c1ee;
+    --color-accent-primary-hover: #c3d4f3;
+    --color-accent-primary-active: #d8e3f7;
+    --color-accent-secondary: #1f2a3d;
+    --color-status-supported: #7cc893;
+    --color-status-partly: #e0b85a;
+    --color-status-unsupported: #f2958c;
+    --color-status-insufficient: #a9aeb6;
+    --color-status-review: #a9c1ee;
+    --color-status-pending: #8d929a;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-normal: 0ms; --duration-slow: 0ms; }
+}

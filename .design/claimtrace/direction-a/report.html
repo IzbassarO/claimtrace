@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attention Is All You Need — citation audit · ClaimTrace</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Status shapes. Decorative: the word next to each one is the accessible name. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-supported" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="currentColor"/></symbol>
+  <symbol id="i-partly" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></symbol>
+  <symbol id="i-unsupported" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-insufficient" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.4 2.2"/></symbol>
+  <symbol id="i-review" viewBox="0 0 16 16"><path d="M3.5 14.5V2M3.5 2.5h8.5l-2 3 2 3H3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-mismatch" viewBox="0 0 16 16"><path d="M2 5.5h8M6 10.5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-pending" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><path class="tick" d="M8 8V4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to the report</a>
+<header class="masthead">
+  <a class="brand" href="home.html">ClaimTrace</a>
+  <span class="running">Citation audit · 13 November 2026</span>
+</header>
+
+<main id="main">
+  <h1>Attention Is All You Need</h1>
+  <p class="summary-prose"><span class="num">38</span> of <span class="num">40</span> references are verified; one is
+    described differently from the published record and one could not be checked. Citing
+    sentences are still being checked against their sources — the problems are listed first.</p>
+  <div class="progress-line" role="status" aria-live="polite">
+    <span class="mark s-pending"><svg aria-hidden="true"><use href="#i-pending"/></svg> Still checking</span>
+    <span class="track" style="--done:.707" aria-hidden="true"><span></span></span>
+    <span><span class="num">41</span> of <span class="num">58</span> claims checked</span>
+  </div>
+  <p class="actions">
+    <a href="#">Download JSON</a><a href="#">Download Markdown</a><a href="#">Copy link</a>
+  </p>
+
+  <h2 id="claims-h">Claims that need you</h2>
+  <p class="standfirst">Each verdict rests on the source’s own words, quoted verbatim.</p>
+
+  <article class="claim" aria-labelledby="c30-v">
+    <div class="claim-head"><span class="sc">Claim 30</span><span>cites <span class="num">[38]</span> Wu et al. 2016 · full text</span></div>
+    <p class="citing">“We set the maximum output length during inference to input length + 50, but terminate early when possible <mark>[38]</mark>.”</p>
+    <figure class="source">
+      <blockquote>“where we simply stop decoding after a predetermined maximum output length of twice the source length”</blockquote>
+      <figcaption>Wu et al., <cite>Google’s neural machine translation system</cite> · <span class="id">arXiv:1609.08144</span></figcaption>
+    </figure>
+    <div class="verdict">
+      <span class="mark s-unsupported" id="c30-v"><svg aria-hidden="true"><use href="#i-unsupported"/></svg><b>Not supported</b><span class="note">· both models agree</span></span>
+      <p>The source’s maximum output length is twice the source length, not input length + 50. It does describe ending the search early, so only that part overlaps.</p>
+    </div>
+  </article>
+
+  <article class="claim" aria-labelledby="c5-v">
+    <div class="claim-head"><span class="sc">Claim 5</span><span>cites <span class="num">[27]</span> Parikh et al. 2016 · full text</span></div>
+    <p class="citing">“In all but a few cases <mark>[27]</mark>, however, such attention mechanisms are used in conjunction with a recurrent network.”</p>
+    <figure class="source">
+      <blockquote>“has been predominantly used in conjunction with LSTMs (Rocktäschel et al., 2016;Wang and Jiang, 2016) and to a lesser extent with CNNs”</blockquote>
+      <figcaption>Parikh et al., <cite>A Decomposable Attention Model for Natural Language Inference</cite> · <span class="id">doi:10.18653/v1/d16-1244</span></figcaption>
+    </figure>
+    <div class="verdict">
+      <span class="mark s-partly" id="c5-v"><svg aria-hidden="true"><use href="#i-partly"/></svg><b>Partly supported</b></span>
+      <span class="mark s-review"><svg aria-hidden="true"><use href="#i-review"/></svg><b>Needs review</b><span class="note">· the two models disagree; the more cautious verdict is shown</span></span>
+    </div>
+    <details open>
+      <summary>How each model read it</summary>
+      <div class="versus">
+        <section>
+          <h4>Judge · Claude</h4>
+          <span class="mark s-supported"><svg aria-hidden="true"><use href="#i-supported"/></svg><b>Supported</b></span>
+          <p>The source says attention has been predominantly used with LSTMs, and to a lesser extent with CNNs. The wording “all but a few cases” is a little stronger than “predominantly”.</p>
+        </section>
+        <section>
+          <h4>Skeptic · Kimi</h4>
+          <span class="mark s-partly"><svg aria-hidden="true"><use href="#i-partly"/></svg><b>Partly supported</b></span>
+          <p>“Predominantly” is weaker than the citing sentence’s near-universal “all but a few cases,” so it supports only a qualified version of the claim.</p>
+        </section>
+      </div>
+    </details>
+  </article>
+
+  <h2>Still checking</h2>
+  <p class="standfirst">These appear here as soon as their sources are read.</p>
+  <div class="pending">
+    <div class="claim-head"><span class="sc">Claim 32</span><span>cites <span class="num">[37]</span></span></div>
+    <p class="citing">“Furthermore, RNN sequence-to-sequence models have not been able to attain state-of-the-art results in small-data regimes <mark>[37]</mark>.”</p>
+    <p class="placeholder"><span class="mark s-pending"><svg aria-hidden="true"><use href="#i-pending"/></svg> Checking…</span> looking for the passage in the full text</p>
+  </div>
+  <div class="pending">
+    <div class="claim-head"><span class="sc">Claim 33</span><span>cites <span class="num">[25]</span></span></div>
+    <p class="citing">“We trained a 4-layer transformer with d model = 1024 on the Wall Street Journal (WSJ) portion of the Penn Treebank <mark>[25]</mark>, about 40K training sentences.”</p>
+    <p class="placeholder"><span class="mark s-pending"><svg aria-hidden="true"><use href="#i-pending"/></svg> Checking…</span> fetching the source</p>
+  </div>
+
+  <h2>Claims that hold up</h2>
+  <p class="standfirst">Shown in full on request; one example below.</p>
+  <article class="claim" aria-labelledby="c6-v">
+    <div class="claim-head"><span class="sc">Claim 6</span><span>cites <span class="num">[9]</span> Gehring et al. 2017 · full text</span></div>
+    <p class="citing">“The goal of reducing sequential computation also forms the foundation of the Extended Neural GPU [16], ByteNet [18] and ConvS2S <mark>[9]</mark>, all of which use convolutional neural networks as basic building block, computing hidden representations in parallel for all input and output positions.”</p>
+    <figure class="source">
+      <blockquote>“Convolutional networks do not depend on the computations of the previous time step and therefore allow parallelization over every element in a sequence.”</blockquote>
+      <figcaption>Gehring et al., <cite>Convolutional sequence to sequence learning</cite> · <span class="id">arXiv:1705.03122</span></figcaption>
+    </figure>
+    <div class="verdict">
+      <span class="mark s-supported" id="c6-v"><svg aria-hidden="true"><use href="#i-supported"/></svg><b>Supported</b><span class="note">· both models agree</span></span>
+    </div>
+  </article>
+
+  <h2 id="refs-h">References</h2>
+  <p class="standfirst"><span class="num">38</span> verified against Crossref, OpenAlex and arXiv. Two need a look.</p>
+  <ol class="refs">
+    <li class="ref">
+      <span class="mark s-mismatch"><svg aria-hidden="true"><use href="#i-mismatch"/></svg><b>Details differ</b><span class="note">· reference [27]</span></span>
+      <p class="raw">Ankur Parikh, Oscar Täckström, Dipanjan Das, and Jakob Uszkoreit. A decomposable attention model. In Empirical Methods in Natural Language Processing, 2016.</p>
+      <dl class="diff">
+        <dt>Cited title</dt><dd><del>A decomposable attention model</del></dd>
+        <dt>Published as</dt><dd><ins>A Decomposable Attention Model for Natural Language Inference</ins></dd>
+        <dt>Found in</dt><dd>Crossref · <span class="id">10.18653/v1/d16-1244</span></dd>
+      </dl>
+    </li>
+    <li class="ref">
+      <span class="mark s-unchecked"><svg aria-hidden="true"><use href="#i-insufficient"/></svg><b>Could not check</b><span class="note">· reference [1] · not a sign the reference is wrong</span></span>
+      <p class="raw">Jimmy Lei Ba, Jamie Ryan Kiros, and Geoffrey E Hinton. Layer normalization. arXiv preprint arXiv:1607.06450, 2016.</p>
+      <p class="note">The identifier resolves to “Layer Normalization”, but the cited title and authors could not be read from the manuscript to compare.</p>
+    </li>
+  </ol>
+  <details>
+    <summary>Show the 38 verified references</summary>
+  </details>
+</main>
+
+<footer class="colophon">Reports are kept for the newest 1000 audits on this server. Verdicts come from two models on different providers and are shown only with a verbatim quote.</footer>
+</body>
+</html>

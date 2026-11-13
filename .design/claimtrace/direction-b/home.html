@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClaimTrace — audit citations (Direction B: Bench)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./tokens.css">
+<style>
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--color-bg-primary); color: var(--color-text-primary);
+  font: var(--font-size-base)/var(--line-height-normal) var(--font-family-body); font-variant-numeric: tabular-nums; }
+::selection { background: var(--color-accent-tint); color: var(--color-text-primary); }
+a { color: var(--color-text-link); text-underline-offset: 0.18em; }
+:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; border-radius: var(--border-radius-sm); }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: var(--space-4); top: var(--space-2); background: var(--color-bg-secondary); padding: var(--space-2) var(--space-3); }
+.mono { font-family: var(--font-family-mono); font-size: 0.92em; }
+
+.bar { border-bottom: 1px solid var(--color-border-primary); background: var(--color-bg-secondary); }
+.bar-in { max-width: var(--max-width-page); margin: 0 auto; padding: var(--space-3) var(--space-4); }
+.brand { font-weight: var(--font-weight-bold); color: var(--color-text-primary); text-decoration: none; letter-spacing: var(--letter-spacing-tight); }
+
+main { max-width: var(--max-width-page); margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-9); display: grid; gap: var(--space-7); }
+h1 { font-size: var(--font-size-2xl); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-3); max-width: 24ch; text-wrap: balance; }
+.lede { margin: 0 0 var(--space-5); color: var(--color-text-secondary); max-width: 58ch; }
+
+form { background: var(--color-bg-secondary); border: 1px solid var(--color-border-primary); border-radius: var(--border-radius-md); padding: var(--space-4); }
+label { display: block; font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-2); }
+label .q { font-weight: var(--font-weight-normal); color: var(--color-text-secondary); }
+textarea { width: 100%; min-height: 16rem; font: var(--font-size-sm)/var(--line-height-relaxed) var(--font-family-body); color: inherit;
+  background: var(--color-bg-tertiary); border: 1px solid var(--color-border-primary); border-radius: var(--border-radius-sm); padding: var(--space-3); resize: vertical; }
+textarea::placeholder { color: var(--color-text-tertiary); }
+textarea:focus-visible { outline-offset: 0; }
+.files { margin-top: var(--space-4); display: grid; gap: var(--space-2); }
+input[type=file] { font: inherit; font-size: var(--font-size-sm); max-width: 100%; color: var(--color-text-secondary); }
+input[type=file]::file-selector-button { font: inherit; min-height: 44px; padding: 0 var(--space-4); margin-right: var(--space-3); border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border-primary); background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; }
+.hint { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border-secondary); }
+button { font: inherit; font-weight: var(--font-weight-semibold); min-height: 44px; padding: 0 var(--space-5); border-radius: var(--border-radius-sm); cursor: pointer;
+  border: 1px solid var(--color-accent-primary); background: var(--color-accent-primary); color: var(--color-bg-secondary);
+  transition: background-color var(--duration-fast) var(--easing-default), transform var(--duration-fast) var(--easing-out); }
+button:hover { background: var(--color-accent-primary-hover); }
+button:active { transform: scale(0.97); }
+button.secondary { background: transparent; color: var(--color-accent-primary); }
+button.secondary:hover { background: var(--color-accent-tint); }
+
+/* datasheet: what the instrument measures */
+.sheet h2 { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin: 0 0 var(--space-3); }
+dl { margin: 0; border-top: 1px solid var(--color-border-primary); }
+.spec { display: grid; gap: var(--space-1); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border-primary); }
+dt { font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
+dd { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.key { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--font-size-sm); }
+.key li { display: flex; gap: var(--space-2); align-items: center; }
+.mark { width: 14px; height: 14px; flex: none; }
+.st-sup { color: var(--color-status-supported); } .st-part { color: var(--color-status-partly); }
+.st-uns { color: var(--color-status-unsupported); } .st-neu { color: var(--color-status-neutral); }
+.st-rev { color: var(--color-status-review); }
+.key b { font-weight: var(--font-weight-semibold); min-width: 10.5rem; }
+.key span { color: var(--color-text-secondary); }
+.sheet h2 + .key { margin-top: 0; }
+.sheet .second { margin-top: var(--space-6); }
+
+@media (min-width: 48rem) {
+  main { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-8); padding-top: var(--space-8); }
+  h1 { font-size: var(--font-size-3xl); }
+  .spec { grid-template-columns: 8.5rem 1fr; gap: var(--space-4); }
+}
+@media (prefers-reduced-motion: reduce) { button { transition: none; } button:active { transform: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="m-sup" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25" fill="currentColor"/></symbol>
+    <symbol id="m-part" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></symbol>
+    <symbol id="m-uns" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="m-neu" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.6 2"/></symbol>
+    <symbol id="m-rev" viewBox="0 0 16 16"><path d="M4 14.5V2h8l-2 3.25L12 8.5H4" fill="currentColor" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in"><a class="brand" href="home.html">ClaimTrace</a></div></header>
+
+<main id="main">
+  <section aria-labelledby="h">
+    <h1 id="h">Check every citation in a manuscript against its source.</h1>
+    <p class="lede">Each reference is looked up and compared field by field. Each citing sentence is read against the cited paper, and every verdict comes with the paper’s own words as evidence.</p>
+    <form action="#">
+      <label for="text">Manuscript text <span class="q">— including its reference list</span></label>
+      <textarea id="text" name="text" spellcheck="false" placeholder="Paste the body and the references. Plain text, Markdown or LaTeX with \cite{…}."></textarea>
+      <div class="files">
+        <label for="files">Or attach files <span class="q">(.txt, .md, .bib, .pdf)</span></label>
+        <input id="files" name="files" type="file" multiple accept=".txt,.md,.bib,.pdf" aria-describedby="files-hint">
+        <p id="files-hint" class="hint">With pasted text and a .bib file, the body comes from the text and the references from the .bib.</p>
+      </div>
+      <div class="actions">
+        <button type="submit">Audit citations</button>
+        <button type="button" class="secondary">Try a sample</button>
+      </div>
+    </form>
+  </section>
+
+  <aside class="sheet" aria-labelledby="spec-h">
+    <h2 id="spec-h">What is measured</h2>
+    <dl>
+      <div class="spec"><dt>References</dt><dd>Crossref, OpenAlex, arXiv, Semantic Scholar and doi.org. Title, authors, year (±<span class="mono">1</span>) and DOI are compared by code, not by a model.</dd></div>
+      <div class="spec"><dt>Claims</dt><dd>Full text where open (Europe PMC, arXiv, Unpaywall), otherwise the abstract — the report says which.</dd></div>
+      <div class="spec"><dt>Evidence</dt><dd>A verdict is shown only with a quote of at least <span class="mono">5</span> words found verbatim in the source.</dd></div>
+      <div class="spec"><dt>Two readers</dt><dd>A judge and a skeptic on different model providers. If they disagree, the claim is flagged and the more cautious verdict is kept.</dd></div>
+    </dl>
+
+    <h2 class="second" id="key-h">Readout key</h2>
+    <ul class="key" aria-labelledby="key-h">
+      <li class="st-sup"><svg class="mark" aria-hidden="true"><use href="#m-sup"/></svg><b>Supported</b></li>
+      <li class="st-part"><svg class="mark" aria-hidden="true"><use href="#m-part"/></svg><b>Partly supported</b></li>
+      <li class="st-uns"><svg class="mark" aria-hidden="true"><use href="#m-uns"/></svg><b>Not supported</b></li>
+      <li class="st-neu"><svg class="mark" aria-hidden="true"><use href="#m-neu"/></svg><b>Not enough evidence</b><span>never counted against you</span></li>
+      <li class="st-rev"><svg class="mark" aria-hidden="true"><use href="#m-rev"/></svg><b>Needs review</b><span>the two readers disagree</span></li>
+    </ul>
+  </aside>
+</main>
+</body>
+</html>
