@@ -14,6 +14,7 @@ every results file present. Commit the results you quote in a PR.
 | `scifact` | yes | verdicts on SciFact dev claims vs. the cited abstract (default 100 items) |
 | `scifact-haystack` | yes | same, but the source is the haystack (retrieval + verdict together) |
 | `refs` | no | `refaudit` on real references with injected errors |
+| `timing` | yes | `pipeline.run` end to end on bench documents: latency, stage walls, busy/idle |
 | `all` | yes | `scifact` + `refs` |
 
 LLM suites cost money: the lead runs them. `retrieval` and `refs` are free to rerun locally.
@@ -55,3 +56,48 @@ Budget: only `fabricated` references trigger paid OpenAlex title searches, so th
 applied to a seeded subset of 150 seeds; a run is capped at 250 searches
 (`OPENALEX_RUN_SEARCHES`) and prints the day's counter before/after. Retries of a 429/5xx count
 as searches too. Answers are cached under `.cache/openalex/`, so a rerun is nearly free.
+
+## timing
+
+```
+uv run python -m eval.run --suite timing --docs attention-text,review-200 --repeat 1 [--cold]
+```
+
+Runs `pipeline.run` on each bench document and writes `results/timing.json` plus tables in
+`summary.md`. Per run:
+
+- `first reference s` / `first claim s`: seconds until the first `on_partial` snapshot carrying
+  >= 1 reference audit / claim check (if the pipeline never streams, the final report counts).
+- `total s`, `partials` (number of `on_partial` calls), `peak RSS MB` (`ru_maxrss` of the eval
+  process: monotonic, so with several runs it is the peak so far, not per run).
+- `cache`: `warm` if any verdict came from the disk verdict cache (`n_verdict_cache_hit` > 0),
+  else `cold`. `--cold` deletes `CACHE_DIR/verdicts` before each run so claim checks really call
+  the LLMs; reference lookups and source texts stay cached (OpenAlex searches cost money), so a
+  rerun's `references`/`sources` stages are faster than a first-ever run.
+- `limit warnings`: `max_references` / `max_claims` truncation warnings from the report. When
+  present, the run did not process the whole document.
+- Stage table (from `Report.timings`, seconds since start): `start`/`first`/`end` = the
+  `t_<stage>_*` marks, `wall = end - start`. Stages overlap: the pipeline streams, so sources
+  and claims start while references are still running.
+- `idle = wall x slots - busy`: worker-slot seconds the stage had but did not spend inside its
+  operation. `slots` = 1 for `ingest`, `pipeline.SOURCE_CONCURRENCY` for `sources`
+  (`busy_source_fetch`), `LLM_CONCURRENCY` for `claims` (`busy_claim_check`). High idle means
+  workers waited for input (e.g. claims waiting for sources), not that the work was slow.
+  `references` has no single busy span or slot count (each provider has its own gate), so its
+  idle is n/a.
+- Op table: every `busy_<op>` / `n_<op>` key (`ingest`, `source_fetch`, `grobid_source`,
+  `retrieval`, `llm_extract` / `llm_judge` / `llm_skeptic`, `claim_check`, ...) with the mean
+  seconds per call. Busy times of concurrent calls add up, so they can exceed the wall time.
+
+Bench documents are fetched at runtime into `eval/.cache/bench/` (gitignored, never
+committed), see `eval/bench.py`:
+
+| doc | source | notes |
+|---|---|---|
+| `attention-pdf` | arXiv 1706.03762v7 PDF | needs GROBID at `GROBID_URL`; skipped with a message if unreachable (Docker is never started) |
+| `attention-text` | arXiv HTML of 1706.03762v7 | plain text: title, body with `[n]` citations (math as LaTeX, tables/figures/footnotes dropped), `References` with 40 `[n]` entries |
+| `review-200` | Europe PMC `fullTextXML` of **PMC9820749** | "TRP Channels: Recent Development in Translational Research and Potential Therapeutic Targets in Migraine", Int. J. Mol. Sci. 24(1):700, licence **CC BY 4.0**; 204 references, `[n]` citations as published |
+
+`review-200` was chosen via the Europe PMC search API (`OPEN_ACCESS:y AND LICENSE:"cc by" AND
+PUB_TYPE:"review"`, counting `ref-list/ref` in the full text). Each timing run costs LLM money
+(~$1 for `attention-text`, several dollars for `review-200`): the lead runs them.

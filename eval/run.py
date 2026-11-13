@@ -10,6 +10,8 @@ rebuilt from every results file present). See eval/README.md.
 - retrieval: gold rationale sentences vs. `claims.retrieval.retrieve` on haystacks (no LLM).
 - refs: real references from eval/data/refs_seed.jsonl with deterministic injected errors
   through `refaudit.audit_references`.
+- timing: `pipeline.run` end to end on bench documents (eval/bench.py), latency + Report.timings
+  (LLM). `--docs attention-text,review-200 --repeat 1 [--cold]`.
 """
 
 import argparse
@@ -18,18 +20,22 @@ import json
 import os
 import random
 import re
+import resource
+import shutil
+import sys
 import tarfile
 import time
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
-from claimtrace import claims, refaudit
+from claimtrace import claims, pipeline, refaudit
 from claimtrace.claims import retrieval
 from claimtrace.claims.quote import verify_quote
 from claimtrace.core.http import make_client
 from claimtrace.core.schemas import Citation, EvidenceKind, ModelOpinion, Reference, SourceText
 from claimtrace.core.settings import get_settings
+from eval import bench
 
 HERE = Path(__file__).parent
 CACHE = HERE / ".cache"
@@ -519,6 +525,154 @@ async def run_retrieval(limit: int | None, seed: int) -> dict:
     return {"metrics": retrieval_metrics(rows), "rows": rows}
 
 
+# ---------------------------------------------------------------- timing (LLM, end to end)
+
+# stage (pipeline progress marks) -> (op whose busy time fills the stage, worker slots)
+STAGES = {
+    "ingest": ("ingest", lambda: 1),
+    "references": (None, lambda: None),  # no busy span: concurrency is per provider gate
+    "sources": ("source_fetch", lambda: pipeline.SOURCE_CONCURRENCY),
+    "claims": ("claim_check", lambda: get_settings().llm_concurrency),
+}
+LIMIT_WARNING = re.compile(r"\blimit\b|Only the first", re.I)
+
+
+def peak_rss_mb() -> float:
+    """Peak RSS of this process so far (ru_maxrss: bytes on macOS, KiB on Linux)."""
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return round(rss / (2**20 if sys.platform == "darwin" else 2**10), 1)
+
+
+def stage_rows(t: dict) -> list[dict]:
+    """Per stage: wall = t_<stage>_end - t_<stage>_start; idle = wall x slots - busy (slot
+    seconds no worker was busy). Stages overlap in the streaming pipeline."""
+    rows = []
+    for stage, (op, slots_of) in STAGES.items():
+        start, end = t.get(f"t_{stage}_start"), t.get(f"t_{stage}_end")
+        wall = round(end - start, 2) if start is not None and end is not None else None
+        slots = slots_of()
+        busy = t.get(f"busy_{op}") if op else None
+        idle = (
+            round(wall * slots - (busy or 0.0), 2)
+            if wall is not None and slots is not None and op
+            else None
+        )
+        rows.append(
+            {
+                "stage": stage,
+                "start": start,
+                "first": t.get(f"t_{stage}_first"),
+                "end": end,
+                "wall": wall,
+                "slots": slots,
+                "busy": busy,
+                "idle": idle,
+            }
+        )
+    return rows
+
+
+def op_rows(t: dict) -> list[dict]:
+    ops = sorted({k.split("_", 1)[1] for k in t if k.startswith(("busy_", "n_"))})
+    rows = []
+    for op in ops:
+        busy, n = t.get(f"busy_{op}"), t.get(f"n_{op}")
+        mean = round(busy / n, 2) if busy is not None and n else None
+        rows.append({"op": op, "n": int(n) if n is not None else None, "busy": busy, "mean": mean})
+    return rows
+
+
+async def time_doc(text: str | None, files: list) -> dict:
+    """One `pipeline.run`. First results come from `on_partial`; a pipeline that never streams
+    counts the final report as the first result (that is when the user sees it)."""
+    t0 = time.monotonic()
+    first: dict[str, float] = {}
+    partials = 0
+
+    def on_partial(report) -> None:
+        nonlocal partials
+        partials += 1
+        now = round(time.monotonic() - t0, 2)
+        if report.references:
+            first.setdefault("first_reference_s", now)
+        if report.claims:
+            first.setdefault("first_claim_s", now)
+
+    report = await pipeline.run(text, files, on_partial=on_partial)
+    total = round(time.monotonic() - t0, 2)
+    t = report.timings
+    return {
+        "first_reference_s": first.get("first_reference_s", total if report.references else None),
+        "first_claim_s": first.get("first_claim_s", total if report.claims else None),
+        "total_s": total,
+        "partials": partials,
+        "peak_rss_mb": peak_rss_mb(),
+        "cache": "warm" if t.get("n_verdict_cache_hit") else "cold",
+        "n_references": len(report.references),
+        "n_claims": len(report.claims),
+        "summary": report.summary,
+        "warnings": report.warnings,
+        "limit_warnings": [w for w in report.warnings if LIMIT_WARNING.search(w)],
+        "timings": t,
+        "stages": stage_rows(t),
+        "ops": op_rows(t),
+    }
+
+
+async def run_timing(docs: list[str], repeat: int = 1, cold: bool = False) -> dict:
+    runs, skipped = [], {}
+    for name in docs:
+        try:
+            text, files = bench.load(name)
+        except bench.Skip as e:
+            print(f"timing: SKIP {name}: {e}")
+            skipped[name] = str(e)
+            continue
+        for i in range(repeat):
+            if cold:  # verdict cache only; reference lookups stay cached (they cost money)
+                shutil.rmtree(Path(get_settings().cache_dir) / "verdicts", ignore_errors=True)
+            row = {"doc": name, "repeat": i} | await time_doc(text, files)
+            runs.append(row)
+            print(
+                f"timing: {name}#{i} ({row['cache']}) total {row['total_s']}s, first reference "
+                f"{row['first_reference_s']}s, first claim {row['first_claim_s']}s, "
+                f"{row['n_references']} refs, {row['n_claims']} claims, "
+                f"peak RSS {row['peak_rss_mb']} MB"
+            )
+            for w in row["limit_warnings"]:
+                print(f"timing: {name}#{i} LIMIT: {w}")
+    metrics = {"runs": len(runs), "skipped": len(skipped)}
+    return {"metrics": metrics, "skipped": skipped, "runs": runs}
+
+
+def render_timing(res: dict) -> list[str]:
+    out = []
+    for doc, why in res.get("skipped", {}).items():
+        out += [f"- skipped `{doc}`: {why}"]
+    out += ["", "| doc | cache | first reference s | first claim s | total s | refs | claims "]
+    out[-1] += "| partials | peak RSS MB | limit warnings |"
+    out += ["|---" * 10 + "|"]
+    for r in res["runs"]:
+        lim = "; ".join(r["limit_warnings"]) or "none"
+        out.append(
+            f"| {r['doc']}#{r['repeat']} | {r['cache']} | {fmt(r['first_reference_s'])} | "
+            f"{fmt(r['first_claim_s'])} | {fmt(r['total_s'])} | {r['n_references']} | "
+            f"{r['n_claims']} | {r['partials']} | {fmt(r['peak_rss_mb'])} | {lim} |"
+        )
+    out.append("")
+    for r in res["runs"]:
+        out += [f"### {r['doc']}#{r['repeat']} stages (s since start; idle = wall x slots - busy)"]
+        out += ["", "| stage | start | first | end | wall | slots | busy | idle |"]
+        out += ["|---" * 8 + "|"]
+        for s in r["stages"]:
+            out.append("| " + " | ".join(fmt(s[k]) for k in s) + " |")
+        out += ["", "| op | n | busy s | mean s |", "|---|---|---|---|"]
+        for o in r["ops"]:
+            out.append("| " + " | ".join(fmt(o[k]) for k in o) + " |")
+        out.append("")
+    return out
+
+
 # ---------------------------------------------------------------- report
 
 
@@ -534,6 +688,8 @@ def render_summary(results: dict[str, dict]) -> str:
         out += ["| metric | value |", "|---|---|"]
         out += [f"| {k} | {fmt(v)} |" for k, v in m.items() if not isinstance(v, dict)]
         out.append("")
+        if suite == "timing":
+            out += render_timing(res)
         if "per_mutation" in m:
             out += ["| mutation | n | accuracy | statuses |", "|---|---|---|---|"]
             for mut, d in m["per_mutation"].items():
@@ -593,10 +749,19 @@ async def main(argv: list[str] | None = None) -> None:
         "retrieval": run_retrieval,
         "refs": run_refs,
     }
-    ap.add_argument("--suite", choices=[*runners, "all"], default="all")
+    ap.add_argument("--suite", choices=[*runners, "timing", "all"], default="all")
     ap.add_argument("--limit", type=int, default=None, help="scifact*: sample size (default 100)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--docs", default="attention-text", help="timing: comma-separated bench docs")
+    ap.add_argument("--repeat", type=int, default=1, help="timing: runs per document")
+    ap.add_argument("--cold", action="store_true", help="timing: empty the verdict cache per run")
     args = ap.parse_args(argv)
+    if args.suite == "timing":
+        docs = [d.strip() for d in args.docs.split(",") if d.strip()]
+        res = await run_timing(docs, args.repeat, args.cold)
+        write_results("timing", res, {"docs": docs, "repeat": args.repeat, "cold": args.cold})
+        print(f"summary: {RESULTS / 'summary.md'}")
+        return
     for suite in ["scifact", "refs"] if args.suite == "all" else [args.suite]:
         res = await runners[suite](args.limit, args.seed)
         write_results(suite, res, {"limit": args.limit, "seed": args.seed})
