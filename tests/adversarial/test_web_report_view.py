@@ -107,10 +107,6 @@ def ref(i: str, title: str) -> Reference:
 ok = [ProviderOutcome(provider="crossref", ok=True, candidates=3)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: a supported claim citing a retracted paper is collapsed under supported claims",
-)
 def test_supported_claim_citing_retracted_paper_is_not_hidden():
     # refaudit says ref 1 is retracted; sources still fetch it, so the claim can come back
     # 'supported' with a verbatim quote from the retracted paper
@@ -139,14 +135,41 @@ def test_supported_claim_citing_retracted_paper_is_not_hidden():
     out = render(report)
     # the claim card must be visible (not collapsed) and say the source is retracted
     assert "Stem cells cure diabetes" not in collapsed(out["claims"])
-    assert "retracted" in open_text(out["claims"]).lower()
-    assert "0 of 1 claims" not in text(out["summary"])
+    assert "The cited source is retracted" in open_text(out["claims"])
+    assert "1 of 1 claim needs attention" in text(out["summary"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: 'unchecked' is always labelled 'lookup failed', even when every provider answered",
-)
+def test_supported_claim_citing_mismatched_reference_is_shown_with_a_note():
+    w = Work(provider="crossref", title="Deep residual learning", year=2009)
+    report = Report(
+        id="x",
+        references=[
+            ReferenceAudit(
+                reference=ref("1", "Deep residual learning"),
+                status=RefStatus.metadata_mismatch,
+                matched=w,
+                providers=ok,
+            )
+        ],
+        claims=[
+            ClaimCheck(
+                citation_id="c1",
+                ref_id="1",
+                sentence="Residual learning eases training [1].",
+                verdict=Verdict.supported,
+                quote="residual learning framework to ease the training of networks",
+                evidence_kind=EvidenceKind.abstract,
+            )
+        ],
+    )
+    out = render(report)
+    shown = open_text(out["claims"])
+    assert "Reference metadata does not match the cited work" in shown
+    assert "Residual learning eases training" in shown
+    # counted by its own verdict: a mismatch alone is not a claim problem
+    assert "0 of 1 claim need attention" in text(out["summary"])
+
+
 def test_unchecked_with_all_providers_ok_is_not_called_a_lookup_failure():
     # refaudit returns unchecked without any failure for: a title that exists with another
     # year/author, a possible match, an ambiguous truncated title, nothing to look up
@@ -166,12 +189,26 @@ def test_unchecked_with_all_providers_ok_is_not_called_a_lookup_failure():
     # every provider answered: telling the user "the lookup failed" sends them to retry later
     # instead of checking a likely miscited reference
     assert "lookup failed" not in shown
+    assert "unchecked" in shown
+    assert "neither year (±1) nor first author confirm it" in shown
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: no citing sentences found, yet summary says '0 of 0 claims need attention'",
-)
+def test_unchecked_after_provider_failure_says_lookup_failed():
+    report = Report(
+        id="x",
+        references=[
+            ReferenceAudit(
+                reference=ref("1", "Deep residual learning"),
+                status=RefStatus.unchecked,
+                providers=[ProviderOutcome(provider="crossref", ok=False, error="timeout")],
+            )
+        ],
+    )
+    shown = text(render(report)["refs"])
+    assert "Unchecked (lookup failed)" in shown
+    assert "crossref failed: timeout" in shown
+
+
 def test_summary_does_not_report_all_clear_when_no_claim_was_checked():
     # e.g. citation markers the parser did not recognise: references audited, no claims checked
     w = Work(provider="crossref", title="Deep residual learning", year=2005)
@@ -188,11 +225,9 @@ def test_summary_does_not_report_all_clear_when_no_claim_was_checked():
     )
     summary = text(render(report)["summary"])
     assert "0 of 0 claims" not in summary, summary
+    assert "No citing sentences were found or checked" in summary
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: collapsed group reads '1 verified references' / '1 supported claims'"
-)
 def test_collapsed_group_count_is_pluralised():
     w = Work(provider="crossref", title="Deep residual learning", year=2005)
     report = Report(
@@ -221,3 +256,5 @@ def test_collapsed_group_count_is_pluralised():
     out = render(report)
     assert "1 verified references" not in text(out["refs"])
     assert "1 supported claims" not in text(out["claims"])
+    assert "1 verified reference" in text(out["refs"])
+    assert "1 supported claim" in text(out["claims"])
