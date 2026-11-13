@@ -2,6 +2,7 @@
 Owner: T2 (docs/TASKS.md). Status semantics: docs/ARCHITECTURE.md."""
 
 import asyncio
+import logging
 from collections.abc import Callable
 from difflib import SequenceMatcher
 
@@ -47,6 +48,7 @@ from claimtrace.refaudit.providers import (
 
 PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
+log = logging.getLogger(__name__)
 DOI_REGISTERED = "DOI is registered (doi.org) but not indexed by Crossref/OpenAlex; not compared"
 
 
@@ -345,7 +347,12 @@ async def audit_references(
     refs: list[Reference],
     client: httpx.AsyncClient,
     on_progress: Callable[[int, int], None] | None = None,
+    *,
+    on_result: Callable[[int, ReferenceAudit], None] | None = None,
+    priority: list[int] | None = None,
 ) -> list[ReferenceAudit]:
+    """Audits in input order. `on_result(index, audit)` fires as each audit is final
+    (completion order); `priority` lists indices to start first, the rest follow in order."""
     # ponytail: limits are per call; two concurrent jobs double the rate to each provider
     gates = {
         "crossref": Gate(4),
@@ -356,24 +363,36 @@ async def audit_references(
     }
     # keyless Semantic Scholar is mostly 429s, which would turn not_found into unchecked
     use_s2 = bool(get_settings().semantic_scholar_api_key.get_secret_value())
+    # tasks start in this order, and the FIFO gates hand out provider slots in this order
+    order = list(
+        dict.fromkeys([i for i in priority or [] if 0 <= i < len(refs)] + list(range(len(refs))))
+    )
     ids = [a for r in refs if (a := _ref_arxiv(r))]
     arxiv_task = asyncio.ensure_future(arxiv_batch(client, gates["arxiv"], ids))
     done = 0
+    out: list[ReferenceAudit | None] = [None] * len(refs)
 
-    async def one(ref: Reference) -> ReferenceAudit:
+    async def one(i: int) -> None:
         nonlocal done
+        ref = refs[i]
         try:
             res = await _audit_one(ref, client, gates, arxiv_task, use_s2)
         except Exception as e:  # noqa: BLE001 - one bad reference never sinks the batch
             res = ReferenceAudit(
                 reference=ref, status=RefStatus.unchecked, note=f"audit failed: {type(e).__name__}"
             )
+        out[i] = res
         done += 1
+        if on_result:
+            try:
+                on_result(i, res)
+            except Exception:  # noqa: BLE001 - a consumer's bug never sinks the audit
+                log.exception("on_result callback failed for reference %d", i)
         if on_progress:
             on_progress(done, len(refs))
-        return res
 
     try:
-        return list(await asyncio.gather(*(one(r) for r in refs)))
+        await asyncio.gather(*(one(i) for i in order))
+        return out
     finally:
         arxiv_task.cancel()
