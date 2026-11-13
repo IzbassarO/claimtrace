@@ -56,6 +56,7 @@ def test_settings_problems_names_only():
         anthropic_api_key="sk-secret",
         moonshot_api_key="mk-secret",
         contact_email="a@b.c",
+        openalex_api_key="oa-secret",
     )
     probs = s.problems()
     assert probs == ["LLM_JUDGE_PROVIDER and LLM_SKEPTIC_PROVIDER must differ"]
@@ -77,3 +78,22 @@ async def test_request_retries_5xx_then_returns(monkeypatch):
 
 async def _noop():
     return None
+
+
+async def test_openalex_key_added_only_for_openalex_and_redacted(monkeypatch):
+    from claimtrace.core import settings as st
+    from claimtrace.core.schemas import ProviderOutcome
+
+    monkeypatch.setattr(
+        st, "get_settings", lambda: st.Settings(_env_file=None, openalex_api_key="sekret")
+    )
+    monkeypatch.setattr(http, "get_settings", st.get_settings)
+    seen = []
+    async with http.make_client() as c:
+        c._transport = httpx.MockTransport(lambda r: seen.append(r.url) or httpx.Response(200))
+        await c.get("https://api.openalex.org/works", params={"search": "x"})
+        await c.get("https://api.crossref.org/works")
+    assert seen[0].params["api_key"] == "sekret" and seen[0].params["search"] == "x"
+    assert "api_key" not in seen[1].params
+    out = ProviderOutcome(provider="openalex", ok=False, error=f"503 for {seen[0]}")
+    assert "sekret" not in out.error and "api_key=***" in out.error

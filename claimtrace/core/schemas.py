@@ -9,7 +9,9 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from claimtrace.core.http import redact
 
 
 class RefStatus(StrEnum):
@@ -101,6 +103,11 @@ class ProviderOutcome(BaseModel):
     error: str | None = None
     candidates: int = 0
 
+    @field_validator("error")
+    @classmethod
+    def _redact(cls, v: str | None) -> str | None:
+        return v and redact(v)
+
 
 class ReferenceAudit(BaseModel):
     reference: Reference
@@ -120,6 +127,11 @@ class SourceText(BaseModel):
     text: str
     origin: Literal["europepmc", "arxiv", "unpaywall", "openalex", "semanticscholar", "crossref"]
     url: str | None = None
+
+    @field_validator("url")
+    @classmethod
+    def _redact(cls, v: str | None) -> str | None:
+        return v and redact(v)
 
 
 # ---------- claims ----------
