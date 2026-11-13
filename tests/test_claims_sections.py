@@ -1,4 +1,4 @@
-"""Paragraph/section-aware passages and the quote's section label (offline)."""
+"""Section detection and the verified quote's section label (offline)."""
 
 import json
 from pathlib import Path
@@ -42,25 +42,6 @@ def test_quote_in_two_sections_is_not_labelled():
     text = "Intro\n\nfirst para.\n\nResults\n\nthe same five words here.\n\nDiscussion\n\n"
     text += "the same five words here."
     assert retrieval.section_of("the same five words here", text) is None
-
-
-def test_passages_stay_in_paragraphs_and_overlap_only_within_a_section():
-    ps = retrieval.passages(PAPER)
-    assert not any(p in {"3 Results", "2 Methods", "4 Discussion"} for p in ps)
-    intro2 = next(p for p in ps if p.startswith("Drug treatment is effective"))
-    assert "Exercise lowers blood pressure" in intro2  # carried into the next intro paragraph
-    assert next(p for p in ps if "We recruited 240" in p).startswith("We recruited 240")
-    first_results = next(p for p in ps if "Of the 240 participants" in p)
-    assert first_results.startswith("Of the 240")  # no sentence carried over from Methods
-
-
-def test_no_blank_lines_keeps_old_windows():
-    text = " ".join(f"S{i} ends here." for i in range(7))
-    assert retrieval.passages(text) == [
-        "S0 ends here. S1 ends here. S2 ends here.",
-        "S2 ends here. S3 ends here. S4 ends here.",
-        "S4 ends here. S5 ends here. S6 ends here.",
-    ]
 
 
 async def test_check_claim_sets_section_only_for_a_verified_quote():

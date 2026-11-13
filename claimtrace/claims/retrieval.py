@@ -1,6 +1,6 @@
 """Pick the source passages most relevant to a citing sentence: BM25 over all passages, then a
 dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top.
-Passages follow paragraphs and section headings; section_of() labels a verified quote."""
+section_of() labels a verified quote with its source section (not used for retrieval)."""
 
 import asyncio
 import re
@@ -57,16 +57,18 @@ def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
         return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
 
 
-def _sentences(text: str) -> list[str]:
-    """Over-long 'sentences' (tables, PDF noise) are cut into word chunks so one passage cannot
-    swallow the prompt."""
-    out = []
+def passages(text: str) -> list[str]:
+    """~3-sentence windows overlapping by one sentence. Over-long 'sentences' (tables, PDF noise)
+    are cut into word chunks so one passage cannot swallow the prompt."""
+    sents = []
     for s in _SENT.split(text.strip()):
         words = s.split()
-        out += [
+        sents += [
             " ".join(words[i : i + _MAX_SENT_WORDS]) for i in range(0, len(words), _MAX_SENT_WORDS)
         ]
-    return out
+    if len(sents) <= 3:
+        return [" ".join(sents)] if sents else []
+    return [" ".join(sents[i : i + 3]) for i in range(0, len(sents) - 1, 2)]
 
 
 def _is_heading(block: str) -> bool:
@@ -101,25 +103,6 @@ def paragraphs(text: str) -> list[tuple[str | None, str]]:
         elif not heading:
             seen_para, in_float = True, False
         out.append((section, block))
-    return out
-
-
-def passages(text: str) -> list[str]:
-    """~3-sentence windows overlapping by one sentence, inside a paragraph; a paragraph's first
-    window also starts with the previous paragraph's last sentence when both are in the same
-    section. Section headings themselves are not passage text."""
-    out, prev = [], (None, None)  # (section, last sentence) of the previous paragraph
-    for section, para in paragraphs(text):
-        sents = _sentences(para)
-        if not sents:
-            continue
-        carry = [prev[1]] if prev[1] is not None and prev[0] == section else []
-        prev = (section, sents[-1])
-        sents = carry + sents
-        if len(sents) <= 3:
-            out.append(" ".join(sents))
-        else:
-            out += [" ".join(sents[i : i + 3]) for i in range(0, len(sents) - 1, 2)]
     return out
 
 
