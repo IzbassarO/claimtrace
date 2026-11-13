@@ -60,12 +60,16 @@ def _para_text(p: ET.Element) -> str:
 
 
 def body_text(tei: str) -> str:
-    """Title, abstract, then body paragraphs: sources' wrong-document guard looks for the
-    title near the start of the text."""
+    """Title, author surnames, abstract, then body paragraphs: sources' wrong-document guard
+    looks for the title (and, for short titles, the first author's surname) near the start."""
     root = ET.fromstring(tei)
     title = root.find(".//t:teiHeader//t:titleStmt/t:title", NS)
+    surnames = root.findall(
+        ".//t:teiHeader//t:sourceDesc/t:biblStruct/t:analytic/t:author/t:persName/t:surname", NS
+    )
     abstract = root.findall(".//t:teiHeader//t:abstract//t:p", NS)
-    parts = [_text(title)] + [_para_text(p) for p in abstract + body_paragraphs(root)]
+    parts = [_text(title), " ".join(t for s in surnames if (t := _text(s)))]
+    parts += [_para_text(p) for p in abstract + body_paragraphs(root)]
     return "\n\n".join(t for t in parts if t)
 
 

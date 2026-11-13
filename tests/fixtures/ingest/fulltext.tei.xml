@@ -3,6 +3,10 @@
   <teiHeader>
     <fileDesc>
       <titleStmt><title level="a" type="main">Statins in practice</title></titleStmt>
+      <sourceDesc><biblStruct><analytic>
+        <author><persName><forename type="first">Maria</forename><surname>Garcia</surname></persName></author>
+        <author><persName><forename type="first">Li</forename><surname>Wei</surname></persName></author>
+      </analytic></biblStruct></sourceDesc>
     </fileDesc>
     <profileDesc>
       <abstract><div><p><s>We review statin trials.</s></p></div></abstract>
