@@ -18,8 +18,7 @@ def test_sections_detected_and_front_matter_is_not_a_heading():
     assert set(secs) == {
         None,
         "1 Introduction",
-        "2.1 Participants",
-        "2.2 Intervention",
+        "2 Methods",  # '2.1 Participants' is not in the heading vocabulary: stays under Methods
         "3 Results",
         "4 Discussion",
     }
@@ -27,6 +26,21 @@ def test_sections_detected_and_front_matter_is_not_a_heading():
     assert paras["Of the 240 participa"] == "3 Results"
     assert paras["Baseline characteris"] is None  # caption title is not a section
     assert paras["Attendance averaged "] is None  # after an inline table: unknown, not guessed
+    assert paras["2.1 Participants"] == "2 Methods"
+
+
+def test_heading_vocabulary_numbering_and_float_labels():
+    name = retrieval._section_name
+    assert [name(h) for h in ("3. Results", "III. Discussion", "3.1 Methods", "CONCLUSION")] == [
+        "result",
+        "discussion",
+        "method",
+        "conclusion",
+    ]
+    assert name("Participants") is None and name("Moreau Tanaka") is None
+    fl = retrieval._FLOAT_LABEL
+    assert all(fl.match(b) for b in ("Figure 2.", "Fig. 2", "Table II", "Table 1: Outcomes"))
+    assert not fl.match("Table 1 shows the baseline characteristics.")
 
 
 def test_quote_in_results_is_labelled_results():
