@@ -7,7 +7,6 @@ from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 from claimtrace.refaudit.match import _in_raw
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: a subtitle / main title / post-year span counts")
 @pytest.mark.parametrize(
     ("raw", "title"),
     [
@@ -30,9 +29,6 @@ def test_part_of_the_cited_title_is_not_a_field(raw, title):
     assert not _in_raw(raw, title)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: DOI of another paper verified because its title is the cited subtitle"
-)
 def test_wrong_doi_with_subtitle_title_is_not_verified():
     raw = (
         "Rahman A. Artificial intelligence in sepsis: challenges and opportunities. "

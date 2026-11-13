@@ -1,15 +1,9 @@
 """'does not resolve' is a claim about doi.org, not about Crossref/OpenAlex coverage."""
 
-import pytest
-
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: DataCite (Zenodo) DOI missing from Crossref+OpenAlex called 'does not resolve'",
-)
 def test_datacite_doi_is_not_reported_unresolvable():
     t = "A benchmark of protein language models"
     # deposited on Zenodo (DataCite DOI, resolves at doi.org), indexed by OpenAlex only via arXiv

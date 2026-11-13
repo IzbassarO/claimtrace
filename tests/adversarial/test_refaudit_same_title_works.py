@@ -1,17 +1,11 @@
 """Two different papers with one generic title must not be merged into one work."""
 
-import pytest
-
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 
 OK = [ProviderOutcome(provider=p, ok=True) for p in ("crossref", "openalex")]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: same first author + same title groups papers 7 years apart with distinct DOIs",
-)
 def test_same_author_same_title_other_year_lends_nothing():
     # one guest editor, two special-issue introductions (2012 and 2019), two journal DOIs
     t = "Introduction to the special issue on machine learning"
@@ -33,10 +27,6 @@ def test_same_author_same_title_other_year_lends_nothing():
     assert a.matched.abstract is None  # the claims stage would read the 2012 abstract
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: an authorless 'Deep learning' (LeCun 2015) record is grouped with Goodfellow 2016",
-)
 def test_authorless_same_title_record_lends_no_doi():
     ref = Reference(id="1", raw="", title="Deep learning", authors=["Goodfellow, I."], year=2016)
     book = Work(

@@ -305,10 +305,11 @@ def missing_author(cited: list[str], found: list[str]) -> str | None:
     )
 
 
-# a title as a whole field of a raw reference: after start / ". " / ": " / ") " / a quote / a
-# year, before end / "." / "?" / "!" / a quote (IEEE '"Title," Journal') / "["
-_FIELD_START = r"(?:^|[.:)]\s+|[\"'“”]\s*|\b\d{4}[a-z]?\s+)"
-_FIELD_END = r"\s*(?:$|[.?!\[]|,?[\"'“”])"
+# a title as exactly one whole field of a raw reference: after start / ". " / ") " / "). " /
+# an opening quote (not ": ", which starts a subtitle, nor a bare year), before end / "." /
+# a closing quote (IEEE '"Title," Journal'); "?" / "!" only when the field ends there too
+_FIELD_START = r"(?:^|[.)]\s+|[\"'“”]\s*)"
+_FIELD_END = r"(?:[.?!]?(?:$|[\"'“”])|\.(?=\s)|[?!](?=\.\s)|,[\"'“”])"
 
 
 def _in_raw(raw: str, title: str) -> bool:
@@ -319,8 +320,8 @@ def _in_raw(raw: str, title: str) -> bool:
     words = re.findall(r"\w+", _tfold(strip_retracted(title)))
     if len(words) < 3 or negations(raw) != negations(title):
         return False
-    r = _tfold(raw)
-    pat = _FIELD_START + r"[\W_]+".join(map(re.escape, words)) + _FIELD_END
+    r = _tfold(raw).strip()
+    pat = _FIELD_START + r"[\W_]+".join(map(re.escape, words)) + r"\s*" + _FIELD_END
     return any(not negations(" ".join(r[: m.start()].split()[-1:])) for m in re.finditer(pat, r))
 
 
