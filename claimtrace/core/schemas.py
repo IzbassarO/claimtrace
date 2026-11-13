@@ -125,7 +125,9 @@ class SourceText(BaseModel):
     ref_id: str
     kind: EvidenceKind
     text: str
-    origin: Literal["europepmc", "arxiv", "unpaywall", "openalex", "semanticscholar", "crossref"]
+    origin: Literal[
+        "europepmc", "arxiv", "biorxiv", "unpaywall", "openalex", "semanticscholar", "crossref"
+    ]
     url: str | None = None
 
     @field_validator("url")
