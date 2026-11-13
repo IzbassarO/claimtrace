@@ -2,8 +2,6 @@
 groups by title alone, and a record with a shorter author list / only an arXiv DOI / a title
 that is a sub-span of the raw string "agrees" without confirming anything."""
 
-import pytest
-
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 
@@ -28,7 +26,6 @@ BOOK = Work(
 )
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: same-title different paper lends its year: verified")
 def test_wrong_year_not_rescued_by_another_paper_with_the_same_title():
     # LeCun et al. is 2015; cited 2017 is off by 2. Only Goodfellow's book (2016) "agrees".
     ref = Reference(
@@ -44,7 +41,6 @@ def test_wrong_year_not_rescued_by_another_paper_with_the_same_title():
     assert "year" in {m.field for m in a.mismatches}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: DOI of a different same-title paper is verified")
 def test_doi_of_a_different_same_title_paper_is_not_verified():
     # Goodfellow's book cited with the DOI of LeCun's Nature paper
     ref = Reference(
@@ -62,7 +58,6 @@ def test_doi_of_a_different_same_title_paper_is_not_verified():
     assert a.matched is None or a.matched.abstract != LECUN.abstract
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: retraction of another same-title paper taints ref")
 def test_retraction_of_another_same_title_paper_does_not_taint_the_citation():
     ref = Reference(
         id="1",
@@ -94,7 +89,6 @@ CR = Work(
 )
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: fabricated co-author passes via a shorter record")
 def test_fabricated_coauthor_not_hidden_by_a_record_with_fewer_authors():
     ref = Reference(
         id="1", raw="", title=T, authors=["He, K.", "Fakeman, Q."], year=2016, doi=CR.doi
@@ -106,7 +100,6 @@ def test_fabricated_coauthor_not_hidden_by_a_record_with_fewer_authors():
     assert [(m.field, m.cited) for m in a.mismatches] == [("authors", "Fakeman, Q.")]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: unresolvable journal DOI verified via arXiv record")
 def test_fabricated_doi_not_verified_when_only_an_arxiv_record_is_found():
     # the cited DOI resolves nowhere (Crossref/OpenAlex 404); the title search finds only the
     # arXiv record, so the DOI is never compared, yet the reference is shown as verified
@@ -129,7 +122,6 @@ def test_fabricated_doi_not_verified_when_only_an_arxiv_record_is_found():
     assert a.status != RefStatus.verified
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: found title as a sub-span of the raw counts as title")
 def test_found_title_inside_a_longer_cited_title_is_not_a_title_check():
     # title extraction failed (LLM outage); the DOI resolves to a different, shorter-titled
     # paper whose title happens to be a word span of the cited title

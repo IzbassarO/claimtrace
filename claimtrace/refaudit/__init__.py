@@ -48,12 +48,27 @@ MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "v
 
 
 def _same_work(a: Work, b: Work) -> bool:
+    """Same DOI, same arXiv id, or same title confirmed by the first author (a preprint and its
+    journal version may be years apart) or, when a record lists no authors, by the year (±1).
+    A title alone never groups: 'Deep learning' is LeCun 2015 and Goodfellow 2016."""
     d, x = norm_doi(a.doi), arxiv_of(a)
     return (
         bool(d and d == norm_doi(b.doi))
         or bool(x and x == arxiv_of(b))
-        or title_match(a.title, b.title)
+        or (
+            title_match(a.title, b.title)
+            and (
+                first_author_equal(a.authors, b.authors)
+                if a.authors and b.authors
+                else year_ok(a.year, b.year)
+            )
+        )
     )
+
+
+def _carries_doi(w: Work, doi: str) -> bool:
+    a = arxiv_from_doi(doi)
+    return norm_doi(w.doi) == doi or bool(a and arxiv_of(w) == a)
 
 
 def _foreign_ids(ref: Reference, best: Work, works: list[Work]) -> list[Mismatch]:
@@ -96,12 +111,28 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             for w in works
             if ref.title
             and w.title
-            and first_author_equal(ref.authors, w.authors)
-            and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
             and (
-                title_prefix(ref.title, w.title)
-                or max(title_similarity(ref.title, w.title), _head_similarity(ref.title, w.title))
-                >= 0.85
+                (
+                    first_author_equal(ref.authors, w.authors)
+                    and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
+                    and (
+                        title_prefix(ref.title, w.title)
+                        or max(
+                            title_similarity(ref.title, w.title),
+                            _head_similarity(ref.title, w.title),
+                        )
+                        >= 0.85
+                    )
+                )
+                # no cited authors to confirm with: a near-identical title + year is still close
+                or (
+                    not ref.authors
+                    and year_ok(ref.year, w.year)
+                    and (
+                        title_prefix(ref.title, w.title)
+                        or title_similarity(ref.title, w.title) >= 0.9
+                    )
+                )
             )
         ]
         notices = [w for w in works if title_match(ref.title, strip_notice(w.title))]
@@ -132,10 +163,21 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     by_id = [w for w in identified if id_equal(ref, w)]
     anchored = [w for w in identified if any(w is v or _same_work(v, w) for v in by_id)]
 
+    # the cited id resolves to a record with the cited title: when that title is shared by
+    # another paper, title + year + first author decide which one is cited, and the DOI of the
+    # other ('Deep learning', LeCun vs Goodfellow) is the foreign one
+    contested = any(title_match(ref.title, v.title) for v in anchored)
+
     def rank(w: Work):
         sim = title_similarity(ref.title, w.title) if ref.title and w.title else 0.0
+        full = (
+            contested
+            and title_match(ref.title, w.title)
+            and year_ok(ref.year, w.year)
+            and first_author_equal(ref.authors, w.authors)
+        )
         return (
-            not any(w is v for v in anchored),
+            not (full or any(w is v for v in anchored)),
             len(mismatches(ref, w)),
             -sum(map(bool, (w.title, w.authors, w.year, w.doi))),  # coverage
             -sim,
@@ -155,12 +197,25 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     out.mismatches, checked = compare(ref, group)
     seen = {m.field for m in out.mismatches}
     out.mismatches += [m for m in _foreign_ids(ref, best, works) if m.field not in seen]
+    doi_unconfirmed = None
+    d1 = norm_doi(ref.doi)
+    if d1 and "doi" not in {m.field for m in out.mismatches}:
+        if not any(_carries_doi(w, d1) for w in works):
+            # no record anywhere carries the cited DOI: its lookups answered 404, or failed
+            look = {"crossref", "openalex"} | ({"arxiv"} if arxiv_from_doi(d1) else set())
+            asked = [o for o in outcomes if o.provider in look]
+            if failed := [o.provider for o in asked if not o.ok] or (not asked and ["none"]):
+                doi_unconfirmed = f"cited DOI not confirmed; provider failed: {', '.join(failed)}"
+            else:
+                out.mismatches.append(
+                    Mismatch(field="doi", cited=ref.doi, found="does not resolve")
+                )
     matched = best.model_copy()
     for w in sorted(group, key=rank):
         for f in (*MERGE_FIELDS, "title", "authors", "year"):
             if not getattr(matched, f) and getattr(w, f):
                 setattr(matched, f, getattr(w, f))
-    retracted_by = [w.provider for w in identified if w.is_retracted]
+    retracted_by = [w.provider for w in group if w.is_retracted]
     matched.is_retracted = bool(retracted_by)
     out.matched = matched
     how = (
@@ -176,6 +231,8 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         out.note += f"; retraction flagged by {', '.join(sorted(set(retracted_by)))}"
     elif out.mismatches:
         out.status = RefStatus.metadata_mismatch
+    elif doi_unconfirmed:
+        out.note += f"; {doi_unconfirmed}"
     elif not (
         any(c.startswith("title") for c in checked)
         and any(c.startswith(("authors", "year")) for c in checked)
