@@ -6,8 +6,6 @@ DOI, so the preprint counts as "published elsewhere", is no longer a version of 
 paper, and its arXiv id is reported as belonging to a different work.
 """
 
-import pytest
-
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 from claimtrace.refaudit.providers import parse_arxiv
@@ -23,9 +21,6 @@ ARXIV = """<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.o
 </entry></feed>"""
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: arXiv record with article+erratum DOIs flags a correct citation"
-)
 def test_preprint_listing_article_and_erratum_dois_is_a_version_of_the_article():
     [pre] = parse_arxiv(ARXIV)
     journal = Work(

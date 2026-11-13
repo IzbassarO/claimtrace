@@ -18,6 +18,7 @@ from claimtrace.core.schemas import (
 from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
+    all_dois,
     arxiv_from_doi,
     arxiv_of,
     compare,
@@ -60,9 +61,10 @@ def _published_elsewhere(a: Work, b: Work) -> bool:
     if _preprint(a) == _preprint(b):
         return False
     p, j = (a, b) if _preprint(a) else (b, a)
-    pd, jd = norm_doi(p.doi), norm_doi(j.doi)
-    own_journal = pd and not (arxiv_from_doi(pd) or pd.startswith("10.1101/"))
-    return bool(own_journal and jd and pd != jd)
+    jd = norm_doi(j.doi)
+    # arXiv may list several DOIs (article + erratum): published elsewhere only if none is j's
+    own = [d for d in all_dois(p.doi) if not (arxiv_from_doi(d) or d.startswith("10.1101/"))]
+    return bool(own and jd and jd not in own)
 
 
 def _same_work(a: Work, b: Work) -> bool:

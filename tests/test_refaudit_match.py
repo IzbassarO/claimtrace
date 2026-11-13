@@ -272,3 +272,15 @@ def test_identity_and_mismatches(ref, work, ident, fields):
     assert identifies(ref, work) is ident
     if ident:
         assert [m.field for m in mismatches(ref, work)] == fields
+
+
+def test_norm_doi_decodes_once_and_drops_invisible_chars():
+    from claimtrace.refaudit.match import all_dois, norm_doi
+
+    assert norm_doi("https://doi.org/10.1016/S0140-6736%2820%2930183-5") == (
+        "10.1016/s0140-6736(20)30183-5"
+    )
+    assert norm_doi("10.1/a%2528b") == "10.1/a%28b"  # decoded once, not twice
+    assert norm_doi("doi:10.1/a​b­c﻿") == "10.1/abc"
+    assert all_dois("10.1/A 10.1/B.") == ["10.1/a", "10.1/b"]
+    assert norm_doi("10.1/A 10.1/B") == "10.1/a"

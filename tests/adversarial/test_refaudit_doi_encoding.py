@@ -57,9 +57,6 @@ def handler(req: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json={"message": {"items": []}})
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: a URL-encoded / zero-width-split real DOI is reported not_found"
-)
 @pytest.mark.parametrize(
     "raw",
     [

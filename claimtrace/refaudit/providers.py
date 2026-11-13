@@ -15,6 +15,7 @@ from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
     RETRACTED_PREFIX,
+    all_dois,
     arxiv_from_doi,
     family_name,
     norm_arxiv,
@@ -295,7 +296,7 @@ def parse_arxiv(xml: str) -> list[Work]:
                 title=_clean(e.findtext("a:title", None, _ATOM)),
                 authors=[n.text.strip() for n in e.findall("a:author/a:name", _ATOM) if n.text],
                 year=int(published[:4]) if published[:4].isdigit() else None,
-                doi=norm_doi(e.findtext("x:doi", None, _ATOM)),
+                doi=" ".join(all_dois(e.findtext("x:doi", None, _ATOM))) or None,
                 arxiv_id=aid,
                 venue=_clean(e.findtext("x:journal_ref", None, _ATOM)),
                 url=f"https://arxiv.org/abs/{aid}",

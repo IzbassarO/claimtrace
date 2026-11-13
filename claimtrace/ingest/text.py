@@ -91,7 +91,10 @@ def split_entries(section: str) -> list[tuple[str | None, str]]:
 
 # ---------- regex fields (deterministic) ----------
 
-_DOI = re.compile(r"10\.\d{4,9}/[^\s\"<>]+", re.I)
+# SICI DOIs contain <>;:() ; stop at whitespace, quotes and ']' (Markdown '[doi:...](url)')
+_DOI = re.compile(r"10\.\d{4,9}/[^\s\"\]]+", re.I)
+_INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")  # soft hyphen, zero-width, BOM
+_OPEN = {")": "(", "]": "[", ">": "<"}
 _ARXIV = re.compile(
     r"(?:arxiv[:\s]\s*|arxiv\.org/(?:abs|pdf)/|10\.48550/arxiv\.)"
     r"([a-z\-]+(?:\.[a-z]{2})?/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?",
@@ -104,11 +107,11 @@ _IMPRINT_YEAR = re.compile(r"(?<![\w/.-])((?:19|20)\d{2})[a-z]?\s*;\s*\d")  # 'L
 
 
 def find_doi(raw: str) -> str | None:
-    m = _DOI.search(raw)
+    m = _DOI.search(_INVISIBLE.sub("", raw))
     if not m:
         return None
     doi = m.group(0).rstrip(".,;:")
-    while doi[-1] in ")]" and doi.count(doi[-1]) > doi.count("(" if doi[-1] == ")" else "["):
+    while doi[-1] in _OPEN and doi.count(doi[-1]) > doi.count(_OPEN[doi[-1]]):
         doi = doi[:-1].rstrip(".,;:")
     return doi.lower()
 
