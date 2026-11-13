@@ -361,3 +361,13 @@ def test_find_doi_keeps_balanced_brackets_and_drops_unbalanced():
     assert find_doi("x 10.1002/(SICI)1-2(1998)17:8<857::AID-S7>3.0.CO;2-E;") == (
         "10.1002/(sici)1-2(1998)17:8<857::aid-s7>3.0.co;2-e"
     )
+
+
+def test_find_doi_boundaries():
+    from claimtrace.ingest.text import find_doi
+
+    assert find_doi('<a href="x">https://doi.org/10.1038/nature14539</a>') == "10.1038/nature14539"
+    assert find_doi("https://doi.org/10.1038/nature14539#sec1") == "10.1038/nature14539"
+    assert find_doi("doi:10.1000/a?b") == "10.1000/a?b"  # '?' cut only inside a URL
+    assert find_doi("doi:10.1000/abc.\ndef") == "10.1000/abc"  # wrap after '.' is ambiguous
+    assert find_doi("doi:10.1000/ab-\n  cd") == "10.1000/ab-cd"
