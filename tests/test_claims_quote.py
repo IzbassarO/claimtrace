@@ -117,6 +117,25 @@ def test_bad_quotes_fail(quote):
             "bobcat sat on the mat today; a cat sat on the mat today",
             True,
         ),
+        # line-break hyphenation: spanning the break is fine, starting/ending at it is not
+        ("bp remained un-\nchanged in all", "BP remained un-\nchanged in all groups.", True),
+        ("bp remained un- changed in all", "BP remained un-\nchanged in all groups.", True),
+        ("the blood pressure remained un-", "The blood pressure remained un-\nchanged.", False),
+        (
+            "in all patients the drug was in",
+            "in all patients the drug was in\u00ad\neffective",
+            False,
+        ),
+        # a hyphen + space without a line break is not hyphenation
+        (
+            "and post-treatment values were similar",
+            "pre- and post-treatment values were similar",
+            True,
+        ),
+        # spaced signs and number glue
+        ("the mean change was 5 mmHg", "the mean change was 5 mmHg here", True),
+        ("change was 5 mmHg in all", "change was \u2212 5 mmHg in all", False),
+        ("results were clear in all five", "results were clear in all five\u2014mostly", True),
         # no NFKC: ligature and fullwidth digits stay distinct
         ("the \ufb01rst five patients were", "the first five patients were", False),
         ("dose of \uff15 mg in adults", "dose of 5 mg in adults", False),
