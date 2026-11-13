@@ -1,8 +1,13 @@
 """Ingest: manuscript text / .bib / PDF -> Manuscript. Owner: T1 (docs/TASKS.md)."""
 
+import asyncio
 import re
+import threading
+from collections import Counter
 
 import bibtexparser
+import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_c
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.customization import convert_to_unicode
 
@@ -169,3 +174,88 @@ async def pdf_to_text(pdf: bytes) -> str:
     """PDF -> plain body text via GROBID. Injected into sources by the pipeline.
     Raises RuntimeError when GROBID cannot be reached or returns no usable TEI."""
     return body_text(await grobid_tei(pdf))
+
+
+# pdfium is not thread-safe: one document at a time across all threads.
+# ponytail: global lock, a process pool if source PDFs become the bottleneck.
+_PDFIUM_LOCK = threading.Lock()
+EDGE_LINES = 3
+MAX_TITLE_LINE = 300  # header/footer candidates: first and last lines of each page
+
+
+def _page_text(tp) -> str:
+    # pdfium writes a hyphen at a line end as U+FFFE: put the printed hyphen back
+    return tp.get_text_range().replace("\r\n", "\n").replace("\r", "\n").replace("\ufffe", "-")
+
+
+def _big_lines(tp) -> list[str]:
+    """Page-one lines set in the largest upright font, first run only: usually the title.
+    Rotated text (arXiv's side stamp) is ignored."""
+    text = tp.get_text_range()  # one char per pdfium char index (checked below)
+    if len(text) != tp.count_chars():
+        return []
+    lines: list[tuple[float, str]] = []
+    size, rotated, start = 0.0, False, 0
+    for i, ch in enumerate(text + "\n"):
+        if ch in "\r\n":
+            line = text[start:i].strip().replace("\ufffe", "-")
+            if not rotated and sum(c.isalpha() for c in line) >= 3:
+                lines.append((round(size, 1), line))
+            size, rotated, start = 0.0, False, i + 1
+        elif not ch.isspace():
+            size = max(size, pdfium_c.FPDFText_GetFontSize(tp.raw, i))
+            rotated = rotated or abs(pdfium_c.FPDFText_GetCharAngle(tp.raw, i)) > 0.01
+    top = max((sz for sz, _ in lines), default=None)
+    run: list[str] = []
+    for sz, line in lines:
+        if sz == top:
+            run.append(line)
+        elif run:
+            break
+    return run
+
+
+def _pdf_pages(pdf: bytes) -> tuple[str, list[str], list[str]]:
+    with _PDFIUM_LOCK:
+        doc = pdfium.PdfDocument(pdf)  # raises PdfiumError on broken / password-protected PDFs
+        try:
+            title = (doc.get_metadata_dict().get("Title") or "").strip()
+            pages, big = [], []
+            for i in range(len(doc)):
+                page = doc[i]
+                tp = page.get_textpage()
+                pages.append(_page_text(tp))
+                if i == 0:
+                    big = _big_lines(tp)
+                tp.close()
+                page.close()
+        finally:
+            doc.close()
+    return title, big, pages
+
+
+def _fast_text(title: str, big: list[str], pages: list[str]) -> str:
+    lines = [[ln.strip() for ln in p.split("\n") if ln.strip()] for p in pages]
+    drop: set[str] = set()
+    if len(pages) >= 3:  # a line repeated at the top/bottom of >= half the pages is a running head
+        edges = Counter(ln for ls in lines for ln in set(ls[:EDGE_LINES] + ls[-EDGE_LINES:]))
+        drop = {ln for ln, n in edges.items() if 2 * n >= len(pages)}
+    body = "\n\n".join("\n".join(ln for ln in ls if ln not in drop) for ls in lines).strip()
+    if not body:
+        raise ValueError("PDF has no extractable text")
+    # Title line first (the wrong-document guard reads line one): the metadata title when page
+    # one really carries it ("Microsoft Word - x.doc" never does), else page one's largest type.
+    first = " ".join(" ".join(lines[0]).split()).casefold() if lines else ""
+    title = " ".join(title.split())
+    if not (title and title.casefold() in first):
+        title = " ".join(" ".join(big).split())
+    return f"{title}\n\n{body}" if title and len(title) <= MAX_TITLE_LINE else body
+
+
+async def pdf_to_text_fast(pdf: bytes) -> str:
+    """PDF -> plain text with pdfium, no GROBID (for source papers, not the manuscript).
+    Text stays as pdfium gives it (no de-hyphenation), minus running headers/footers; the
+    metadata title goes first when page one carries it, else the text starts with its own
+    first line. Caveat: pdfium flattens super/subscripts ("10^5" reads "105"); no markers are
+    invented. Raises on unreadable, encrypted or text-less (scanned) PDFs."""
+    return _fast_text(*await asyncio.to_thread(_pdf_pages, pdf))
