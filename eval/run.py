@@ -32,10 +32,12 @@ from pathlib import Path
 from claimtrace import claims, pipeline, refaudit
 from claimtrace.claims import retrieval
 from claimtrace.claims.quote import verify_quote
+from claimtrace.core import timing
 from claimtrace.core.http import make_client
 from claimtrace.core.schemas import Citation, EvidenceKind, ModelOpinion, Reference, SourceText
 from claimtrace.core.settings import get_settings
 from eval import bench
+from eval.prices import run_cost
 
 HERE = Path(__file__).parent
 CACHE = HERE / ".cache"
@@ -614,6 +616,10 @@ async def time_doc(text: str | None, files: list) -> dict:
         "warnings": report.warnings,
         "limit_warnings": [w for w in report.warnings if LIMIT_WARNING.search(w)],
         "timings": t,
+        "cost": run_cost(
+            {k[2:]: v for k, v in t.items() if k.startswith("n_tokens_")},
+            {r: getattr(get_settings(), f"llm_{r}_model") for r in ("extract", "judge", "skeptic")},
+        ),
         "stages": stage_rows(t),
         "ops": op_rows(t),
     }
@@ -763,7 +769,14 @@ async def main(argv: list[str] | None = None) -> None:
         print(f"summary: {RESULTS / 'summary.md'}")
         return
     for suite in ["scifact", "refs"] if args.suite == "all" else [args.suite]:
+        tm = timing.start()
         res = await runners[suite](args.limit, args.seed)
+        s = get_settings()
+        res["cost"] = run_cost(
+            dict(tm.counts),
+            {r: getattr(s, f"llm_{r}_model") for r in ("extract", "judge", "skeptic")},
+        )
+        print(f"{suite}: cost {json.dumps(res['cost'])}")
         write_results(suite, res, {"limit": args.limit, "seed": args.seed})
         print(f"{suite}: " + json.dumps(res["metrics"], default=str))
     print(f"summary: {RESULTS / 'summary.md'}")
