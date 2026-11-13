@@ -10,72 +10,62 @@
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <header class="top">
-    <h1>ClaimTrace</h1>
-    <p class="lede">Are the references real and correctly described, and does each cited source say
-      what the citing sentence claims?</p>
-  </header>
+  <header class="top"><a class="brand" href="/">ClaimTrace</a></header>
 
   <main id="main">
     <section id="input" aria-labelledby="input-h">
-      <h2 id="input-h">Manuscript</h2>
+      <h1 id="input-h">Check that every reference in a manuscript is real, and that each cited
+        source says what the sentence citing it claims.</h1>
       <form id="job-form">
-        <label for="text">Paste manuscript text (including its reference list)</label>
-        <textarea id="text" name="text" rows="10" spellcheck="false"></textarea>
-        <label for="files">Or upload files (.txt, .md, .bib, .pdf)</label>
+        <label for="text">Manuscript text, including its reference list</label>
+        <textarea id="text" name="text" rows="12" spellcheck="false"></textarea>
+        <label for="files">Or attach files <span class="quiet">(.txt, .md, .bib, .pdf)</span></label>
         <input id="files" name="files" type="file" multiple accept=".txt,.md,.bib,.pdf"
                aria-describedby="files-hint">
-        <p id="files-hint" class="hint">Pasted text plus a .bib file: the body is taken from the
-          text and the references from the .bib. Upload limit is set by the server.</p>
-        <button id="submit" type="submit">Audit citations</button>
-        <button id="sample" type="button" aria-describedby="sample-hint">Try a sample</button>
-        <p id="sample-hint" class="hint">Audits a short sample manuscript with one correct citation,
-          one overstated claim and one fabricated reference.</p>
+        <p id="files-hint" class="hint">With pasted text and a .bib file, the body comes from the
+          text and the references from the .bib.</p>
         <p id="form-error" class="error" role="alert"></p>
+        <div class="actions">
+          <button id="submit" type="submit">Audit citations</button>
+          <button id="sample" type="button" class="secondary" aria-describedby="sample-hint">Try a sample</button>
+        </div>
+        <p id="sample-hint" class="sr-only">Audits a short sample manuscript with one correct
+          citation, one overstated claim and one fabricated reference.</p>
       </form>
     </section>
 
     <section id="progress" aria-labelledby="progress-h" hidden>
-      <h2 id="progress-h">Working</h2>
+      <h1 id="progress-h">Auditing the manuscript</h1>
+      <ol id="stages" class="stages"></ol>
       <progress id="bar" aria-labelledby="stage"></progress>
       <p id="stage" aria-live="polite"></p>
-      <p id="conn" class="error" role="status"></p>
-      <button id="retry" type="button" hidden>Retry</button>
+      <p id="conn" class="notice" role="status"></p>
+      <button id="retry" type="button" class="secondary" hidden>Retry</button>
     </section>
 
     <section id="results" aria-labelledby="results-h" hidden>
-      <h2 id="results-h">Report</h2>
+      <h1 id="results-h">Report</h1>
+      <p id="summary" class="summary"></p>
+      <ul id="warnings" class="warnings"></ul>
+
       <p class="exports">
         <a id="export-json" download>Download JSON</a>
         <a id="export-md" download>Download Markdown</a>
-        <button id="new-job" type="button">Audit another manuscript</button>
+        <button id="copy-link" type="button" class="link">Copy link</button>
+        <button id="new-job" type="button" class="link">Audit another manuscript</button>
+        <span id="copy-status" role="status"></span>
       </p>
-      <p class="permalink">Shareable link (anyone with it can view this report; kept for the newest 1000 reports
-        on this server):
-        <a id="permalink"></a>
-        <button id="copy-link" type="button">Copy link</button>
-        <span id="copy-status" role="status"></span></p>
-      <ul id="warnings" class="warnings"></ul>
+      <p class="permalink">Shareable link (anyone with it can view this report; kept for the
+        newest 1000 reports on this server): <a id="permalink"></a></p>
 
-      <h3>Summary</h3>
-      <div id="summary" class="summary"></div>
+      <h2 id="refs-h">References</h2>
+      <div id="refs"></div>
 
-      <h3 id="refs-h">References</h3>
-      <div class="table-wrap" role="region" aria-labelledby="refs-h" tabindex="0">
-        <table id="refs">
-          <thead>
-            <tr><th scope="col">Ref</th><th scope="col">Status</th><th scope="col">Cited</th>
-              <th scope="col">Found</th><th scope="col">Issues</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <h3>Claims</h3>
-      <div id="claims" class="claims"></div>
+      <h2 id="claims-h">Claims</h2>
+      <div id="claims"></div>
 
       <section id="chat" aria-labelledby="chat-h">
-        <h3 id="chat-h">Ask about this report</h3>
+        <h2 id="chat-h">Ask about this report</h2>
         <div id="chat-log" class="chat-log" aria-live="polite"></div>
         <form id="chat-form" class="chat-form">
           <label for="question" class="sr-only">Question</label>
