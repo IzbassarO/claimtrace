@@ -351,3 +351,13 @@ def test_fixes_do_not_over_reach():
     )
     # year ranges never count; parenthesised title year loses to a Vancouver imprint
     assert year_candidates("Doe A. Trends 1990-2016. BMJ. 2018;1:1.") == [2018]
+
+
+def test_find_doi_keeps_balanced_brackets_and_drops_unbalanced():
+    from claimtrace.ingest.text import find_doi
+
+    assert find_doi("(see doi:10.1016/S0140-6736(20)30183-5).") == "10.1016/s0140-6736(20)30183-5"
+    assert find_doi("<https://doi.org/10.1038/nature14539>") == "10.1038/nature14539"
+    assert find_doi("x 10.1002/(SICI)1-2(1998)17:8<857::AID-S7>3.0.CO;2-E;") == (
+        "10.1002/(sici)1-2(1998)17:8<857::aid-s7>3.0.co;2-e"
+    )

@@ -4,12 +4,9 @@ A wrong DOI string does not resolve, so a correct reference comes back as a DOI 
 not_found when only the DOI could be extracted): a false accusation of a bad citation.
 """
 
-import pytest
-
 from claimtrace.ingest.text import find_doi
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: SICI DOI truncated at '<' by find_doi")
 def test_sici_doi_is_extracted_whole():
     # SICI DOIs (Wiley, 1990s) contain '<' and '>'
     raw = (
@@ -21,7 +18,6 @@ def test_sici_doi_is_extracted_whole():
     assert find_doi(raw) == "10.1002/(sici)1097-0258(19980430)17:8<857::aid-sim777>3.0.co;2-e"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: Markdown link syntax glued onto the DOI")
 def test_doi_in_markdown_link_stops_at_the_link_syntax():
     # .md manuscripts are accepted; reference lists there link their DOIs
     raw = (

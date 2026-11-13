@@ -7,6 +7,7 @@ It is never used for verbatim quotes (see AGENTS.md).
 import re
 import unicodedata
 from difflib import SequenceMatcher
+from urllib.parse import unquote
 
 from claimtrace.core.schemas import Mismatch, Reference, Work
 
@@ -241,13 +242,20 @@ def first_author_equal(cited: list[str], found: list[str]) -> bool:
     return bool(cited and found) and family_name(cited[0]) == family_name(found[0]) != ""
 
 
+_INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")  # soft hyphen, zero-width, BOM
+
+
 def norm_doi(doi: str | None) -> str | None:
-    if not doi:
-        return None
-    d = doi.strip().lower()
+    """Lowercase bare DOI. Percent-decoded once, invisible chars dropped. A whitespace-separated
+    DOI list (arXiv's article + erratum) normalises to its first DOI; see `all_dois`."""
+    return next(iter(all_dois(doi)), None)
+
+
+def all_dois(doi: str | None) -> list[str]:
+    d = _INVISIBLE.sub("", unquote(doi or "")).strip().lower()
     d = re.sub(r"^(https?://)?(dx\.)?doi\.org/", "", d)
     d = re.sub(r"^doi:\s*", "", d)
-    return d.rstrip(".,;") or None
+    return [t for t in (t.rstrip(".,;") for t in d.split()) if t]
 
 
 def norm_arxiv(aid: str | None) -> str | None:
