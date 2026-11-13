@@ -130,10 +130,12 @@ def test_decide_retraction_from_any_identified_record_wins():
 
 
 def test_decide_merges_fields_from_same_work():
-    oa = Work(provider="openalex", title=REF.title, year=2017, abstract="Abs", pmcid="PMC1")
-    a = refaudit.decide(REF, [oa, GOOD], [OK])
+    # an authorless record joins the work only via a shared id, never title + year alone
+    doi = "10.5555/attn"
+    oa = Work(provider="openalex", title=REF.title, year=2017, doi=doi, abstract="A", pmcid="PMC1")
+    a = refaudit.decide(REF, [oa, GOOD.model_copy(update={"doi": doi})], [OK])
     assert a.matched.provider == "crossref"
-    assert a.matched.abstract == "Abs" and a.matched.pmcid == "PMC1"
+    assert a.matched.abstract == "A" and a.matched.pmcid == "PMC1"
 
 
 def test_decide_prefers_id_equal_and_fewest_mismatches():

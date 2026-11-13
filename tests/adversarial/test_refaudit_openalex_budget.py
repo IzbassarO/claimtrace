@@ -108,6 +108,8 @@ async def test_cited_arxiv_id_is_looked_up_free_before_any_paid_search():
             return httpx.Response(200, json={"results": []})
         if req.url.host == "export.arxiv.org":
             return httpx.Response(503)
+        if req.url.host == "doi.org":  # the typo DOI is not registered
+            return httpx.Response(404, json={"responseCode": 100})
         if req.url.path.startswith("/works/"):
             return httpx.Response(404)
         return httpx.Response(200, json=CR_EMPTY)
