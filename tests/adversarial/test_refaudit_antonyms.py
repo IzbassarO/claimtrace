@@ -1,5 +1,5 @@
 """Adversarial: a cited title whose direction of effect is reversed (increases/decreases,
-higher/lower, mice/humans) passes title_match at >= 0.9 similarity and is reported verified."""
+higher/lower, mice/humans) must not be verified, even at >= 0.9 title similarity."""
 
 import pytest
 
@@ -9,7 +9,6 @@ from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 OK = [ProviderOutcome(provider=p, ok=True) for p in ("crossref", "openalex")]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: title with reversed direction of effect is verified")
 @pytest.mark.parametrize(
     "cited, found",
     [
