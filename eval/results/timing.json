@@ -1,0 +1,165 @@
+{
+  "suite": "timing",
+  "created": "2026-11-13T23:09:36+00:00",
+  "metrics": {
+    "runs": 1,
+    "skipped": 1
+  },
+  "skipped": {
+    "attention-pdf": "GROBID not reachable at GROBID_URL (http://localhost:8070)"
+  },
+  "runs": [
+    {
+      "doc": "attention-text",
+      "repeat": 0,
+      "first_reference_s": 25.07,
+      "first_claim_s": 25.07,
+      "total_s": 141.04,
+      "partials": 98,
+      "peak_rss_mb": 173.2,
+      "cache": "cold",
+      "n_references": 40,
+      "n_claims": 58,
+      "summary": {
+        "references": {
+          "verified": 38,
+          "unchecked": 1,
+          "metadata_mismatch": 1
+        },
+        "claims": {
+          "partly_supported": 26,
+          "insufficient_evidence": 21,
+          "supported": 9,
+          "source_not_found": 2
+        }
+      },
+      "warnings": [
+        "Reference 12: extracted title not found verbatim; dropped"
+      ],
+      "limit_warnings": [],
+      "timings": {
+        "t_ingest_start": 0.0,
+        "t_ingest_first": 25.06,
+        "t_ingest_end": 25.06,
+        "t_references_start": 25.07,
+        "t_claims_start": 25.07,
+        "t_references_first": 25.07,
+        "t_sources_start": 25.07,
+        "t_sources_first": 25.07,
+        "t_claims_first": 25.07,
+        "t_references_end": 34.84,
+        "t_sources_end": 50.53,
+        "t_claims_end": 141.04,
+        "busy_llm_extract": 32.95,
+        "busy_ingest": 25.06,
+        "busy_claim_check": 760.34,
+        "busy_source_fetch": 130.48,
+        "busy_llm_judge": 135.7,
+        "busy_grobid_source": 99.53,
+        "busy_llm_skeptic": 623.48,
+        "n_llm_extract": 3.0,
+        "n_ingest": 1.0,
+        "n_claim_check": 58.0,
+        "n_source_fetch": 34.0,
+        "n_llm_judge": 56.0,
+        "n_grobid_source": 33.0,
+        "n_llm_skeptic": 56.0,
+        "t_total": 141.04
+      },
+      "stages": [
+        {
+          "stage": "ingest",
+          "start": 0.0,
+          "first": 25.06,
+          "end": 25.06,
+          "wall": 25.06,
+          "slots": 1,
+          "busy": 25.06,
+          "idle": 0.0
+        },
+        {
+          "stage": "references",
+          "start": 25.07,
+          "first": 25.07,
+          "end": 34.84,
+          "wall": 9.77,
+          "slots": null,
+          "busy": null,
+          "idle": null
+        },
+        {
+          "stage": "sources",
+          "start": 25.07,
+          "first": 25.07,
+          "end": 50.53,
+          "wall": 25.46,
+          "slots": 6,
+          "busy": 130.48,
+          "idle": 22.28
+        },
+        {
+          "stage": "claims",
+          "start": 25.07,
+          "first": 25.07,
+          "end": 141.04,
+          "wall": 115.97,
+          "slots": 8,
+          "busy": 760.34,
+          "idle": 167.42
+        }
+      ],
+      "ops": [
+        {
+          "op": "claim_check",
+          "n": 58,
+          "busy": 760.34,
+          "mean": 13.11
+        },
+        {
+          "op": "grobid_source",
+          "n": 33,
+          "busy": 99.53,
+          "mean": 3.02
+        },
+        {
+          "op": "ingest",
+          "n": 1,
+          "busy": 25.06,
+          "mean": 25.06
+        },
+        {
+          "op": "llm_extract",
+          "n": 3,
+          "busy": 32.95,
+          "mean": 10.98
+        },
+        {
+          "op": "llm_judge",
+          "n": 56,
+          "busy": 135.7,
+          "mean": 2.42
+        },
+        {
+          "op": "llm_skeptic",
+          "n": 56,
+          "busy": 623.48,
+          "mean": 11.13
+        },
+        {
+          "op": "source_fetch",
+          "n": 34,
+          "busy": 130.48,
+          "mean": 3.84
+        }
+      ]
+    }
+  ],
+  "params": {
+    "docs": [
+      "attention-pdf",
+      "attention-text"
+    ],
+    "repeat": 1,
+    "cold": true
+  }
+}

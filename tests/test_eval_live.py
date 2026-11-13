@@ -34,3 +34,17 @@ async def test_retrieval_suite_on_real_haystacks():
     m = res["metrics"]
     assert m["n"] == 3 and m["haystack_chars_min"] >= 2500 and m["embed_errors"] == 0
     assert set(m["variants"]) >= {"bm25", "hybrid"}
+
+
+def test_bench_documents_build():
+    """Bench manuscripts for --suite timing: fetched, numbered reference lists intact (no LLM)."""
+    from claimtrace.ingest.text import split_entries, split_manuscript
+    from eval import bench
+
+    for name, n_refs in [("attention-text", 40), ("review-200", 204)]:
+        text, files = bench.load(name)
+        body, section, warn = split_manuscript(text)
+        entries = split_entries(section)
+        assert files == [] and warn is None and len(entries) == n_refs, name
+        assert [num for num, _ in entries] == [str(i) for i in range(1, n_refs + 1)], name
+        assert body.count("[") > n_refs // 2, name  # numeric citations survive in the body
