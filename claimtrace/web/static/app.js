@@ -15,7 +15,7 @@ const STATUS = {
   not_found: ["Not found", "bad"],
   retracted: ["Retracted", "bad"],
   metadata_mismatch: ["Metadata mismatch", "warn"],
-  unchecked: ["Unchecked (lookup failed)", "unknown"],
+  unchecked: ["Unchecked", "unknown"],
   verified: ["Verified", "ok"],
 };
 const VERDICT = {
@@ -57,9 +57,9 @@ function link(url, text) {
 }
 
 // Status label with a CSS shape, so it never depends on colour alone.
-function mark(value, labels) {
-  const [label, level] = labels[value] || [value, "unknown"];
-  return el("span", { className: `mark m-${level}` }, label);
+function mark(value, labels, label) {
+  const [text, level] = labels[value] || [value, "unknown"];
+  return el("span", { className: `mark m-${level}` }, label || text);
 }
 
 const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); return i < 0 ? 0 : i; };
@@ -198,30 +198,42 @@ async function poll() {
   setTimeout(poll, 1000);
 }
 
+// ref id -> audit status, set by renderReport: a claim is only as good as the reference it cites
+let refStatus = new Map();
+const REF_NOTE = {
+  retracted: "The cited source is retracted.",
+  not_found: "The cited reference was not found.",
+  metadata_mismatch: "Reference metadata does not match the cited work.",
+};
+const refNote = (c) => REF_NOTE[refStatus.get(c.ref_id)] || null;
 const refAttention = (a) => a.status !== "verified";
-const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review;
-// partly supported or not checkable: shown open, below the claims that need attention
-const claimMiddle = (c) => !claimAttention(c) && c.verdict !== "supported";
-const MIDDLE = "Partly supported or could not be checked";
+const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review || refStatus.get(c.ref_id) === "retracted";
+// partly supported, not checkable, or citing a doubtful reference: shown open, below the claims that need attention
+const claimMiddle = (c) => !claimAttention(c) && (c.verdict !== "supported" || refNote(c) !== null);
+const MIDDLE = "Partly supported, not checkable, or citing a doubtful reference";
 const need = (n) => (n === 1 ? "needs" : "need");
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function refItem(a) {
   const ref = a.reference;
   const m = a.matched;
+  const failed = a.providers.some((p) => !p.ok);
+  // unchecked although every provider answered: the audit note says why (possible match, nothing to compare)
+  const explained = a.status === "unchecked" && !failed && a.note;
   const found = m
     ? el("p", { className: "found" }, el("span", { className: "label" }, "Found: "),
       m.title || "(untitled)", m.year ? ` (${m.year})` : "", ` · ${m.provider}`,
       m.doi ? [" · ", link(`https://doi.org/${m.doi}`, `doi:${m.doi}`)] : m.url ? [" · ", link(m.url, "record")] : null)
-    : el("p", { className: "found quiet" }, a.status === "unchecked"
-      ? "The lookup failed, so this reference could not be checked."
-      : "No matching record was found.");
+    : el("p", { className: "found quiet" }, a.status !== "unchecked" ? "No matching record was found."
+      : failed ? "The lookup failed, so this reference could not be checked."
+        : explained || "The providers answered, but this reference could not be confirmed or ruled out.");
   const issues = [
     ...a.mismatches.map((x) => el("li", {}, `${x.field}: cited "${x.cited}", found "${x.found}"`)),
     ...a.providers.filter((p) => !p.ok).map((p) => el("li", {}, `${p.provider} failed${p.error ? `: ${p.error}` : ""}`)),
-    a.note ? el("li", {}, a.note) : null,
+    a.note && !explained ? el("li", {}, a.note) : null,
   ].filter(Boolean);
   return el("li", { className: "item" },
-    el("p", { className: "item-head" }, mark(a.status, STATUS), el("span", { className: "id" }, `ref ${ref.id}`)),
+    el("p", { className: "item-head" }, mark(a.status, STATUS, a.status === "unchecked" && failed ? "Unchecked (lookup failed)" : null), el("span", { className: "id" }, `ref ${ref.id}`)),
     el("p", { className: "cited" }, ref.raw),
     found,
     issues.length ? el("ul", { className: "issues" }, issues) : null);
@@ -243,6 +255,7 @@ function claimCard(c) {
         mark(c.verdict, VERDICT),
         c.needs_review ? el("span", { className: "mark m-review" }, "Needs review") : null,
         el("span", { className: "id" }, `${c.citation_id} → ref ${c.ref_id}`)),
+      refNote(c) ? el("p", { className: "notice" }, refNote(c)) : null,
       el("p", { className: "label" }, "The manuscript says"),
       el("p", { className: "sentence" }, c.sentence),
       c.quote
@@ -255,7 +268,7 @@ function claimCard(c) {
 }
 
 // Problems first (worst first), everything fine collapsed in a <details>.
-function group(items, isProblem, labels, key, render, noun, fineLabel, isMiddle = () => false) {
+function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle = () => false) {
   const worst = (xs) => xs.sort((a, b) => rank(labels, key(a)) - rank(labels, key(b)));
   const bad = worst(items.filter(isProblem));
   const mid = worst(items.filter((x) => !isProblem(x) && isMiddle(x)));
@@ -264,7 +277,7 @@ function group(items, isProblem, labels, key, render, noun, fineLabel, isMiddle 
   return [
     bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention.`),
     mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), el("ol", { className: "items" }, mid.map(render))] : null,
-    fine.length ? el("details", { className: "fine" }, el("summary", {}, `${fine.length} ${fineLabel}`),
+    fine.length ? el("details", { className: "fine" }, el("summary", {}, plural(fine.length, fineNoun)),
       el("ol", { className: "items" }, fine.map(render))) : null,
   ].flat().filter(Boolean);
 }
@@ -273,17 +286,20 @@ function renderReport(r) {
   $("results-h").textContent = r.title || "Report";
   $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
   $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
+  refStatus = new Map(r.references.map((a) => [a.reference.id, a.status]));
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;
   const nm = r.claims.filter(claimMiddle).length;
   $("summary").textContent = !r.references.length && !r.claims.length
     ? "No references or citing sentences were found. Check that the text includes its reference list."
-    : `${nr} of ${r.references.length} references ${need(nr)} attention · ${nc} of ${r.claims.length} claims ${need(nc)} attention${nm ? ` · ${nm} partly supported or not checkable` : ""}`;
+    : [r.references.length ? `${nr} of ${plural(r.references.length, "reference")} ${need(nr)} attention` : "No references were found",
+      r.claims.length ? `${nc} of ${plural(r.claims.length, "claim")} ${need(nc)} attention` : "No citing sentences were found or checked",
+      nm ? `${nm} ${MIDDLE.toLowerCase()}` : ""].filter(Boolean).join(" · ");
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
   $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refItem,
-    "references", "verified references"));
+    "references", "verified reference"));
   $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimCard,
-    "citing sentences", "supported claims", claimMiddle));
+    "citing sentences", "supported claim", claimMiddle));
   showPermalink();
   show("results");
   $("results-h").setAttribute("tabindex", "-1");

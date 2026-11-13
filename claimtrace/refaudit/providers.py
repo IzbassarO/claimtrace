@@ -25,6 +25,7 @@ CROSSREF = "https://api.crossref.org"
 OPENALEX = "https://api.openalex.org"
 S2 = "https://api.semanticscholar.org/graph/v1"
 ARXIV = "https://export.arxiv.org/api/query"
+DOI_HANDLES = "https://doi.org/api/handles"
 S2_FIELDS = "title,authors,year,externalIds,venue,url,abstract,openAccessPdf"
 # Crossref update types meaning the work no longer stands
 RETRACTING_UPDATES = {"retraction", "partial_retraction", "withdrawal", "removal"}
@@ -258,6 +259,20 @@ async def semanticscholar(client: httpx.AsyncClient, gate: Gate, ref: Reference)
     # S2 documents 404 {"error": "Title match not found"} as "no match"; any other 404 fails
     resp = await _get(client, gate, f"{S2}/paper/search/match", "Title match not found", **kw)
     return [parse_s2(p) for p in resp.json().get("data") or []] if resp else []
+
+
+# ---------- doi.org ----------
+
+
+async def doi_registered(client: httpx.AsyncClient, gate: Gate, doi: str) -> bool:
+    """doi.org handle API (free, any registration agency): responseCode 1 = registered (True),
+    100 = no such DOI (False). Anything else raises: only doi.org may say "does not resolve"."""
+    async with gate:
+        resp = await request(client, "GET", f"{DOI_HANDLES}/{quote(doi, safe='/')}")
+    code = resp.json().get("responseCode") if resp.status_code in (200, 404) else None
+    if code in (1, 100):
+        return code == 1
+    raise ProviderError(f"HTTP {resp.status_code}, responseCode {code}")
 
 
 # ---------- arXiv (batched: one request for many ids, ≤ 1 request / 3 s) ----------
