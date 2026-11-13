@@ -155,6 +155,7 @@ class ClaimCheck(BaseModel):
     quote: str | None = None  # set only when verified verbatim in the source text
     evidence_kind: EvidenceKind | None = None
     source_url: str | None = None
+    section: str | None = None  # heading of the source section the quote comes from, if known
     needs_review: bool = False
     judge: ModelOpinion | None = None
     skeptic: ModelOpinion | None = None
