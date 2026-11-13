@@ -1,4 +1,7 @@
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
@@ -15,6 +18,7 @@ ABSTRACT = (
 REAL = "drug X reduced systolic blood pressure by 12 mmHg"
 CIT = Citation(id="c1", sentence="Drug X lowers blood pressure in adults [1].", ref_ids=["1"])
 SRC = SourceText(ref_id="1", kind="abstract", text=ABSTRACT, origin="openalex", url="https://x")
+_REAL_EMBED = retrieval.fastembed_embed  # the autouse fixture below swaps it out
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +28,7 @@ def _no_model_download(monkeypatch):
 
     monkeypatch.setattr(retrieval, "fastembed_embed", boom)
     monkeypatch.setattr(retrieval, "fastembed_rerank", lambda q, d: boom(d))
+    retrieval._indexes.clear()  # per-source cache: each test starts cold
 
 
 def fake(*replies):
@@ -194,6 +199,9 @@ async def test_only_bm25_candidates_are_embedded_on_a_long_text():
     assert calls == [1 + retrieval.CANDIDATES]  # one call: query + shortlist
     assert len(out) == retrieval.TOP_K
     assert any("Statins reduced LDL" in p for p in out)  # best BM25 passage survives the fusion
+    # a second claim citing the same source: its shortlist was embedded already, only the query
+    again = await retrieval.retrieve("statins lower LDL cholesterol", HUGE, embed=embed)
+    assert calls == [1 + retrieval.CANDIDATES, 1] and again == out
 
 
 async def test_embedding_failure_falls_back_to_bm25():
@@ -251,3 +259,25 @@ def test_passages_overlap_and_cover_everything():
 def test_passages_split_runaway_sentences():
     ps = retrieval.passages("word " * 1000)
     assert max(len(p.split()) for p in ps) <= 3 * 120
+
+
+def test_default_embedder_runs_at_most_two_inferences_at_once(monkeypatch):
+    live = peak = 0
+    guard = threading.Lock()
+
+    class SlowModel:
+        def embed(self, texts, batch_size):
+            nonlocal live, peak
+            with guard:
+                live += 1
+                peak = max(peak, live)
+            time.sleep(0.05)
+            with guard:
+                live -= 1
+            return [type("V", (), {"tolist": lambda self: [1.0]})() for _ in texts]
+
+    monkeypatch.setattr(retrieval, "_model", SlowModel())
+    with ThreadPoolExecutor(8) as pool:
+        out = list(pool.map(lambda _: _REAL_EMBED(["a", "b"]), range(8)))
+    assert out == [[[1.0], [1.0]]] * 8
+    assert peak == 2  # parallel (no global lock) but bounded (memory)
