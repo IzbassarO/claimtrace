@@ -1,15 +1,21 @@
 """Pick the source passages most relevant to a citing sentence: BM25 over all passages, then a
 dense rerank of the BM25 top candidates, fused by RRF; a cross-encoder reorders the fused top.
-section_of() labels a verified quote with its source section (not used for retrieval)."""
+section_of() labels a verified quote with its source section (not used for retrieval).
+Passages, the BM25 index and passage embeddings are cached per source text: many claims cite the
+same source."""
 
 import asyncio
+import hashlib
 import re
 import threading
+from array import array
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
 from rank_bm25 import BM25Okapi
 
 from claimtrace.claims.quote import verify_quote
+from claimtrace.core.timing import span
 
 Embed = Callable[[list[str]], Sequence[Sequence[float]]]
 Rerank = Callable[[str, list[str]], Sequence[float]]  # (query, passages) -> one score each
@@ -42,7 +48,10 @@ _SUBSECTION = re.compile(r"\d+\.\d")  # '2.1 Participants': stays in its section
 _HEADING_LIKE = re.compile(r"[A-Z0-9][^\n|]*[^\s.,:;!?]")
 _HEADING_MAX_WORDS = 8
 
-_lock = threading.Lock()
+_lock = threading.Lock()  # lazy model loading only
+# ponytail: 2 concurrent inferences (ONNX `run` is thread-safe); each ONNX session uses 2 threads
+# and batch 16, so memory stays bounded. Raise with care: the container is capped at 1.5 GB.
+_infer = threading.BoundedSemaphore(2)
 _model = None
 _reranker = None
 _EMBED_BATCH = 16
@@ -50,26 +59,28 @@ _EMBED_BATCH = 16
 
 def fastembed_embed(texts: list[str]) -> list[list[float]]:
     """Default embedder (blocking; call in a thread). Loads the model once, lazily.
-    One embedding at a time with small batches: concurrent ONNX runs with the default batch of
-    256 grew the container past 5 GB."""
+    At most 2 inferences at a time with small batches: unbounded concurrent ONNX runs with the
+    default batch of 256 grew the container past 5 GB."""
     global _model
     with _lock:
         if _model is None:
             from fastembed import TextEmbedding
 
             _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=2)
+    with _infer:
         return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
 
 
 def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
-    """Default cross-encoder (blocking; call in a thread). Loads once, lazily, under the same lock
-    as the embedder so the two ONNX models never run concurrently."""
+    """Default cross-encoder (blocking; call in a thread). Loads once, lazily; inference shares
+    the embedder's 2-slot semaphore, so at most 2 ONNX runs (of either model) at a time."""
     global _reranker
     with _lock:
         if _reranker is None:
             from fastembed.rerank.cross_encoder import TextCrossEncoder
 
             _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=2)
+    with _infer:
         return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
 
 
@@ -145,6 +156,51 @@ def _ranks(scores: Sequence[float]) -> list[int]:
     return sorted(range(len(scores)), key=lambda i: -scores[i])
 
 
+class _Index:
+    """One source text: its passages, their BM25 index (None: no word characters, nothing to
+    rank) and, per embedder, the vectors of the passages embedded so far."""
+
+    def __init__(self, text: str):
+        self.chunks = passages(text)
+        corpus = [_tokens(c) for c in self.chunks]
+        self.bm25 = BM25Okapi(corpus) if any(corpus) else None
+        self.vecs: dict[Embed, dict[int, array]] = {}
+
+
+# ponytail: in-process LRU of the last 32 sources (a few MB each at most); keyed by sha256 so a
+# different text never reuses an index. Shared across runs; a disk cache only if restarts matter.
+_INDEX_SIZE = 32
+_indexes: OrderedDict[str, _Index] = OrderedDict()
+_index_lock = threading.Lock()
+
+
+def _index(text: str) -> _Index:
+    key = hashlib.sha256(text.encode()).hexdigest()
+    with _index_lock:
+        if (idx := _indexes.get(key)) is not None:
+            _indexes.move_to_end(key)
+            return idx
+    idx = _Index(text)  # built outside the lock; a duplicate build by a racing thread is harmless
+    with _index_lock:
+        _indexes[key] = idx
+        while len(_indexes) > _INDEX_SIZE:
+            _indexes.popitem(last=False)
+    return idx
+
+
+def _embed_candidates(idx: _Index, query: str, cands: list[int], embed: Embed) -> list:
+    """[query vector, *candidate vectors]; only candidates not embedded before are sent to the
+    model (with the query, in one call). Blocking: call in a thread."""
+    memo = idx.vecs.setdefault(embed, {})
+    missing = [i for i in cands if i not in memo]
+    vecs = embed([query, *(idx.chunks[i] for i in missing)])
+    if len(vecs) != 1 + len(missing):
+        raise ValueError("embedder returned the wrong number of vectors")
+    for i, v in zip(missing, vecs[1:], strict=True):
+        memo[i] = array("d", v)
+    return [vecs[0], *(memo[i] for i in cands)]
+
+
 def _cosine_scores(vecs: Sequence[Sequence[float]]) -> list[float]:
     q, docs = vecs[0], vecs[1:]
 
@@ -161,19 +217,21 @@ async def retrieve(
     """Short texts are returned whole; otherwise the top passages in document order."""
     if len(text) < WHOLE_TEXT_CHARS:
         return [text]
-    chunks = passages(text)
+    with span("retrieval"):
+        return await _retrieve(query, text, embed or fastembed_embed, rerank or fastembed_rerank)
+
+
+async def _retrieve(query: str, text: str, embed: Embed, rerank: Rerank) -> list[str]:
+    idx = _index(text)
+    chunks = idx.chunks
     if len(chunks) <= TOP_K:
         return chunks
-    corpus = [_tokens(c) for c in chunks]
-    if not any(corpus):  # no word characters at all: BM25 divides by zero, nothing to rank
+    if idx.bm25 is None:  # no word characters at all: BM25 divides by zero, nothing to rank
         return chunks[:TOP_K]
-    bm25 = _ranks(BM25Okapi(corpus).get_scores(_tokens(query)))[:CANDIDATES]
+    bm25 = _ranks(idx.bm25.get_scores(_tokens(query)))[:CANDIDATES]
     rankings = [bm25]
     try:
-        texts = [query, *(chunks[i] for i in bm25)]
-        vecs = await asyncio.to_thread(embed or fastembed_embed, texts)
-        if len(vecs) != 1 + len(bm25):
-            raise ValueError("embedder returned the wrong number of vectors")
+        vecs = await asyncio.to_thread(_embed_candidates, idx, query, bm25, embed)
         rankings.append([bm25[r] for r in _ranks(_cosine_scores(vecs))])
     except Exception:  # embedding is a bonus: BM25 alone still works
         pass
@@ -184,9 +242,7 @@ async def retrieve(
     order = sorted(fused, key=lambda i: -fused[i])
     pool = order[:RERANK_POOL]
     try:
-        scores = await asyncio.to_thread(
-            rerank or fastembed_rerank, query, [chunks[i] for i in pool]
-        )
+        scores = await asyncio.to_thread(rerank, query, [chunks[i] for i in pool])
         if len(scores) != len(pool):
             raise ValueError("reranker returned the wrong number of scores")
         order = [pool[r] for r in _ranks(scores)]
