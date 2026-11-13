@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -82,7 +83,9 @@ def make_report(report_id="r1") -> Report:
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path))
+    get_settings.cache_clear()
     web.JOBS.clear()
     calls = []
 
@@ -94,8 +97,10 @@ def client(monkeypatch):
     monkeypatch.setattr(pipeline, "run", fake_run)
     with TestClient(web.app) as c:
         c.calls = calls
+        c.reports = tmp_path / "reports"
         yield c
     web.JOBS.clear()
+    get_settings.cache_clear()
 
 
 def wait(client, job_id, until=("done", "error"), timeout=5.0):
@@ -300,3 +305,73 @@ def test_chat_report_trims_references_before_claims(monkeypatch):
     cut = chat.report_json(rep)
     assert "[references truncated]" in cut and '"citation_id": "c1"' in cut
     assert cut.startswith(full[: head - 1])
+
+
+def test_job_ids_are_unguessable_tokens(client):
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    assert web.JOB_ID.fullmatch(job_id)
+    wait(client, job_id)
+
+
+def test_report_survives_restart(client, monkeypatch):
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    wait(client, job_id)
+    assert (client.reports / f"{job_id}.json").is_file()
+    assert not list(client.reports.glob("*.tmp"))
+    web.JOBS.clear()  # simulated restart
+
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["status"] == "done" and job["report"]["id"] == job_id
+    assert Report.model_validate(job["report"]).claims[0].quote == QUOTE
+    assert Report.model_validate(client.get(f"/api/jobs/{job_id}/export.json").json()).id == job_id
+    assert QUOTE in client.get(f"/api/jobs/{job_id}/export.md").text
+
+    async def fake_ask_text(role, system, user):
+        return "ok"
+
+    monkeypatch.setattr(chat, "ask_text", fake_ask_text)
+    assert client.post(f"/api/jobs/{job_id}/chat", json={"question": "q"}).json() == {
+        "answer": "ok"
+    }
+
+
+def test_bad_ids_404_without_touching_disk(client, monkeypatch):
+    def no_disk(*a, **k):
+        raise AssertionError("filesystem touched")
+
+    monkeypatch.setattr(web, "_load", no_disk)
+    for bad in ("nope", "....", "a" * 21, "a" * 23, "%2e%2e%2fetc%2fpasswd_aaaa", "a.b" * 8):
+        assert client.get(f"/api/jobs/{bad}").status_code == 404, bad
+        assert client.get(f"/api/jobs/{bad}/export.json").status_code == 404, bad
+        assert client.get(f"/r/{bad}").status_code == 404, bad
+
+
+def test_unknown_valid_id_404(client):
+    assert client.get(f"/api/jobs/{'a' * 22}").status_code == 404
+
+
+def test_permalink_serves_page(client):
+    page = client.get(f"/r/{'A_-' * 7}x")
+    assert page.status_code == 200 and 'id="permalink"' in page.text
+
+
+def test_retention_keeps_newest(client, monkeypatch):
+    monkeypatch.setattr(web, "MAX_REPORTS", 3)
+    d = client.reports
+    d.mkdir()
+    for i in range(3):
+        (d / f"old{i}.json").write_text("{}")
+        os.utime(d / f"old{i}.json", (1000 + i, 1000 + i))
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    wait(client, job_id)
+    assert sorted(f.name for f in d.glob("*.json")) == sorted(
+        [f"{job_id}.json", "old1.json", "old2.json"]
+    )
+
+
+def test_disk_write_failure_keeps_job_done(client):
+    client.reports.write_text("not a directory")  # mkdir fails
+    job_id = client.post("/api/jobs", data={"text": "x"}).json()["id"]
+    job = wait(client, job_id)
+    assert job["status"] == "done" and job["report"]["id"] == job_id
+    assert client.get(f"/api/jobs/{job_id}/export.md").status_code == 200
