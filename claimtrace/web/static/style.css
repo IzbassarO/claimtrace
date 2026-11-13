@@ -86,3 +86,4 @@ details p { overflow-wrap: anywhere; }
 .chat-log p.user { border-left: 3px solid var(--accent); }
 .chat-form { display: flex; gap: .5rem; margin: .5rem 0 3rem; }
 [tabindex="-1"]:focus { outline: none; }
+.permalink a { overflow-wrap: anywhere; }

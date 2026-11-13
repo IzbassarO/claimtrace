@@ -81,7 +81,7 @@ async function submitJob(ev) {
     const resp = await fetch("/api/jobs", { method: "POST", body: form });
     if (!resp.ok) throw new Error(await apiError(resp));
     const { id } = await resp.json();
-    location.hash = `job=${encodeURIComponent(id)}`;
+    history.replaceState(null, "", `/r/${encodeURIComponent(id)}`);
     startPolling(id);
   } catch (e) {
     $("form-error").textContent = e.message;
@@ -207,9 +207,28 @@ function renderReport(r) {
     countsList("Claims", r.summary.claims, VERDICT));
   $("refs").tBodies[0].replaceChildren(...r.references.map(refRow));
   $("claims").replaceChildren(...(r.claims.length ? r.claims.map(claimCard) : [el("p", { className: "muted" }, "No citing sentences were checked.")]));
+  showPermalink();
   show("results");
   $("results-h").setAttribute("tabindex", "-1");
   $("results-h").focus();
+}
+
+// Permanent link to this report; anyone holding it can read the report.
+function showPermalink() {
+  const url = `${location.origin}/r/${encodeURIComponent(jobId)}`;
+  history.replaceState(null, "", url);
+  $("permalink").href = url;
+  $("permalink").textContent = url;
+  $("copy-status").textContent = "";
+}
+
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText($("permalink").href);
+    $("copy-status").textContent = "Copied.";
+  } catch (_) {
+    $("copy-status").textContent = "Copy failed: select the link and copy it manually.";
+  }
 }
 
 async function ask(ev) {
@@ -239,7 +258,7 @@ async function ask(ev) {
 
 function reset() {
   jobId = null;
-  history.replaceState(null, "", location.pathname);
+  history.replaceState(null, "", "/");
   show("input");
   $("text").focus();
 }
@@ -248,7 +267,12 @@ document.addEventListener("DOMContentLoaded", () => {
   $("job-form").addEventListener("submit", submitJob);
   $("chat-form").addEventListener("submit", ask);
   $("new-job").addEventListener("click", reset);
+<<<<<<< HEAD
+  $("copy-link").addEventListener("click", copyLink);
+  const m = location.pathname.match(/^\/r\/([\w-]+)$/);
+=======
   $("sample").addEventListener("click", trySample);
   const m = location.hash.match(/^#job=([\w-]+)$/);
+>>>>>>> origin/main
   if (m) startPolling(m[1]);
 });
