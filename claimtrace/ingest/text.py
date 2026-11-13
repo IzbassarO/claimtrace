@@ -8,7 +8,9 @@ from claimtrace.core.schemas import Citation, Reference
 # ---------- reference section ----------
 
 _REF_HEADING = re.compile(
-    r"^[ \t#*]*(?:\d+\.?[ \t]+)?(?:references|bibliography|literature cited|works cited)"
+    r"^[ \t#*]*(?:(?:\d+(?:\.\d+)*|[IVXLC]+)\.?[ \t]+)?"
+    r"(?:references(?: and notes)?|reference list|bibliography|literature cited|cited literature"
+    r"|works cited)"
     r"[ \t*:]*$",
     re.I | re.M,
 )

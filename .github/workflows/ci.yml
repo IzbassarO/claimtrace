@@ -26,3 +26,14 @@ jobs:
       - name: compose config
         run: cp .env.example .env && DOMAIN=example.com docker compose config -q
       - run: docker build -t claimtrace:ci .
+      - name: built-in sample in the image matches the repo and parses
+        run: |
+          test "$(sha256sum claimtrace/web/static/sample.txt | cut -d' ' -f1)" = \
+               "$(docker run --rm claimtrace:ci sha256sum /app/claimtrace/web/static/sample.txt | cut -d' ' -f1)"
+          docker run --rm -e LLM_EXTRACT_PROVIDER=none claimtrace:ci python -c "
+          import asyncio
+          from claimtrace.ingest import parse_inputs
+          t = open('/app/claimtrace/web/static/sample.txt').read().replace(chr(10), chr(13) + chr(10))
+          ms = asyncio.run(parse_inputs(t, []))
+          assert len(ms.references) == 3 and len(ms.citations) == 3, (len(ms.references), len(ms.citations), ms.warnings)
+          print('sample ok')"

@@ -13,6 +13,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 
 from claimtrace import claims, ingest, refaudit, sources
+from claimtrace.core import timing
 from claimtrace.core.http import make_client
 from claimtrace.core.schemas import (
     ClaimCheck,
@@ -29,6 +30,11 @@ SOURCE_TIMEOUT_S = 90  # whole fetch of one source (PDF download + GROBID), not 
 MAX_SENTENCE_CHARS = 2000  # longer "sentences" are tables/extraction noise; caps report size
 
 Progress = Callable[[str, int, int], None]
+
+
+async def _timed_pdf_to_text(pdf: bytes) -> str:
+    with timing.span("grobid_source"):
+        return await ingest.pdf_to_text(pdf)
 
 
 class State(TypedDict, total=False):
@@ -49,7 +55,8 @@ def _ctx(config: RunnableConfig):
 async def _ingest(state: State, config: RunnableConfig) -> State:
     _, progress = _ctx(config)
     progress("ingest", 0, 1)
-    ms = await ingest.parse_inputs(state.get("text"), state.get("files", []))
+    with timing.span("ingest"):
+        ms = await ingest.parse_inputs(state.get("text"), state.get("files", []))
     limit = get_settings().max_references
     if len(ms.references) > limit:
         ms.warnings.append(f"Only the first {limit} of {len(ms.references)} references audited.")
@@ -80,7 +87,8 @@ async def _sources(state: State, config: RunnableConfig) -> State:
         async with sem:
             try:
                 async with asyncio.timeout(SOURCE_TIMEOUT_S):
-                    src = await sources.fetch_source(a, client, ingest.pdf_to_text)
+                    with timing.span("source_fetch"):
+                        src = await sources.fetch_source(a, client, _timed_pdf_to_text)
             except Exception:  # incl. TimeoutError: degrade to "no source", never crash the job
                 src = None
         if src:
@@ -121,7 +129,8 @@ async def _claims(state: State, config: RunnableConfig) -> State:
         nonlocal done
         async with sem:
             try:
-                res = await claims.check_claim(c, r, srcs.get(r))
+                with timing.span("claim_check"):
+                    res = await claims.check_claim(c, r, srcs.get(r))
             except Exception as e:  # LLM outage -> honest "insufficient_evidence", not a verdict
                 res = ClaimCheck(
                     citation_id=c.id,
@@ -183,7 +192,17 @@ async def run(
     on_progress: Progress | None = None,
     report_id: str | None = None,
 ) -> Report:
-    progress = on_progress or (lambda *_: None)
+    user_progress = on_progress or (lambda *_: None)
+    t = timing.start()
+
+    def progress(stage: str, done: int, total: int) -> None:
+        t.mark(f"{stage}_start")
+        if done >= 1:
+            t.mark(f"{stage}_first")
+        if done >= total:
+            t.mark(f"{stage}_end")
+        user_progress(stage, done, total)
+
     async with make_client() as client:
         state = await GRAPH.ainvoke(
             {"text": text, "files": files or []},
@@ -195,5 +214,7 @@ async def run(
                 }
             },
         )
+    report = state["report"]
+    report.timings = t.as_dict()
     progress("done", 1, 1)
-    return state["report"]
+    return report
