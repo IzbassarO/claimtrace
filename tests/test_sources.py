@@ -505,3 +505,55 @@ def test_cache_key_title_needs_year_and_first_author():
     assert src._cache_file(a) != src._cache_file(a.model_copy(update={"year": 2021}))
     assert src._cache_file(a) != src._cache_file(a.model_copy(update={"authors": ["Lee, K"]}))
     assert src._cache_file(Work(provider="crossref")) is None
+
+
+# ---------- arXiv HTML ----------
+
+ARXIV_HTML = "arxiv.org/html/2101.00001"
+HTML_PAGE = (Path(__file__).parent / "fixtures/sources/arxiv.html").read_text()
+LONG_HTML = HTML_PAGE.replace("BODY", "Supplementation reduced hip fractures. " * 80)
+
+
+def html_resp(body: str) -> httpx.Response:
+    return httpx.Response(200, text=body, headers={"content-type": "text/html; charset=utf-8"})
+
+
+def test_arxiv_html_to_text():
+    text = src.arxiv_html_to_text(HTML_PAGE)
+    lines = text.split("\n\n")
+    assert lines[0] == TITLE  # title first, even after a licence note
+    assert lines[1] == "Licence note printed above the title."
+    assert lines[2] == "Jane Smith Ahmed Khan"  # no footnote marks, notes or emails
+    assert "We gave 4,000 adults vitamin D & calcium." in lines
+    assert "1 Introduction" in lines
+    assert "Hip fractures fell by 10^5 per h_{t}, as reported [1]." in text  # LaTeX, not "ht"
+    assert "Figure 1: Fracture rates." in lines
+    for gone in (
+        "Unrelated cited paper",
+        "References",
+        "localStorage",
+        "color: red",
+        "toclist",
+        "1 Introduction\n\n1",
+        "Equal contribution",
+        "jane@",
+        "LaTeXML",
+    ):
+        assert gone not in text, gone
+
+
+async def test_arxiv_html_before_pdf():
+    calls: list = []
+    async with client({ARXIV_HTML: html_resp(LONG_HTML), ARXIV_PDF: pdf_resp()}) as c:
+        s = await src.fetch_source(audit(arxiv_id="2101.00001"), c, fake_pdf_to_text(calls=calls))
+    assert s.kind == "full_text" and s.origin == "arxiv"
+    assert s.url == "https://arxiv.org/html/2101.00001" and s.text.startswith(TITLE + "\n\n")
+    assert calls == []  # no PDF download / conversion needed
+
+
+async def test_arxiv_html_wrong_paper_or_error_falls_through_to_pdf():
+    wrong = LONG_HTML.replace("Vitamin D supplementation", "Deep residual learning")
+    for page in (html_resp(wrong), httpx.Response(200, text="<p>x</p>"), httpx.Response(503)):
+        async with client({ARXIV_HTML: page, ARXIV_PDF: pdf_resp()}) as c:
+            s = await src.fetch_source(audit(arxiv_id="2101.00001"), c, fake_pdf_to_text())
+        assert s.origin == "arxiv" and s.url == "https://arxiv.org/pdf/2101.00001"

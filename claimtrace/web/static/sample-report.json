@@ -1,0 +1,246 @@
+{
+ "id": "sample",
+ "created_at": "2026-11-13T23:02:13.846892Z",
+ "title": "Citation practices in a short sample manuscript",
+ "references": [
+  {
+   "reference": {
+    "id": "1",
+    "raw": "He K, Zhang X, Ren S, Sun J. Deep residual learning for image recognition. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR); 2016. p. 770-778. doi:10.1109/CVPR.2016.90",
+    "title": "Deep residual learning for image recognition",
+    "authors": [
+     "He, K",
+     "Zhang, X",
+     "Ren, S",
+     "Sun, J"
+    ],
+    "year": 2016,
+    "doi": "10.1109/cvpr.2016.90",
+    "arxiv_id": null,
+    "venue": "Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)"
+   },
+   "status": "verified",
+   "matched": {
+    "provider": "crossref",
+    "provider_id": "10.1109/cvpr.2016.90",
+    "title": "Deep Residual Learning for Image Recognition",
+    "authors": [
+     "He, Kaiming",
+     "Zhang, Xiangyu",
+     "Ren, Shaoqing",
+     "Sun, Jian"
+    ],
+    "year": 2016,
+    "doi": "10.1109/cvpr.2016.90",
+    "arxiv_id": null,
+    "pmid": null,
+    "pmcid": null,
+    "venue": "2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)",
+    "url": "https://doi.org/10.1109/cvpr.2016.90",
+    "abstract": "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously. We explicitly reformulate the layers as learning residual functions with reference to the layer inputs, instead of learning unreferenced functions. We provide comprehensive empirical evidence showing that these residual networks are easier to optimize, and can gain accuracy from considerably increased depth. On the ImageNet dataset we evaluate residual nets with a depth of up to 152 layers - 8× deeper than VGG nets [40] but still having lower complexity. An ensemble of these residual nets achieves 3.57% error on the ImageNet test set. This result won the 1st place on the ILSVRC 2015 classification task. We also present analysis on CIFAR-10 with 100 and 1000 layers. The depth of representations is of central importance for many visual recognition tasks. Solely due to our extremely deep representations, we obtain a 28% relative improvement on the COCO object detection dataset. Deep residual nets are foundations of our submissions to ILSVRC & COCO 2015 competitions1, where we also won the 1st places on the tasks of ImageNet detection, ImageNet localization, COCO detection, and COCO segmentation.",
+    "is_retracted": false,
+    "oa_pdf_url": null
+   },
+   "mismatches": [],
+   "providers": [
+    {
+     "provider": "crossref",
+     "ok": true,
+     "error": null,
+     "candidates": 1
+    },
+    {
+     "provider": "openalex",
+     "ok": true,
+     "error": null,
+     "candidates": 1
+    }
+   ],
+   "note": "identified via crossref (identifier); checked: doi, title, authors (4), year"
+  },
+  {
+   "reference": {
+    "id": "2",
+    "raw": "Ioannidis JPA. Why most published research findings are false. PLoS Med. 2005;2(8):e124. doi:10.1371/journal.pmed.0020124",
+    "title": "Why most published research findings are false",
+    "authors": [
+     "Ioannidis, JPA"
+    ],
+    "year": 2005,
+    "doi": "10.1371/journal.pmed.0020124",
+    "arxiv_id": null,
+    "venue": "PLoS Med"
+   },
+   "status": "verified",
+   "matched": {
+    "provider": "crossref",
+    "provider_id": "10.1371/journal.pmed.0020124",
+    "title": "Why Most Published Research Findings Are False",
+    "authors": [
+     "Ioannidis, John P. A."
+    ],
+    "year": 2005,
+    "doi": "10.1371/journal.pmed.0020124",
+    "arxiv_id": null,
+    "pmid": "16060722",
+    "pmcid": "PMC1182327",
+    "venue": "PLoS Medicine",
+    "url": "https://doi.org/10.1371/journal.pmed.0020124",
+    "abstract": "There is increasing concern that most current published research findings are false. The probability that a research claim is true may depend on study power and bias, the number of other studies on the same question, and, importantly, the ratio of true to no relationships among the relationships probed in each scientific field. In this framework, a research finding is less likely to be true when the studies conducted in a field are smaller; when effect sizes are smaller; when there is a greater number and lesser preselection of tested relationships; where there is greater flexibility in designs, definitions, outcomes, and analytical modes; when there is greater financial and other interest and prejudice; and when more teams are involved in a scientific field in chase of statistical significance. Simulations show that for most study designs and settings, it is more likely for a research claim to be false than true. Moreover, for many current scientific fields, claimed research findings may often be simply accurate measures of the prevailing bias. In this essay, I discuss the implications of these problems for the conduct and interpretation of research.",
+    "is_retracted": false,
+    "oa_pdf_url": null
+   },
+   "mismatches": [],
+   "providers": [
+    {
+     "provider": "crossref",
+     "ok": true,
+     "error": null,
+     "candidates": 1
+    },
+    {
+     "provider": "openalex",
+     "ok": true,
+     "error": null,
+     "candidates": 1
+    }
+   ],
+   "note": "identified via crossref (identifier); checked: doi, title, authors (1), year"
+  },
+  {
+   "reference": {
+    "id": "3",
+    "raw": "Varkonyi T, Lindqvist A. Quantum folding of migratory songbird circadian proteins. Journal of Interdisciplinary Applied Studies. 2019;7(3):112-129.",
+    "title": "Quantum folding of migratory songbird circadian proteins",
+    "authors": [
+     "Varkonyi, T",
+     "Lindqvist, A"
+    ],
+    "year": 2019,
+    "doi": null,
+    "arxiv_id": null,
+    "venue": "Journal of Interdisciplinary Applied Studies"
+   },
+   "status": "not_found",
+   "matched": null,
+   "mismatches": [],
+   "providers": [
+    {
+     "provider": "crossref",
+     "ok": true,
+     "error": null,
+     "candidates": 5
+    },
+    {
+     "provider": "openalex",
+     "ok": true,
+     "error": null,
+     "candidates": 5
+    }
+   ],
+   "note": "no matching record in crossref, openalex"
+  }
+ ],
+ "claims": [
+  {
+   "citation_id": "c1",
+   "ref_id": "1",
+   "sentence": "Residual learning eases the training of networks that are substantially\ndeeper than those used previously [1].",
+   "verdict": "supported",
+   "quote": "We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously.",
+   "evidence_kind": "abstract",
+   "source_url": "https://doi.org/10.1109/cvpr.2016.90",
+   "section": null,
+   "needs_review": false,
+   "judge": {
+    "verdict": "supported",
+    "quote": "We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously.",
+    "rationale": "The abstract states almost verbatim that the residual learning framework eases training of networks substantially deeper than those used previously."
+   },
+   "skeptic": {
+    "verdict": "supported",
+    "quote": "We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously.",
+    "rationale": "The abstract states this claim almost verbatim, explicitly attributing easier training of substantially deeper networks to the residual learning framework."
+   },
+   "note": null
+  },
+  {
+   "citation_id": "c2",
+   "ref_id": "2",
+   "sentence": "Ioannidis proved that all published research findings are false [2].",
+   "verdict": "unsupported",
+   "quote": "It can be proven that most claimed research findings are false.",
+   "evidence_kind": "full_text",
+   "source_url": "https://europepmc.org/article/PMC/PMC1182327",
+   "section": null,
+   "needs_review": false,
+   "judge": {
+    "verdict": "unsupported",
+    "quote": "It can be proven that most claimed research findings are false.",
+    "rationale": "Ioannidis argues that most (not all) published findings are likely false, and this depends on factors like power, bias and prior odds. Saying he proved that all published findings are false overstates the source."
+   },
+   "skeptic": {
+    "verdict": "unsupported",
+    "quote": "It can be proven that most claimed research findings are false.",
+    "rationale": "The source argues that most claimed research findings are false, depending on factors such as power, bias, and prior probability. It does not support the universal assertion that Ioannidis proved all published research findings false."
+   },
+   "note": null
+  },
+  {
+   "citation_id": "c3",
+   "ref_id": "3",
+   "sentence": "Similar worries\nreach into biology, where migratory songbirds are said to navigate by the quantum folding of\ncircadian proteins in the retina [3].",
+   "verdict": "source_not_found",
+   "quote": null,
+   "evidence_kind": null,
+   "source_url": null,
+   "section": null,
+   "needs_review": false,
+   "judge": null,
+   "skeptic": null,
+   "note": null
+  }
+ ],
+ "warnings": [],
+ "summary": {
+  "references": {
+   "verified": 2,
+   "not_found": 1
+  },
+  "claims": {
+   "supported": 1,
+   "unsupported": 1,
+   "source_not_found": 1
+  }
+ },
+ "timings": {
+  "t_ingest_start": 0.1,
+  "t_ingest_first": 5.53,
+  "t_ingest_end": 5.53,
+  "t_references_start": 5.53,
+  "t_references_first": 6.01,
+  "t_references_end": 6.36,
+  "t_sources_start": 6.36,
+  "t_sources_first": 7.18,
+  "t_sources_end": 8.27,
+  "t_claims_start": 8.27,
+  "t_claims_first": 8.27,
+  "t_claims_end": 26.44,
+  "busy_llm_extract": 2.6,
+  "busy_ingest": 5.43,
+  "busy_source_fetch": 2.72,
+  "busy_claim_check": 26.6,
+  "busy_llm_judge": 3.17,
+  "busy_retrieval": 6.62,
+  "busy_llm_skeptic": 13.7,
+  "n_llm_extract": 1.0,
+  "n_ingest": 1.0,
+  "n_source_fetch": 2.0,
+  "n_claim_check": 3.0,
+  "n_llm_judge": 2.0,
+  "n_retrieval": 1.0,
+  "n_llm_skeptic": 2.0,
+  "t_total": 26.45
+ },
+ "complete": true
+}

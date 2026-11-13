@@ -11,6 +11,7 @@ def _offline_cache(request, monkeypatch, tmp_path):
     """Offline tests never touch the real CACHE_DIR (source texts, OpenAlex answers, budget
     counter). Live tests keep the real one so paid searches count against the daily budget."""
     if "tests/live/" in str(request.node.fspath):
+        yield
         return
     from claimtrace.core.settings import get_settings
 
