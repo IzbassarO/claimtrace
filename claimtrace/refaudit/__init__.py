@@ -6,7 +6,14 @@ from collections.abc import Callable
 
 import httpx
 
-from claimtrace.core.schemas import ProviderOutcome, Reference, ReferenceAudit, RefStatus, Work
+from claimtrace.core.schemas import (
+    Mismatch,
+    ProviderOutcome,
+    Reference,
+    ReferenceAudit,
+    RefStatus,
+    Work,
+)
 from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
@@ -33,8 +40,35 @@ PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
 
 
+def _arxiv_of(w: Work) -> str | None:
+    return norm_arxiv(w.arxiv_id) or arxiv_from_doi(w.doi)
+
+
 def _same_work(a: Work, b: Work) -> bool:
-    return bool(a.doi and a.doi == b.doi) or title_match(a.title, b.title)
+    d, x = norm_doi(a.doi), _arxiv_of(a)
+    return (
+        bool(d and d == norm_doi(b.doi))
+        or bool(x and x == _arxiv_of(b))
+        or title_match(a.title, b.title)
+    )
+
+
+def _foreign_ids(ref: Reference, best: Work, works: list[Work]) -> list[Mismatch]:
+    """A cited DOI / arXiv id that resolved to a record of a *different* work than `best`."""
+    out: dict[str, Mismatch] = {}
+    rd, ra = norm_doi(ref.doi), norm_arxiv(ref.arxiv_id) or arxiv_from_doi(ref.doi)
+    for w in works:
+        # untitled records prove nothing; versions of the same work are fine
+        if w is best or not w.title or not best.title or _same_work(best, w):
+            continue
+        if (rd and rd == norm_doi(w.doi)) or (not ref.arxiv_id and ra and ra == _arxiv_of(w)):
+            field, cited = "doi", ref.doi
+        elif ra and ra == _arxiv_of(w):
+            field, cited = "arxiv_id", ref.arxiv_id
+        else:
+            continue
+        out[field] = Mismatch(field=field, cited=cited, found=f"resolves to: {w.title}")
+    return list(out.values())
 
 
 def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -> ReferenceAudit:
@@ -80,6 +114,8 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
 
     best = min(identified, key=rank)
     out.mismatches = mismatches(ref, best)
+    seen = {m.field for m in out.mismatches}
+    out.mismatches += [m for m in _foreign_ids(ref, best, works) if m.field not in seen]
     matched = best.model_copy()
     for w in sorted(identified, key=rank):
         if w is not best and _same_work(best, w):
