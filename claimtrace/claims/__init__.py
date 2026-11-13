@@ -90,10 +90,26 @@ async def check_claim(
     first = judge.model_dump_json() if judge else '{"unavailable": "first reviewer failed"}'
     skeptic_user = f"{user}\n\nFirst reviewer's answer:\n{wrap_untrusted('first_review', first)}"
     skeptic, skeptic_err = await _ask("skeptic", SKEPTIC_SYSTEM, skeptic_user, skeptic_model)
+    return finalize(citation, ref_id, source, judge, skeptic, [judge_err, skeptic_err])
+
+
+def finalize(
+    citation: Citation,
+    ref_id: str,
+    source: SourceText,
+    judge: ModelOpinion | None,
+    skeptic: ModelOpinion | None,
+    errors: list[str | None] | None = None,
+) -> ClaimCheck:
+    """Model opinions -> ClaimCheck: combine, verbatim quote gate against the full source text,
+    section label, source fields. Pure; also used to re-derive cached opinions, so a cache hit
+    always passes the CURRENT gate and carries the CURRENT source's url/kind."""
     verdict, quote, needs_review, note = combine(judge, skeptic, source.text)
-    notes = [n for n in (judge_err, skeptic_err, note) if n]
+    notes = [n for n in (*(errors or []), note) if n]
     return ClaimCheck(
-        **base,
+        citation_id=citation.id,
+        ref_id=ref_id,
+        sentence=citation.sentence,
         verdict=Verdict(verdict),
         quote=quote,
         section=section_of(quote, source.text) if quote else None,
