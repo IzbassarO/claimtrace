@@ -66,9 +66,6 @@ async def test_search_endpoint_404_is_a_failure_not_not_found(broken):
     assert a.status == RefStatus.unchecked
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: a 404 on a paid search is cached forever, replayed after recovery"
-)
 async def test_openalex_search_404_is_not_cached():
     def down(req):
         if req.url.host == "api.openalex.org":
