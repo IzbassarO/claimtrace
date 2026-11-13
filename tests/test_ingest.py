@@ -239,8 +239,8 @@ async def test_text_plus_bib(monkeypatch):
 def grobid(monkeypatch, handler) -> None:
     monkeypatch.setattr(
         tei,
-        "make_client",
-        lambda timeout=30: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        "make_grobid_client",
+        lambda timeout=180: httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
 
 

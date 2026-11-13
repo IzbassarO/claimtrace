@@ -2,23 +2,23 @@
 
 ## refs
 
-2026-11-13T19:20:05+00:00 · params `{"limit": null, "seed": 0}`
+2026-11-13T19:32:31+00:00 · params `{"limit": null, "seed": 0}`
 
 | metric | value |
 |---|---|
 | n | 196 |
-| accuracy | 0.964 |
-| false_verified | 2 |
+| accuracy | 0.954 |
+| false_verified | 0 |
 | false_not_found | 0 |
-| unchecked_rate | 0.020 |
+| unchecked_rate | 0.036 |
 
 | mutation | n | accuracy | statuses |
 |---|---|---|---|
-| unchanged | 38 | 0.974 | metadata_mismatch 1, verified 37 |
+| unchanged | 38 | 0.947 | metadata_mismatch 2, verified 36 |
 | year_plus_3 | 38 | 1.000 | metadata_mismatch 38 |
 | negated_title | 38 | 1.000 | metadata_mismatch 38 |
-| swapped_first_author | 38 | 0.947 | metadata_mismatch 36, verified 2 |
-| fabricated | 38 | 0.895 | not_found 34, unchecked 4 |
+| swapped_first_author | 38 | 1.000 | metadata_mismatch 38 |
+| fabricated | 38 | 0.816 | not_found 31, unchecked 7 |
 | retracted | 6 | 1.000 | retracted 6 |
 
 ## scifact

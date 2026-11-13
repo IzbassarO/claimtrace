@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 
 import httpx
 
-from claimtrace.core.http import make_client, request
+from claimtrace.core.http import make_grobid_client, request
 from claimtrace.core.schemas import Citation, Reference
 from claimtrace.core.settings import get_settings
 from claimtrace.ingest.text import find_arxiv, find_doi
@@ -19,7 +19,7 @@ async def grobid_tei(pdf: bytes) -> str:
     url = get_settings().grobid_url.rstrip("/") + "/api/processFulltextDocument"
     data = {"segmentSentences": "1", "includeRawCitations": "1"}
     try:
-        async with make_client(timeout=180) as client:
+        async with make_grobid_client() as client:
             resp = await request(
                 client,
                 "POST",
