@@ -100,6 +100,7 @@ _WRAPPED = re.compile(rf"(10\.\d{{4,9}}/{_DOI_CHARS}*-)[ \t]*\r?\n[ \t]*(?=[\w(]
 _HYPHENS = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2212", "-"))  # PDF hyphens
 _IN_URL = re.compile(r"://\S*$")
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")  # soft hyphen, zero-width, BOM
+_SICI_HASH = re.compile(r"[^?#]*<[^>?#]*>[^?#]*;2-#")
 _OPEN = {")": "(", "]": "[", ">": "<"}
 _ARXIV = re.compile(
     r"(?:arxiv[:\s]\s*|arxiv\.org/(?:abs|pdf)/|10\.48550/arxiv\.)"
@@ -119,7 +120,10 @@ def find_doi(raw: str) -> str | None:
         return None
     doi = m.group(0)
     if _IN_URL.search(text[: m.start()]):  # query / fragment of a link is never part of a DOI
-        doi = re.split(r"[?#]", doi, maxsplit=1)[0]
+        # except a SICI check character '#' ('...<857::AID-SIM777>3.0.CO;2-#')
+        sici = _SICI_HASH.match(doi)
+        keep = sici.end() if sici else 0
+        doi = doi[:keep] + re.split(r"[?#]", doi[keep:], maxsplit=1)[0]
     doi = doi.rstrip(".,;:")
     while doi[-1] in _OPEN and doi.count(doi[-1]) > doi.count(_OPEN[doi[-1]]):
         doi = doi[:-1].rstrip(".,;:")

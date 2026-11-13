@@ -23,8 +23,16 @@ _SENT = re.compile(r"(?<=[.!?])\s+")
 _TOKEN = re.compile(r"\w+")
 _MAX_SENT_WORDS = 120
 _BLOCK = re.compile(r"\n[ \t\r\f\v]*\n\s*")
-HEADING_WORDS = 12
-_FLOAT_LABEL = re.compile(r"(?i)(fig(ure)?\.?|table|box|scheme)\s*[a-z]?\d")
+_SECTION = re.compile(
+    r"(?i)(?:(?:\d+(?:\.\d+)*|[ivx]+)\.?\s+)?(introduction|background|related work|methods"
+    r"|materials and methods|methodology|experimental setup|experiments|data|results"
+    r"|results and discussion|evaluation|analysis|discussion|conclusions?|limitations"
+    r"|future work|supplementary)"
+)
+# 'Figure 2.', 'Fig. 2', 'Table II', 'Table 1: ...'; not 'Table 1 shows ...' (body text)
+_FLOAT_LABEL = re.compile(
+    r"(?i)(?:fig(?:ure)?\.?|table|box|scheme)\s*(?:[a-z]?\d+[a-z]?|[ivxlc]+)\b\s*(?:$|[.:])"
+)
 
 _lock = threading.Lock()
 _model = None
@@ -71,37 +79,35 @@ def passages(text: str) -> list[str]:
     return [" ".join(sents[i : i + 3]) for i in range(0, len(sents) - 1, 2)]
 
 
-def _is_heading(block: str) -> bool:
-    """'Introduction', '2 Methods', '4.1 Training data': one short line, no final period."""
-    words = block.split()
-    return (
-        "\n" not in block
-        and 0 < len(words) <= HEADING_WORDS
-        and "|" not in block  # a JATS table row
-        and block[-1] not in ".,;:"
-        and (block[0].isupper() or block[0].isdigit())
-        and any(c.isalpha() for c in block)
-    )
+def _section_name(block: str) -> str | None:
+    """'Results', '3. Results', 'III. Discussion', '2.1 Methods' -> comparable name; any other
+    short line (subsection title, author list, table row) is not a heading for labelling."""
+    m = _SECTION.fullmatch(block)
+    return m.group(1).lower().rstrip("s") if m else None
 
 
 def paragraphs(text: str) -> list[tuple[str | None, str]]:
-    """(section heading or None, paragraph) per blank-line separated block; headings are not
-    paragraphs. Never guesses: short lines before the first real paragraph are front matter
-    (title, authors), and after a 'Figure 2' / 'Table 1' label the section is unknown (None)
-    until the next heading, so caption titles and text after an inline float get no label."""
+    """(section heading or None, paragraph) per blank-line separated block; recognised headings
+    are not paragraphs. Never guesses: text before the first recognised heading (title, authors,
+    abstract) is None; a heading name seen twice means a structured abstract, so everything
+    before that repeat is None too; after a 'Figure 2' / 'Table II' label the section is None
+    until the next recognised heading, so captions and text after an inline float get no label."""
+    blocks = [b for b in (b.strip() for b in _BLOCK.split(text)) if b]
+    names = [_section_name(b) for b in blocks]
+    seen, body = set(), 0
+    for i, name in enumerate(names):
+        if name and name in seen:
+            body = i
+            break
+        seen.add(name)
     out: list[tuple[str | None, str]] = []
-    section, seen_para, in_float = None, False, False
-    for block in (b.strip() for b in _BLOCK.split(text)):
-        if not block:
+    section = None
+    for i, (block, name) in enumerate(zip(blocks, names, strict=True)):
+        if name:
+            section = block if i >= body else None
             continue
-        heading = _is_heading(block)
-        if seen_para and heading and _FLOAT_LABEL.match(block):
-            section, in_float = None, True
-        elif seen_para and heading and not in_float:
-            section = block
-            continue
-        elif not heading:
-            seen_para, in_float = True, False
+        if _FLOAT_LABEL.match(block):
+            section = None
         out.append((section, block))
     return out
 

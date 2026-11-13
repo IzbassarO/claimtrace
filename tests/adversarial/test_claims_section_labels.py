@@ -4,8 +4,6 @@ Texts below are in the shape jats_to_text / body_text produce: title, author sur
 body, captions, one block per JATS <title>/<p>/<label>/<tr>, joined by blank lines.
 """
 
-import pytest
-
 from claimtrace.claims.retrieval import section_of
 
 QUOTE = "decreased by 6.2 mmHg in the walking group"
@@ -16,7 +14,6 @@ def _text(*blocks: str) -> str:
     return "\n\n".join(blocks)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: structured-abstract quote labelled as body 'Results'")
 def test_structured_abstract_results_is_not_the_results_section():
     text = _text(
         "Walking and blood pressure in older adults",
@@ -37,7 +34,6 @@ def test_structured_abstract_results_is_not_the_results_section():
     assert section is None or "abstract" in section.lower()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: long title makes author surnames the section label")
 def test_long_title_does_not_turn_author_names_into_a_section():
     text = _text(
         "Effect of a supervised walking programme on blood pressure in older adults: "
@@ -50,7 +46,6 @@ def test_long_title_does_not_turn_author_names_into_a_section():
     assert section_of(QUOTE, text) in (None, "Abstract")
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: caption after 'Figure 2.' label labelled Discussion")
 def test_caption_after_label_with_period_is_not_discussion():
     text = _text(
         "Walking and blood pressure in older adults",
@@ -65,9 +60,6 @@ def test_caption_after_label_with_period_is_not_discussion():
     assert section_of(QUOTE, text) is None
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: roman 'Table II' not a float; text after it mislabelled"
-)
 def test_text_after_roman_numeral_table_keeps_no_table_label():
     text = _text(
         "Walking and blood pressure in older adults",
@@ -87,7 +79,6 @@ def test_text_after_roman_numeral_table_keeps_no_table_label():
     assert section_of(QUOTE, text) in (None, "3 Results")
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: single-cell table row becomes the section label")
 def test_table_group_row_is_not_a_section():
     text = _text(
         "Walking and blood pressure in older adults",
