@@ -5,7 +5,7 @@ Three containers on one VM: `app` (uvicorn, port 8000, internal), `grobid` (CRF 
 
 ## 1. Create the server
 
-- Vultr → Deploy → Cloud Compute (shared CPU is fine), **≥ 4 GB RAM** (GROBID takes ~2 GB),
+- Vultr → Deploy → Cloud Compute (shared CPU is fine), **8 GB RAM** (GROBID peaks at ~4 GB, the app at ~0.7 GB; compose caps them at 4.5 GB and 1.5 GB),
   ≥ 2 vCPU, Ubuntu 24.04 LTS x64, add your SSH key.
 - Note the public IP, e.g. `203.0.113.7`.
 

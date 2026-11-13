@@ -43,8 +43,17 @@ async def grobid_tei(pdf: bytes) -> str:
     return resp.text
 
 
+_MARK = {"superscript": "^", "subscript": "_"}  # 10<hi rend="superscript">5</hi> -> "10^5"
+
+
+def _raw_text(el: ET.Element) -> str:
+    rends = (el.get("rend") or "").split() if el.tag == f"{{{NS['t']}}}hi" else []
+    mark = "".join(_MARK[r] for r in rends if r in _MARK)
+    return mark + (el.text or "") + "".join(_raw_text(c) + (c.tail or "") for c in el)
+
+
 def _text(el: ET.Element | None) -> str:
-    return re.sub(r"\s+", " ", "".join(el.itertext())).strip() if el is not None else ""
+    return re.sub(r"\s+", " ", _raw_text(el)).strip() if el is not None else ""
 
 
 def body_paragraphs(root: ET.Element) -> list[ET.Element]:
