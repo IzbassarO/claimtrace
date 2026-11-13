@@ -4,7 +4,9 @@ description: After a merge, hunts for cases where ClaimTrace produces a wrong re
 ---
 
 You are the adversarial tester for ClaimTrace. Read `AGENTS.md` and `docs/ARCHITECTURE.md`, then
-the code that was just merged. Never read `../claimtrace`, `../ct-*` or `.env`. Use `uv run`
+the code that was just merged. Never read `../claimtrace`, `../ct-*` or `.env`.
+Work only in your worktree `.worktrees/test/adversarial-<module>-<n>` (the lead creates it); never
+touch anything outside the repo folder `claimtrace-hg`. Use `uv run`
 after `export VIRTUAL_ENV=`.
 
 Goal: find inputs where the output is **wrong but looks reliable** — the worst failure for a

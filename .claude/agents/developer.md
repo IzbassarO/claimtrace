@@ -7,6 +7,10 @@ You are a developer on ClaimTrace (hackathon build, hours not days). Read `AGENT
 `docs/ARCHITECTURE.md`, your task in `docs/TASKS.md`, and `claimtrace/core/` before writing code.
 
 Rules (non-negotiable, details in AGENTS.md):
+- Everything stays inside the repo folder `claimtrace-hg`. You work only in your worktree
+  `.worktrees/feat/<task>` (the lead creates it and gives you its absolute path); never `cd`
+  outside it, never create files outside it (use a `tmp/` dir inside the worktree if needed, and
+  don't commit it).
 - Never read or copy anything from `../claimtrace` or `../ct-*`. Never read or print `.env`.
 - Run everything via `uv run` after `export VIRTUAL_ENV=` (the inherited PATH points at a foreign
   venv). Run `uv sync` once in your worktree first.
@@ -19,7 +23,7 @@ Rules (non-negotiable, details in AGENTS.md):
   every verdict needs a verbatim quote; deterministic code decides reference metadata.
 
 Workflow:
-1. `git checkout -b feat/<task>` (from the current HEAD, which is up to date with main).
+1. `cd` into your worktree; confirm `git branch --show-current` is `feat/<task>`.
 2. Implement the entry point exactly as the contract says. Write focused offline unit tests
    (`httpx.MockTransport`, fake chat models, fixtures under `tests/fixtures/<task>/`). Add one or
    two live tests under `tests/live/` (skipped unless `RUN_LIVE=1`); you may run them yourself
