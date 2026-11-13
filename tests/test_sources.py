@@ -1,3 +1,5 @@
+import os
+import time
 from pathlib import Path
 
 import httpx
@@ -19,12 +21,12 @@ OTHER_TEXT = "Deep residual learning for image recognition. " + "Convolutional n
 
 
 @pytest.fixture(autouse=True)
-def _offline(monkeypatch):
+def _offline(monkeypatch, tmp_path):
     async def no_sleep(_):
         return None
 
     monkeypatch.setattr("claimtrace.core.http.asyncio.sleep", no_sleep)
-    settings = Settings(_env_file=None, contact_email="test@example.org")
+    settings = Settings(_env_file=None, contact_email="test@example.org", cache_dir=str(tmp_path))
     monkeypatch.setattr(src, "get_settings", lambda: settings)
 
 
@@ -327,3 +329,179 @@ async def test_no_matched_work_returns_none():
     a = ReferenceAudit(reference=Reference(id="1", raw="x"), status=RefStatus.not_found)
     async with client({}) as c:
         assert await src.fetch_source(a, c, fake_pdf_to_text()) is None
+
+
+# ---------- bioRxiv / medRxiv, OpenAlex locations ----------
+
+BIO_DOI = "10.1101/2020.03.22.002386"
+OA_WORK = "api.openalex.org/works/doi:" + DOI
+
+
+def biorxiv_details(versions):
+    return httpx.Response(200, json={"collection": [{"version": str(v)} for v in versions]})
+
+
+async def test_biorxiv_latest_version_pdf():
+    seen: list = []
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + BIO_DOI: biorxiv_details([1, 3, 2]),
+        f"www.biorxiv.org/content/{BIO_DOI}v3.full.pdf": pdf_resp(),
+    }
+    async with client(routes, seen) as c:
+        s = await src.fetch_source(audit(doi=BIO_DOI), c, fake_pdf_to_text())
+    assert s.kind == "full_text" and s.origin == "biorxiv"
+    assert s.url == f"https://www.biorxiv.org/content/{BIO_DOI}v3.full.pdf"
+    assert "api.unpaywall.org/v2/" + BIO_DOI not in seen  # bioRxiv comes before Unpaywall
+
+
+async def test_medrxiv_when_biorxiv_has_no_record():
+    med = "10.1101/2020.04.14.20062463"
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + med: biorxiv_details([]),
+        "api.biorxiv.org/details/medrxiv/" + med: biorxiv_details([2]),
+        f"www.medrxiv.org/content/{med}v2.full.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=med), c, fake_pdf_to_text())
+    assert s.origin == "biorxiv" and s.url == f"https://www.medrxiv.org/content/{med}v2.full.pdf"
+
+
+async def test_cshl_journal_doi_is_not_sent_to_biorxiv():
+    seen: list = []
+    async with client({}, seen) as c:
+        await src.fetch_source(audit(doi="10.1101/gr.123456.111"), c, fake_pdf_to_text())
+    assert not any(k.startswith("api.biorxiv.org") for k in seen)
+
+
+async def test_biorxiv_blocked_falls_through_to_unpaywall():
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + BIO_DOI: biorxiv_details([1]),
+        f"www.biorxiv.org/content/{BIO_DOI}v1.full.pdf": pdf_resp(b"<html>", "text/html"),
+        "api.unpaywall.org/v2/" + BIO_DOI: httpx.Response(
+            200, json={"best_oa_location": {"url_for_pdf": "https://oa.example.org/p.pdf"}}
+        ),
+        "oa.example.org/p.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=BIO_DOI), c, fake_pdf_to_text())
+    assert s.origin == "unpaywall" and s.url == "https://oa.example.org/p.pdf"
+
+
+async def test_openalex_locations_each_pass_the_guard():
+    work = {
+        "best_oa_location": {"pdf_url": "https://oa.example.org/p.pdf"},  # tried by Unpaywall
+        "primary_location": {"pdf_url": None},
+        "locations": [
+            {"pdf_url": "https://repo.example.org/other.pdf"},  # another paper
+            {"pdf_url": None},
+            {"pdf_url": "https://repo.example.org/right.pdf"},
+        ],
+    }
+    routes = {
+        OA_WORK: httpx.Response(200, json=work),
+        "oa.example.org/p.pdf": pdf_resp(b"%PDF-1.7 broken"),
+        "repo.example.org/other.pdf": pdf_resp(b"%PDF-1.7 other"),
+        "repo.example.org/right.pdf": pdf_resp(),
+    }
+    calls: list = []
+
+    async def by_pdf(pdf: bytes) -> str:
+        calls.append(pdf)
+        if pdf.endswith(b"broken"):
+            raise RuntimeError("GROBID could not parse")
+        return OTHER_TEXT if pdf.endswith(b"other") else GOOD_TEXT
+
+    async with client(routes) as c:
+        s = await src.fetch_source(
+            audit(doi=DOI, oa_pdf_url="https://oa.example.org/p.pdf"), c, by_pdf
+        )
+    assert s.kind == "full_text" and s.origin == "openalex"
+    assert s.url == "https://repo.example.org/right.pdf"
+    assert len(calls) == 3  # the url Unpaywall already tried is not downloaded twice
+
+
+async def test_openalex_locations_all_wrong_falls_back_to_openalex_abstract():
+    work = {
+        "locations": [{"pdf_url": "https://repo.example.org/other.pdf"}],
+        "abstract_inverted_index": {"Vitamin": [0], "D.": [1]},
+    }
+    routes = {
+        OA_WORK: httpx.Response(200, json=work),
+        "repo.example.org/other.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=DOI), c, fake_pdf_to_text(OTHER_TEXT))
+    assert s.kind == "abstract" and s.origin == "openalex" and s.text == "Vitamin D."
+
+
+# ---------- disk cache ----------
+
+
+def cache_files(tmp_path) -> list[Path]:
+    return sorted((tmp_path / "sources").glob("*.json"))
+
+
+async def test_cache_hit_skips_network_and_takes_new_ref_id(tmp_path):
+    seen: list = []
+    async with client({ARXIV_PDF: pdf_resp()}, seen) as c:
+        first = await src.fetch_source(audit(arxiv_id="2101.00001"), c, fake_pdf_to_text())
+    assert first.origin == "arxiv" and len(cache_files(tmp_path)) == 1
+    seen.clear()
+    again = audit(arxiv_id="2101.00001")
+    again.reference.id = "7"
+    async with client({}, seen) as c:
+        s = await src.fetch_source(again, c, fake_pdf_to_text(RuntimeError("not called")))
+    assert seen == [] and s.ref_id == "7" and s.text == first.text and s.url == first.url
+
+
+async def test_none_and_failures_are_not_cached(tmp_path):
+    async with client({ARXIV_PDF: httpx.Response(503)}) as c:
+        assert await src.fetch_source(audit(arxiv_id="2101.00001"), c, fake_pdf_to_text()) is None
+    assert cache_files(tmp_path) == []
+
+
+async def test_corrupt_cache_file_is_ignored_and_replaced(tmp_path):
+    a = audit(doi=DOI, abstract="We tested vitamin D in 4,000 adults.")
+    f = src._cache_file(a.matched)
+    f.parent.mkdir(parents=True)
+    f.write_text('{"ref_id": "1", "kind": "full_text", "te')
+    async with client({}) as c:
+        s = await src.fetch_source(a, c, fake_pdf_to_text())
+    assert s.kind == "abstract" and src.SourceText.model_validate_json(f.read_text()) == s
+
+
+async def test_stale_abstract_is_refetched_but_full_text_is_kept(tmp_path):
+    old = time.time() - src.ABSTRACT_TTL - 60
+    a = audit(doi=DOI, abstract="Old abstract.")
+    async with client({}) as c:
+        await src.fetch_source(a, c, fake_pdf_to_text())
+    f = src._cache_file(a.matched)
+    os.utime(f, (old, old))
+    a.matched.abstract = "New abstract."
+    async with client({}) as c:
+        assert (await src.fetch_source(a, c, fake_pdf_to_text())).text == "New abstract."
+    full = src.SourceText(ref_id="1", kind="full_text", origin="arxiv", text=GOOD_TEXT)
+    f.write_text(full.model_dump_json())
+    os.utime(f, (old, old))
+    async with client({}) as c:
+        assert (await src.fetch_source(a, c, fake_pdf_to_text())).kind == "full_text"
+
+
+async def test_cache_keeps_only_newest_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(src, "CACHE_MAX_FILES", 2)
+    async with client({}) as c:
+        for i in range(4):
+            a = audit(doi=f"10.1000/x{i}", abstract=f"Abstract {i}.")
+            await src.fetch_source(a, c, fake_pdf_to_text())
+            os.utime(src._cache_file(a.matched), (1000 + i, 1000 + i))
+    kept = {f.name for f in cache_files(tmp_path)}
+    assert kept == {src._cache_file(audit(doi=f"10.1000/x{i}").matched).name for i in (2, 3)}
+
+
+def test_cache_key_title_needs_year_and_first_author():
+    a = Work(provider="crossref", title=TITLE, year=2020, authors=["Smith, J"])
+    b = Work(provider="crossref", title=TITLE.upper(), year=2020, authors=["J Smith"])
+    assert src._cache_file(a) == src._cache_file(b)
+    assert src._cache_file(a) != src._cache_file(a.model_copy(update={"year": 2021}))
+    assert src._cache_file(a) != src._cache_file(a.model_copy(update={"authors": ["Lee, K"]}))
+    assert src._cache_file(Work(provider="crossref")) is None

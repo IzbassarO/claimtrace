@@ -38,6 +38,7 @@ from claimtrace.refaudit.providers import (
     Gate,
     arxiv_batch,
     crossref,
+    doi_registered,
     openalex_doi,
     openalex_search,
     semanticscholar,
@@ -47,13 +48,32 @@ PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
 
 
+def _preprint(w: Work) -> bool:
+    """arXiv id / arXiv DataCite DOI, or a bioRxiv / medRxiv DOI (10.1101/)."""
+    return bool(arxiv_of(w) or (norm_doi(w.doi) or "").startswith("10.1101/"))
+
+
 def _same_work(a: Work, b: Work) -> bool:
+    """Same DOI, same arXiv id, or same title and first author and either year (±1) or exactly
+    one preprint (a preprint and its journal version may be years apart). Two journal records
+    of one title by one author years apart are two works (a 2012 and a 2019 editorial), and a
+    record listing no authors joins only via a shared id: 'Deep learning' is LeCun 2015 and
+    Goodfellow 2016."""
     d, x = norm_doi(a.doi), arxiv_of(a)
     return (
         bool(d and d == norm_doi(b.doi))
         or bool(x and x == arxiv_of(b))
-        or title_match(a.title, b.title)
+        or (
+            title_match(a.title, b.title)
+            and first_author_equal(a.authors, b.authors)
+            and (year_ok(a.year, b.year) or _preprint(a) != _preprint(b))
+        )
     )
+
+
+def _carries_doi(w: Work, doi: str) -> bool:
+    a = arxiv_from_doi(doi)
+    return norm_doi(w.doi) == doi or bool(a and arxiv_of(w) == a)
 
 
 def _foreign_ids(ref: Reference, best: Work, works: list[Work]) -> list[Mismatch]:
@@ -96,12 +116,28 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             for w in works
             if ref.title
             and w.title
-            and first_author_equal(ref.authors, w.authors)
-            and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
             and (
-                title_prefix(ref.title, w.title)
-                or max(title_similarity(ref.title, w.title), _head_similarity(ref.title, w.title))
-                >= 0.85
+                (
+                    first_author_equal(ref.authors, w.authors)
+                    and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
+                    and (
+                        title_prefix(ref.title, w.title)
+                        or max(
+                            title_similarity(ref.title, w.title),
+                            _head_similarity(ref.title, w.title),
+                        )
+                        >= 0.85
+                    )
+                )
+                # no cited authors to confirm with: a near-identical title + year is still close
+                or (
+                    not ref.authors
+                    and year_ok(ref.year, w.year)
+                    and (
+                        title_prefix(ref.title, w.title)
+                        or title_similarity(ref.title, w.title) >= 0.9
+                    )
+                )
             )
         ]
         notices = [w for w in works if title_match(ref.title, strip_notice(w.title))]
@@ -132,10 +168,21 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     by_id = [w for w in identified if id_equal(ref, w)]
     anchored = [w for w in identified if any(w is v or _same_work(v, w) for v in by_id)]
 
+    # the cited id resolves to a record with the cited title: when that title is shared by
+    # another paper, title + year + first author decide which one is cited, and the DOI of the
+    # other ('Deep learning', LeCun vs Goodfellow) is the foreign one
+    contested = any(title_match(ref.title, v.title) for v in anchored)
+
     def rank(w: Work):
         sim = title_similarity(ref.title, w.title) if ref.title and w.title else 0.0
+        full = (
+            contested
+            and title_match(ref.title, w.title)
+            and year_ok(ref.year, w.year)
+            and first_author_equal(ref.authors, w.authors)
+        )
         return (
-            not any(w is v for v in anchored),
+            not (full or any(w is v for v in anchored)),
             len(mismatches(ref, w)),
             -sum(map(bool, (w.title, w.authors, w.year, w.doi))),  # coverage
             -sim,
@@ -155,12 +202,31 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     out.mismatches, checked = compare(ref, group)
     seen = {m.field for m in out.mismatches}
     out.mismatches += [m for m in _foreign_ids(ref, best, works) if m.field not in seen]
+    doi_unconfirmed = doi_note = None
+    d1 = norm_doi(ref.doi)
+    if d1 and "doi" not in {m.field for m in out.mismatches}:
+        if not any(_carries_doi(w, d1) for w in works):
+            # no record carries the cited DOI: only doi.org can say it does not exist (a
+            # DataCite / Zenodo DOI is registered but missing from Crossref and OpenAlex)
+            look = {"crossref", "openalex"} | ({"arxiv"} if arxiv_from_doi(d1) else set())
+            asked = [o for o in outcomes if o.provider in look]
+            reg = next((o for o in outcomes if o.provider == "doi.org"), None)
+            if failed := [o.provider for o in asked if not o.ok] or (not asked and ["none"]):
+                doi_unconfirmed = f"cited DOI not confirmed; provider failed: {', '.join(failed)}"
+            elif reg is None or not reg.ok:
+                doi_unconfirmed = "cited DOI not in Crossref/OpenAlex, not confirmed by doi.org"
+            elif reg.candidates:
+                doi_note = "DOI registered (not in Crossref/OpenAlex), not compared"
+            else:
+                out.mismatches.append(
+                    Mismatch(field="doi", cited=ref.doi, found="does not resolve (doi.org)")
+                )
     matched = best.model_copy()
     for w in sorted(group, key=rank):
         for f in (*MERGE_FIELDS, "title", "authors", "year"):
             if not getattr(matched, f) and getattr(w, f):
                 setattr(matched, f, getattr(w, f))
-    retracted_by = [w.provider for w in identified if w.is_retracted]
+    retracted_by = [w.provider for w in group if w.is_retracted]
     matched.is_retracted = bool(retracted_by)
     out.matched = matched
     how = (
@@ -171,11 +237,15 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         else "truncated title + year + first author"
     )
     out.note = f"identified via {best.provider} ({how}); checked: {', '.join(checked) or 'ids'}"
+    if doi_note:
+        out.note += f"; {doi_note}"
     if retracted_by:
         out.status = RefStatus.retracted
         out.note += f"; retraction flagged by {', '.join(sorted(set(retracted_by)))}"
     elif out.mismatches:
         out.status = RefStatus.metadata_mismatch
+    elif doi_unconfirmed:
+        out.note += f"; {doi_unconfirmed}"
     elif not (
         any(c.startswith("title") for c in checked)
         and any(c.startswith(("authors", "year")) for c in checked)
@@ -242,7 +312,16 @@ async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
         except Exception as e:  # noqa: BLE001
             res = e
         pairs.append(_outcome("arxiv", res))
-    return decide(ref, [w for _, ws in pairs for w in ws], [o for o, _ in pairs])
+    works = [w for _, ws in pairs for w in ws]
+    d = norm_doi(ref.doi)
+    if d and any(identifies(ref, w) for w in works) and not any(_carries_doi(w, d) for w in works):
+        # decide() reads candidates as the doi.org answer: 1 = registered, 0 = no such DOI
+        try:
+            reg = await doi_registered(client, gates["doi"], d)
+            pairs.append((ProviderOutcome(provider="doi.org", ok=True, candidates=int(reg)), []))
+        except Exception as e:  # noqa: BLE001
+            pairs.append(_outcome("doi.org", e))
+    return decide(ref, works, [o for o, _ in pairs])
 
 
 async def audit_references(
@@ -256,6 +335,7 @@ async def audit_references(
         "openalex": Gate(4),
         "semanticscholar": Gate(1, 1.1),
         "arxiv": Gate(1, 3.0),
+        "doi": Gate(4),
     }
     # keyless Semantic Scholar is mostly 429s, which would turn not_found into unchecked
     use_s2 = bool(get_settings().semantic_scholar_api_key.get_secret_value())

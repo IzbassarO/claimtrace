@@ -8,5 +8,7 @@ __pycache__/
 .worktrees/
 .claude/settings.local.json
 eval/.cache/
+.playwright-mcp/
 .cache/
 *.egg-info/
+.pytest-tmp/

@@ -50,12 +50,27 @@ def _fold(s: str) -> str:
     return s.casefold().replace("’", "'").replace("‘", "'")
 
 
+_GREEK = dict(
+    zip(
+        "αβγδεζηθικλμνξοπρσςτυφχψω",
+        "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho "
+        "sigma sigma tau upsilon phi chi psi omega".split(),
+        strict=True,
+    )
+)
+
+
+def _tfold(s: str) -> str:
+    """_fold for titles only: Greek letters spelled out (TNF-α == TNF-alpha). Never quotes."""
+    return "".join(_GREEK.get(c, c) for c in _fold(s))
+
+
 def strip_retracted(title: str) -> str:
     return RETRACTED_PREFIX.sub("", title)
 
 
 def normalize_title(title: str) -> str:
-    t = _fold(strip_retracted(title))
+    t = _tfold(strip_retracted(title))
     return " ".join(re.findall(r"\w+", t.replace("'", "")))
 
 
@@ -69,7 +84,7 @@ def strip_notice(title: str | None) -> str | None:
 
 def negations(title: str) -> set[str]:
     out = set()
-    toks = re.findall(r"\w+(?:'\w+)?", _fold(title))
+    toks = re.findall(r"\w+(?:'\w+)?", _tfold(title))
     for tok, nxt in zip(toks, toks[1:] + [""], strict=True):
         if tok == "cannot" or tok.endswith("n't"):
             out.add("not")
@@ -86,7 +101,7 @@ def negations(title: str) -> set[str]:
 
 def numbers(title: str) -> set[str]:
     out = set()
-    for t in re.findall(r"\w+", _fold(title)):
+    for t in re.findall(r"\w+", _tfold(title)):
         if any(c.isdigit() for c in t):
             out.add(t)
         elif n := _NUMBER_WORDS.get(t) or _ROMAN.get(t):
@@ -137,7 +152,7 @@ def _canon(w: str) -> str:
 
 
 def _content_words(title: str) -> list[str]:
-    t = re.sub(r"\bcan'?t\b|\bcannot\b", "can not", _fold(title))
+    t = re.sub(r"\bcan'?t\b|\bcannot\b", "can not", _tfold(title))
     t = re.sub(r"n't\b", " not", t).replace("'", "")
     return [_canon(w) for w in re.findall(r"\w+", t) if w not in _STOP]
 
@@ -290,16 +305,24 @@ def missing_author(cited: list[str], found: list[str]) -> str | None:
     )
 
 
+# a title as exactly one whole field of a raw reference: after start / ". " / ") " / "). " /
+# an opening quote (not ": ", which starts a subtitle, nor a bare year), before end / "." /
+# a closing quote (IEEE '"Title," Journal'); "?" / "!" only when the field ends there too
+_FIELD_START = r"(?:^|[.)]\s+|[\"'“”]\s*)"
+_FIELD_END = r"(?:[.?!]?(?:$|[\"'“”])|\.(?=\s)|[?!](?=\.\s)|,[\"'“”])"
+
+
 def _in_raw(raw: str, title: str) -> bool:
-    """The found title, word for word, inside the raw reference string (>= 3 words), and the
-    raw string has no negation the title lacks ('No evidence that <title>'). An issue number
-    'No. 3' also counts as a negation: that only leaves the title unchecked."""
-    t = normalize_title(title)
-    return (
-        len(t.split()) >= 3
-        and f" {t} " in f" {normalize_title(raw)} "
-        and negations(raw) == negations(title)
-    )
+    """The found title (>= 3 words) is a whole field of the raw reference string, with no
+    negation word right before it, and the raw string has no negation the title lacks ('No
+    evidence that <title>'). An issue number 'No. 3' also counts: that only leaves the title
+    unchecked. A sub-span of a longer cited title is not a field."""
+    words = re.findall(r"\w+", _tfold(strip_retracted(title)))
+    if len(words) < 3 or negations(raw) != negations(title):
+        return False
+    r = _tfold(raw).strip()
+    pat = _FIELD_START + r"[\W_]+".join(map(re.escape, words)) + r"\s*" + _FIELD_END
+    return any(not negations(" ".join(r[: m.start()].split()[-1:])) for m in re.finditer(pat, r))
 
 
 def compare(ref: Reference, works: list[Work]) -> tuple[list[Mismatch], list[str]]:
@@ -343,11 +366,10 @@ def compare(ref: Reference, works: list[Work]) -> tuple[list[Mismatch], list[str
         )
     elif ref.raw and any(w.title and _in_raw(ref.raw, w.title) for w in works):
         checked.append("title (in raw reference)")  # found title stated verbatim in the raw
-    if ref.authors and (rs := [w for w in works if w.authors]):
+    if ref.authors and (fa := max((w.authors for w in works), key=len, default=[])):
+        # the most complete list: a record listing fewer authors never hides a co-author
         checked.append(f"authors ({len(ref.authors)})")
-        if all(missing_author(ref.authors, w.authors) for w in rs):
-            fa = rs[0].authors
-            miss = missing_author(ref.authors, fa)
+        if miss := missing_author(ref.authors, fa):
             found = fa[0] if not first_author_equal(ref.authors, fa) else ", ".join(fa[:6])
             out.append(Mismatch(field="authors", cited=miss, found=found))
     if ref.year is not None:

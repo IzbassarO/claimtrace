@@ -42,4 +42,6 @@ select = ["E", "F", "I", "B", "UP", "ASYNC"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+# keep pytest temp dirs inside the repo (one-folder rule); pytest recreates it each run
+addopts = "--basetemp=.pytest-tmp"
 markers = ["live: hits real network/LLM APIs; runs only with RUN_LIVE=1"]
