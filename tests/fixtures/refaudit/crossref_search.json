@@ -1,0 +1,163 @@
+{
+  "status": "ok",
+  "message": {
+    "items": [
+      {
+        "DOI": "10.1109/hotchips.2015.7477328",
+        "title": [
+          "Deep learning &amp; convolutional networks"
+        ],
+        "author": [
+          {
+            "given": "Yann",
+            "family": "LeCun"
+          }
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2015,
+              8
+            ]
+          ]
+        },
+        "container-title": [
+          "2015 IEEE Hot Chips 27 Symposium (HCS)"
+        ],
+        "URL": "https://doi.org/10.1109/hotchips.2015.7477328",
+        "updated-by": null,
+        "update-to": null,
+        "abstract": null
+      },
+      {
+        "DOI": "10.1038/nature14539",
+        "title": [
+          "Deep learning"
+        ],
+        "author": [
+          {
+            "given": "Yann",
+            "family": "LeCun"
+          },
+          {
+            "given": "Yoshua",
+            "family": "Bengio"
+          },
+          {
+            "given": "Geoffrey",
+            "family": "Hinton"
+          }
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2015,
+              5,
+              27
+            ]
+          ]
+        },
+        "container-title": [
+          "Nature"
+        ],
+        "URL": "https://doi.org/10.1038/nature14539",
+        "updated-by": null,
+        "update-to": null,
+        "abstract": null
+      },
+      {
+        "DOI": "10.1007/s11263-015-0813-1",
+        "title": [
+          "Guest Editorial: Deep Learning"
+        ],
+        "author": [
+          {
+            "given": "Marc’Aurelio",
+            "family": "Ranzato"
+          },
+          {
+            "given": "Geoffrey",
+            "family": "Hinton"
+          },
+          {
+            "given": "Yann",
+            "family": "LeCun"
+          }
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2015,
+              4,
+              24
+            ]
+          ]
+        },
+        "container-title": [
+          "International Journal of Computer Vision"
+        ],
+        "URL": "https://doi.org/10.1007/s11263-015-0813-1",
+        "updated-by": null,
+        "update-to": null,
+        "abstract": null
+      },
+      {
+        "DOI": "10.1109/isscc.2019.8662396",
+        "title": [
+          "1.1 Deep Learning Hardware: Past, Present, and Future"
+        ],
+        "author": [
+          {
+            "given": "Yann",
+            "family": "LeCun"
+          }
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2019,
+              2
+            ]
+          ]
+        },
+        "container-title": [
+          "2019 IEEE International Solid- State Circuits Conference - (ISSCC)"
+        ],
+        "URL": "https://doi.org/10.1109/isscc.2019.8662396",
+        "updated-by": null,
+        "update-to": null,
+        "abstract": null
+      },
+      {
+        "DOI": "10.1162/daed.a.972",
+        "title": [
+          "Learning Abstractions: A Conversation with Yann LeCun"
+        ],
+        "author": [
+          {
+            "given": "Yann",
+            "family": "LeCun"
+          },
+          {
+            "given": "James",
+            "family": "Manyika"
+          }
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2026
+            ]
+          ]
+        },
+        "container-title": [
+          "Daedalus"
+        ],
+        "URL": "https://doi.org/10.1162/daed.a.972",
+        "updated-by": null,
+        "update-to": null,
+        "abstract": null
+      }
+    ]
+  }
+}
