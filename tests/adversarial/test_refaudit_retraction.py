@@ -14,7 +14,6 @@ REF = Reference(id="1", raw="", title=T, year=2020, authors=["Smith J"])
 ALL_OK = [ProviderOutcome(provider=p, ok=True) for p in ("crossref", "openalex")]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: WITHDRAWN:/RETRACTED ARTICLE: titles not flagged")
 @pytest.mark.parametrize("prefix", ["WITHDRAWN: ", "RETRACTED ARTICLE: ", "Retracted - "])
 def test_retraction_title_prefix_is_flagged(prefix):
     w = parse_s2(
@@ -23,9 +22,6 @@ def test_retraction_title_prefix_is_flagged(prefix):
     assert refaudit.decide(REF, [w], ALL_OK).status == RefStatus.retracted  # today: verified
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: Crossref 'withdrawal' update not treated as retraction"
-)
 def test_crossref_withdrawal_update_is_flagged():
     item = {
         "DOI": "10.1/w",

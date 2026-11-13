@@ -10,11 +10,13 @@ from claimtrace.core.schemas import ProviderOutcome, Reference, ReferenceAudit, 
 from claimtrace.core.settings import get_settings
 from claimtrace.refaudit.match import (
     ARXIV_ID,
+    arxiv_from_doi,
     id_equal,
     identifies,
     mismatches,
     norm_arxiv,
     norm_doi,
+    strip_notice,
     title_match,
     title_similarity,
 )
@@ -41,10 +43,14 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
     if not identified:
         failed = [o.provider for o in outcomes if not o.ok]
         near = [w for w in works if title_match(ref.title, w.title)]
+        notices = [w for w in works if title_match(ref.title, strip_notice(w.title))]
         if failed:
             out.note = f"no match; provider failed: {', '.join(failed)}"
         elif not outcomes:
             out.note = "no provider could be queried"
+        elif notices and not near:
+            w = notices[0]
+            out.note = f"{w.provider} has only a correction/erratum notice for this title"
         elif near:
             w = near[0]
             out.note = (
@@ -57,9 +63,19 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             out.note = f"no matching record in {', '.join(o.provider for o in outcomes)}"
         return out
 
+    # works found by the cited id, plus other versions of the same work (a journal record next
+    # to the cited preprint); among those the one agreeing with the citation wins
+    by_id = [w for w in identified if id_equal(ref, w)]
+    anchored = [w for w in identified if any(w is v or _same_work(v, w) for v in by_id)]
+
     def rank(w: Work):
         sim = title_similarity(ref.title, w.title) if ref.title and w.title else 0.0
-        return (not id_equal(ref, w), len(mismatches(ref, w)), -sim, PRIORITY[w.provider])
+        return (
+            not any(w is v for v in anchored),
+            len(mismatches(ref, w)),
+            -sim,
+            PRIORITY[w.provider],
+        )
 
     best = min(identified, key=rank)
     out.mismatches = mismatches(ref, best)
@@ -91,8 +107,12 @@ def _outcome(provider: str, res) -> tuple[ProviderOutcome, list[Work]]:
     return ProviderOutcome(provider=provider, ok=True, candidates=len(res)), res
 
 
+def _ref_arxiv(ref: Reference) -> str | None:
+    return norm_arxiv(ref.arxiv_id) or arxiv_from_doi(ref.doi)
+
+
 async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
-    aid = norm_arxiv(ref.arxiv_id)
+    aid = _ref_arxiv(ref)
     aid = aid if aid and ARXIV_ID.match(aid) else None
     if not (ref.title or norm_doi(ref.doi) or aid):
         return ReferenceAudit(
@@ -131,7 +151,7 @@ async def audit_references(
     }
     # keyless Semantic Scholar is mostly 429s, which would turn not_found into unchecked
     use_s2 = bool(get_settings().semantic_scholar_api_key.get_secret_value())
-    ids = [a for r in refs if (a := norm_arxiv(r.arxiv_id))]
+    ids = [a for r in refs if (a := _ref_arxiv(r))]
     arxiv_task = asyncio.ensure_future(arxiv_batch(client, gates["arxiv"], ids))
     done = 0
 

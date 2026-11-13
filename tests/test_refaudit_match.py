@@ -55,6 +55,46 @@ from claimtrace.refaudit.match import (
             "RETRACTED: Ileal-lymphoid-nodular hyperplasia in children",
             True,
         ),
+        # retraction/withdrawal prefixes in other spellings
+        ("Ileal hyperplasia in children", "WITHDRAWN: Ileal hyperplasia in children", True),
+        ("Ileal hyperplasia in children", "Retraction Note: Ileal hyperplasia in children", True),
+        # more negation phrasings; "failure" alone is not one
+        ("Lack of effect of drug X on pain", "Effect of drug X on pain", False),
+        ("Drug X fails to reduce pain in adults", "Drug X reduces pain in adults", False),
+        ("Heart failure outcomes in older adults", "Heart failure outcomes in older adults", True),
+        (
+            "Nonlinear dynamics of coupled oscillators",
+            "Non-linear dynamics of coupled oscillators",
+            True,
+        ),
+        # roman / spelled-out numbers compare as numbers
+        ("A phase II trial of drug X in melanoma", "A phase 2 trial of drug X in melanoma", True),
+        (
+            "A phase II trial of drug X in melanoma",
+            "A phase III trial of drug X in melanoma",
+            False,
+        ),
+        ("Two-year outcomes of valve replacement", "2-year outcomes of valve replacement", True),
+        ("X-ray imaging of the human chest wall", "X-ray imaging of the human chest wall", True),
+        # subtitles: omitted (even with a number) matches, a different one does not
+        (
+            "Mortality after cardiac surgery",
+            "Mortality after cardiac surgery: a 10-year study",
+            True,
+        ),
+        ("Deep learning in imaging: promises", "Deep learning in imaging: pitfalls", False),
+        # a correction notice is not the paper
+        (
+            "Effects of drug X on pain in adults",
+            "Correction to: Effects of drug X on pain in adults",
+            False,
+        ),
+        (
+            "Effects of drug X on pain in adults",
+            "Author Correction: Effects of drug X on pain in adults",
+            False,
+        ),
+        ("Correction of scoliosis in adolescents", "Correction of scoliosis in adolescents", True),
         # clearly different
         ("Deep learning", "Guest Editorial: Deep Learning", False),
         (None, "Anything", False),

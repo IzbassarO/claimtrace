@@ -16,7 +16,6 @@ def audit(cited: str, found: str):
     return refaudit.decide(ref, [work], ALL_OK)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: negation phrases other than not/no/without ignored")
 @pytest.mark.parametrize(
     "cited, found",
     [
@@ -42,7 +41,6 @@ def test_negated_title_is_not_verified(cited, found):
     assert audit(cited, found).status != RefStatus.verified
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: roman / spelled-out number changes not detected")
 @pytest.mark.parametrize(
     "cited, found",
     [
@@ -60,7 +58,6 @@ def test_number_changed_title_is_not_verified(cited, found):
     assert audit(cited, found).status != RefStatus.verified
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: different subtitle ignored when main titles match")
 def test_different_subtitle_is_not_verified():
     a = audit(
         "Deep learning in medical imaging: opportunities and promises",
@@ -69,16 +66,12 @@ def test_different_subtitle_is_not_verified():
     assert a.status != RefStatus.verified
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: correction/erratum notice identified as the paper")
 @pytest.mark.parametrize("prefix", ["Correction to: ", "Erratum: "])
 def test_correction_notice_is_not_the_cited_paper(prefix):
     t = "Effects of intensive blood pressure control in type 2 diabetes mellitus patients"
     assert audit(t, prefix + t).status != RefStatus.verified
 
 
-@pytest.mark.xfail(
-    strict=True, reason="BUG: <sub> markup in provider title -> real paper not_found"
-)
 def test_subscript_markup_in_crossref_title_still_matches():
     item = {
         "DOI": "10.1/co2",
@@ -97,7 +90,6 @@ def test_subscript_markup_in_crossref_title_still_matches():
     assert a.status == RefStatus.verified  # today: not_found
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: omitted subtitle with a digit -> real paper not_found")
 def test_omitted_subtitle_with_number_still_matches():
     a = audit(
         "Mortality after cardiac surgery in the elderly",
