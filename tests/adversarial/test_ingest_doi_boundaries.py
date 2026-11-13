@@ -21,21 +21,18 @@ from claimtrace.ingest.text import find_doi
 HUANG = "10.1016/s0140-6736(20)30183-5"  # Huang et al., Lancet 2020
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: find_doi keeps U+2010 hyphen (Wiley PDFs) in DOI")
 def test_unicode_hyphen_from_pdf_is_a_hyphen():
     raw = "Huang C, et al. Lancet. 2020;395:497-506. doi:10.1016/S0140‐6736(20)30183-5"
     # today: "10.1016/s0140‐6736(20)30183-5" (U+2010), which no registry knows
     assert find_doi(raw) == HUANG
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: find_doi keeps a closing smart quote in the DOI")
 def test_smart_quotes_around_doi_link():
     raw = "Huang C, et al. Lancet. 2020. Available: “https://doi.org/10.1016/S0140-6736(20)30183-5”"
     # today: "10.1016/s0140-6736(20)30183-5”"; a straight '"' is already excluded
     assert find_doi(raw) == HUANG
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: find_doi keeps a publisher URL's query string")
 def test_publisher_link_query_string_is_not_part_of_the_doi():
     raw = (
         "Smith A. Title. Angew Chem. 2020;59:1-5. "
@@ -45,7 +42,6 @@ def test_publisher_link_query_string_is_not_part_of_the_doi():
     assert find_doi(raw) == "10.1002/anie.201915678"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: PR #67 regression, find_doi keeps a trailing <br>")
 def test_markdown_line_break_tag_after_doi():
     # .md manuscripts are accepted; '<br>' is the usual hard line break there.
     # before PR #67 '<' ended the DOI; SICI support now lets the tag in
@@ -54,7 +50,6 @@ def test_markdown_line_break_tag_after_doi():
     assert find_doi(raw) == "10.1038/nature14539"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: DOI wrapped after '-' (copied from PDF) truncated")
 def test_doi_wrapped_after_hyphen_is_joined():
     # pasted reference lists keep the PDF's hard wraps inside an entry (split_entries joins
     # wrapped lines with '\n'); a DOI never ends in '-'
@@ -104,7 +99,6 @@ def handler(req: httpx.Request) -> httpx.Response:
     return httpx.Response(200, json={"message": {"items": []}})
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: real DOI with a Wiley-PDF hyphen ends as not_found")
 async def test_unicode_hyphen_doi_is_not_reported_nonexistent(offline):
     raw = "doi:10.1016/S0140‐6736(20)30183-5"
     # DOI-only reference (as when the LLM extraction failed)

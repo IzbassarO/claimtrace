@@ -91,8 +91,14 @@ def split_entries(section: str) -> list[tuple[str | None, str]]:
 
 # ---------- regex fields (deterministic) ----------
 
-# SICI DOIs contain <>;:() ; stop at whitespace, quotes and ']' (Markdown '[doi:...](url)')
-_DOI = re.compile(r"10\.\d{4,9}/[^\s\"\]]+", re.I)
+# SICI DOIs contain <>;:() ; stop at whitespace, straight/smart quotes, ']' (Markdown
+# '[doi:...](url)') and HTML tags ('<br>', '</a>'; SICI '<857::...>' has a digit after '<')
+_DOI_CHARS = r"""(?:[^\s"\]“”‘’«»<]|<(?![a-z/]))"""
+_DOI = re.compile(rf"10\.\d{{4,9}}/{_DOI_CHARS}+", re.I)
+# a DOI never ends in '-': PDF hard wrap after a hyphen ('S0140-\n6736...') is joined
+_WRAPPED = re.compile(rf"(10\.\d{{4,9}}/{_DOI_CHARS}*-)[ \t]*\r?\n[ \t]*(?=[\w(])", re.I)
+_HYPHENS = str.maketrans(dict.fromkeys("\u2010\u2011\u2012\u2013\u2212", "-"))  # PDF hyphens
+_IN_URL = re.compile(r"://\S*$")
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")  # soft hyphen, zero-width, BOM
 _OPEN = {")": "(", "]": "[", ">": "<"}
 _ARXIV = re.compile(
@@ -107,10 +113,14 @@ _IMPRINT_YEAR = re.compile(r"(?<![\w/.-])((?:19|20)\d{2})[a-z]?\s*;\s*\d")  # 'L
 
 
 def find_doi(raw: str) -> str | None:
-    m = _DOI.search(_INVISIBLE.sub("", raw))
+    text = _WRAPPED.sub(r"\1", _INVISIBLE.sub("", raw).translate(_HYPHENS))
+    m = _DOI.search(text)
     if not m:
         return None
-    doi = m.group(0).rstrip(".,;:")
+    doi = m.group(0)
+    if _IN_URL.search(text[: m.start()]):  # query / fragment of a link is never part of a DOI
+        doi = re.split(r"[?#]", doi, maxsplit=1)[0]
+    doi = doi.rstrip(".,;:")
     while doi[-1] in _OPEN and doi.count(doi[-1]) > doi.count(_OPEN[doi[-1]]):
         doi = doi[:-1].rstrip(".,;:")
     return doi.lower()
