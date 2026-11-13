@@ -111,6 +111,56 @@ def _ratio(x: str, y: str, full: bool) -> float:
     return SequenceMatcher(None, nx, ny).ratio()
 
 
+# function words whose change never alters what a title claims; negations stay content words
+_STOP = set(
+    "a an the of in on at to for from by with into onto among amongst between within via as and "
+    "or but is are was were be been being do does did can could may might will would should has "
+    "have had it its their our we this that these those which what when where why how who whose "
+    "than vs versus".split()
+)
+
+
+def _canon(w: str) -> str:
+    """Fold spelling variants of one folded word: number words, plural -s/-es/-ies, British/
+    American (tumour, analyse, modelling, centre, paediatric, defence, sulphur). Explicit
+    rewrites, not edit distance: infection/injection or hypotension/hypertension stay apart."""
+    w = _NUMBER_WORDS.get(w) or _ROMAN.get(w) or w
+    if len(w) > 3:
+        w = re.sub(r"ies$", "y", w)
+        w = re.sub(r"(?<![siu])s$", "", w)  # -es plurals: the trailing e goes below
+    for old, new in (("ae", "e"), ("oe", "e"), ("our", "or"), ("ll", "l"), ("z", "s"), ("ph", "f")):
+        w = w.replace(old, new)
+    w = re.sub(r"([tb])re$", r"\1er", w)
+    w = re.sub(r"ence$", "ense", w)
+    w = re.sub(r"ogue$", "og", w)
+    return w[:-1] if len(w) > 3 and w.endswith("e") else w
+
+
+def _content_words(title: str) -> list[str]:
+    t = re.sub(r"\bcan'?t\b|\bcannot\b", "can not", _fold(title))
+    t = re.sub(r"n't\b", " not", t).replace("'", "")
+    return [_canon(w) for w in re.findall(r"\w+", t) if w not in _STOP]
+
+
+# belt and braces: the content-word check below already rejects these substitutions
+_ANTONYMS = {
+    _canon(w)
+    for w in "increase increases increased decrease decreases decreased higher lower more less "
+    "positive negative improves worsens improve worsen benefit harm benefits harms enhances "
+    "reduces enhance reduce up down mice mouse humans human rats rat patients patient".split()
+}
+
+
+def _same_content(x: str, y: str) -> bool:
+    """Every content word of one title is in the other, in order; differences may only be
+    function words or hyphenation/joining ('non-linear' vs 'nonlinear', 'data set' vs 'dataset')."""
+    wx, wy = _content_words(x), _content_words(y)
+    if set(wx) & _ANTONYMS != set(wy) & _ANTONYMS:
+        return False
+    ops = SequenceMatcher(None, wx, wy, autojunk=False).get_opcodes()
+    return all("".join(wx[i1:i2]) == "".join(wy[j1:j2]) for _, i1, i2, j1, j2 in ops)
+
+
 def title_similarity(a: str, b: str) -> float:
     a, b = strip_retracted(a), strip_retracted(b)
     return max(_ratio(x, y, (x, y) == (a, b)) for x, y in _pairs(a, b))
@@ -120,11 +170,14 @@ def title_match(cited: str | None, found: str | None) -> bool:
     if not cited or not found:
         return False
     a, b = strip_retracted(cited), strip_retracted(found)
-    if is_notice(a) != is_notice(b):
+    # negations are compared on the FULL titles: dropping a subtitle never hides "no evidence".
+    # ponytail: numbers stay per pair so an omitted "a 10-year study" subtitle still matches
+    # (existing must-match case); move numbers() up here if that should become a mismatch
+    if is_notice(a) != is_notice(b) or negations(a) != negations(b):
         return False
     return any(
-        negations(x) == negations(y)
-        and numbers(x) == numbers(y)
+        numbers(x) == numbers(y)
+        and _same_content(x, y)
         and _ratio(x, y, (x, y) == (a, b)) >= TITLE_THRESHOLD
         for x, y in _pairs(a, b)
     )
