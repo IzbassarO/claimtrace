@@ -174,3 +174,6 @@ class Report(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     # {"references": {status: n}, "claims": {verdict: n}}
     summary: dict[str, dict[str, int]] = Field(default_factory=dict)
+    # t_* = first time an event happened, busy_* = cumulative seconds per operation (overlapping
+    # when concurrent), n_* = counts; see core/timing.py
+    timings: dict[str, float] = Field(default_factory=dict)
