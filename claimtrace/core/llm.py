@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from pydantic import BaseModel, ValidationError
 
 from claimtrace.core.settings import get_settings
+from claimtrace.core.timing import span
 
 Role = Literal["extract", "judge", "skeptic"]
 T = TypeVar("T", bound=BaseModel)
@@ -104,7 +105,8 @@ async def ask_json(
         HumanMessage(user),
     ]
     for attempt in range(2):
-        reply = message_text(await model.ainvoke(messages))
+        with span(f"llm_{role}"):
+            reply = message_text(await model.ainvoke(messages))
         try:
             return schema.model_validate_json(extract_json(reply))
         except (ValidationError, ValueError) as e:
