@@ -1,5 +1,4 @@
 import os
-import tempfile
 import time
 from pathlib import Path
 
@@ -9,11 +8,6 @@ import pytest
 import claimtrace.sources as src
 from claimtrace.core.schemas import Reference, ReferenceAudit, RefStatus, Work
 from claimtrace.core.settings import Settings
-
-# fetch_source caches results under CACHE_DIR: no test may write fake texts into the real cache.
-# Set at collection, so it also covers tests/adversarial in the same session.
-# ponytail: belongs in tests/conftest.py as a per-test autouse fixture (lead-owned; requested).
-os.environ["CACHE_DIR"] = tempfile.mkdtemp(prefix="claimtrace-test-cache-")
 
 JATS = (Path(__file__).parent / "fixtures/sources/article.jats.xml").read_bytes()
 TITLE = "Vitamin D supplementation and fracture risk in older adults"
