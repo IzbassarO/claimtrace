@@ -176,6 +176,20 @@ async def test_long_text_fuses_injected_embedding():
     assert idx == sorted(idx)
 
 
+async def test_passages_of_a_source_are_embedded_once_across_claims():
+    calls = []
+
+    def embed(texts):
+        calls.append(list(texts))
+        return [[1.0, 0.0] if "Statins" in t or t.startswith("q") else [0.0, 1.0] for t in texts]
+
+    first = await retrieval.retrieve("q statins", LONG, embed=embed)
+    second = await retrieval.retrieve("q statins", LONG, embed=embed)
+    assert first == second
+    chunks = retrieval.passages(LONG)
+    assert calls == [chunks, ["q statins"], ["q statins"]]  # chunks once, then query only
+
+
 async def test_long_text_without_word_characters_does_not_crash():
     text = "!!! ??? ... " * 300
     out = await retrieval.retrieve("statins", text, embed=lambda t: 1 / 0)
