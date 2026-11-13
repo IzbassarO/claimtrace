@@ -70,7 +70,10 @@ async def retrieve(query: str, text: str, embed: Embed | None = None) -> list[st
     chunks = passages(text)
     if len(chunks) <= TOP_K:
         return chunks
-    rankings = [_ranks(BM25Okapi([_tokens(c) for c in chunks]).get_scores(_tokens(query)))]
+    corpus = [_tokens(c) for c in chunks]
+    if not any(corpus):  # no word characters at all: BM25 divides by zero, nothing to rank
+        return chunks[:TOP_K]
+    rankings = [_ranks(BM25Okapi(corpus).get_scores(_tokens(query)))]
     try:
         vecs = await asyncio.to_thread(embed or fastembed_embed, [query, *chunks])
         rankings.append(_ranks(_cosine_scores(vecs)))
