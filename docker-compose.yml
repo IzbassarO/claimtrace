@@ -4,6 +4,9 @@ services:
     env_file: .env
     environment:
       GROBID_URL: http://grobid:8070
+      CACHE_DIR: /cache
+    volumes:
+      - app_cache:/cache
     depends_on:
       - grobid
     healthcheck:
@@ -42,5 +45,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  app_cache:
   caddy_data:
   caddy_config:
