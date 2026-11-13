@@ -199,7 +199,10 @@ async function poll() {
 }
 
 const refAttention = (a) => a.status !== "verified";
-const claimAttention = (c) => c.verdict !== "supported" || c.needs_review;
+const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review;
+// partly supported or not checkable: shown open, below the claims that need attention
+const claimMiddle = (c) => !claimAttention(c) && c.verdict !== "supported";
+const MIDDLE = "Partly supported or could not be checked";
 const need = (n) => (n === 1 ? "needs" : "need");
 
 function refItem(a) {
@@ -252,15 +255,18 @@ function claimCard(c) {
 }
 
 // Problems first (worst first), everything fine collapsed in a <details>.
-function group(items, isProblem, labels, key, render, noun, fineLabel) {
-  const bad = items.filter(isProblem).sort((a, b) => rank(labels, key(a)) - rank(labels, key(b)));
-  const fine = items.filter((x) => !isProblem(x));
+function group(items, isProblem, labels, key, render, noun, fineLabel, isMiddle = () => false) {
+  const worst = (xs) => xs.sort((a, b) => rank(labels, key(a)) - rank(labels, key(b)));
+  const bad = worst(items.filter(isProblem));
+  const mid = worst(items.filter((x) => !isProblem(x) && isMiddle(x)));
+  const fine = items.filter((x) => !isProblem(x) && !isMiddle(x));
   if (!items.length) return [el("p", { className: "quiet" }, `No ${noun} were found in this manuscript.`)];
   return [
     bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention.`),
+    mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), el("ol", { className: "items" }, mid.map(render))] : null,
     fine.length ? el("details", { className: "fine" }, el("summary", {}, `${fine.length} ${fineLabel}`),
       el("ol", { className: "items" }, fine.map(render))) : null,
-  ];
+  ].flat().filter(Boolean);
 }
 
 function renderReport(r) {
@@ -269,14 +275,15 @@ function renderReport(r) {
   $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;
+  const nm = r.claims.filter(claimMiddle).length;
   $("summary").textContent = !r.references.length && !r.claims.length
     ? "No references or citing sentences were found. Check that the text includes its reference list."
-    : `${nr} of ${r.references.length} references ${need(nr)} attention · ${nc} of ${r.claims.length} claims ${need(nc)} attention`;
+    : `${nr} of ${r.references.length} references ${need(nr)} attention · ${nc} of ${r.claims.length} claims ${need(nc)} attention${nm ? ` · ${nm} partly supported or not checkable` : ""}`;
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
   $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refItem,
     "references", "verified references"));
   $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimCard,
-    "citing sentences", "supported claims"));
+    "citing sentences", "supported claims", claimMiddle));
   showPermalink();
   show("results");
   $("results-h").setAttribute("tabindex", "-1");

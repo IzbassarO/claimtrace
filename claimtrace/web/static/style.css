@@ -108,6 +108,7 @@ details { margin-top: .5rem; }
 summary { cursor: pointer; padding: .5rem 0; min-height: 44px; }
 .fine { margin-top: 1rem; border-top: 1px solid var(--rule); }
 .fine > summary { font-weight: 600; }
+#claims h3 { font-size: 1.05rem; font-weight: 600; margin: 2rem 0 .25rem; }
 .opinion { font-size: .95rem; border-left: 1px solid var(--rule); padding-left: .8rem; margin: .5rem 0; }
 
 /* Chat */
