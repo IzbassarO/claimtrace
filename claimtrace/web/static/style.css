@@ -123,3 +123,13 @@ summary { cursor: pointer; padding: .5rem 0; min-height: 44px; }
   h1 { font-size: 1.9rem; margin-top: 4rem; }
   .top, main { padding: 0 24px; }
 }
+
+/* Streaming: partial report while the audit runs; saved sample */
+.live { margin: 0 0 1rem; }
+.live p { color: var(--quiet); margin: 0 0 .25rem; }
+.wait { font-size: .85rem; font-weight: 400; color: var(--quiet); margin-left: .5rem; }
+#saved { margin: 0 0 1.25rem; }
+#saved button { margin: .25rem 0; }
+/* not usable until the report is final (exports/chat need it); hidden without moving the layout */
+.running #exports { visibility: hidden; }
+.running #chat, .saved #chat, .saved #share, .saved #exports > :not(#new-job) { display: none; }

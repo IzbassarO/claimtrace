@@ -48,6 +48,7 @@ class Job:
     total: int = 0
     error: str | None = None
     report: Report | None = None
+    partial: Report | None = None  # latest snapshot while running; memory only, never saved
     task: asyncio.Task | None = field(default=None, repr=False)
 
     def view(self) -> dict:
@@ -57,7 +58,7 @@ class Job:
             "done": self.done,
             "total": self.total,
             "error": self.error,
-            "report": self.report.model_dump(mode="json") if self.report else None,
+            "report": (r := self.report or self.partial) and r.model_dump(mode="json"),
         }
 
 
@@ -161,13 +162,18 @@ async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
     def progress(stage: str, done: int, total: int) -> None:
         job.stage, job.done, job.total = stage, done, total
 
+    def partial(report: Report) -> None:
+        job.partial = report
+
     async with app.state.running:
         job.status = "running"
         try:
             async with asyncio.timeout(JOB_TIMEOUT_S) as deadline:
-                job.report = await pipeline.run(text, files, progress, report_id=job.id)
+                job.report = await pipeline.run(
+                    text, files, progress, report_id=job.id, on_partial=partial
+                )
         except Exception as e:
-            job.report = None
+            job.report = job.partial = None
             # tracebacks carry request URLs (API keys): never log.exception here
             log.error("job %s failed:\n%s", job.id, redact(traceback.format_exc()))
             if deadline.expired():
@@ -180,6 +186,7 @@ async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
             _save(job.id, job.report)
         except Exception as e:  # the report stays available in memory
             log.warning("could not save report %s: %s", job.id, type(e).__name__)
+        job.partial = None
         job.status = "done"
 
 

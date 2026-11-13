@@ -15,7 +15,7 @@ SECRET = "sk-openalex-SECRET123"
 def test_job_error_redacts_api_key(monkeypatch):
     url = f"https://api.openalex.org/works?filter=doi:10.1/x&api_key={SECRET}"
 
-    async def boom(text, files=None, on_progress=None, report_id=None):
+    async def boom(text, files=None, on_progress=None, report_id=None, on_partial=None):
         req = httpx.Request("GET", url)
         resp = httpx.Response(429, request=req)
         resp.raise_for_status()  # HTTPStatusError: "... for url '<url with api_key>'"
@@ -36,7 +36,7 @@ def test_job_error_redacts_api_key(monkeypatch):
 def test_job_failure_log_redacts_api_key(monkeypatch, caplog):
     url = f"https://api.openalex.org/works?filter=doi:10.1/x&api_key={SECRET}"
 
-    async def boom(text, files=None, on_progress=None, report_id=None):
+    async def boom(text, files=None, on_progress=None, report_id=None, on_partial=None):
         req = httpx.Request("GET", url)
         httpx.Response(429, request=req).raise_for_status()
 
