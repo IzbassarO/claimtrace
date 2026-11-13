@@ -277,9 +277,10 @@ async def test_pdf_to_text_and_parse_inputs_pdf(monkeypatch):
     grobid(monkeypatch, handler)
     text = await pdf_to_text(b"%PDF-1.4 fake")
     assert seen["url"].endswith("/api/processFulltextDocument") and b"%PDF-1.4" in seen["body"]
-    # title and abstract first (sources' wrong-document guard), then body incl. captions
+    # title, author surnames, abstract first (sources' wrong-document guard), then body
     assert text.split("\n\n") == [
         "Statins in practice",
+        "Garcia Wei",
         "We review statin trials.",
         "Statins lower LDL cholesterol [1]. This sentence cites nothing. "
         "Mortality fell in two trials [1][2] but not in a third [9].",
