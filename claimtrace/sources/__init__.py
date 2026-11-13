@@ -1,5 +1,5 @@
-"""Source text for an identified reference: Europe PMC / arXiv / bioRxiv-medRxiv / Unpaywall /
-OpenAlex-location full text, else the abstract. Owner: T3.
+"""Source text for an identified reference: Europe PMC / arXiv HTML / arXiv PDF / bioRxiv-medRxiv /
+Unpaywall / OpenAlex-location full text, else the abstract. Owner: T3.
 
 Every source is tried in order; any exception or empty answer in one source falls through to the
 next. Text is only ever copied from what a provider returned, never synthesised. Results are
@@ -17,6 +17,7 @@ import unicodedata
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
 from difflib import SequenceMatcher
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote
 
@@ -60,6 +61,7 @@ async def _fetch(
     tried: set[str] = set()  # PDF urls already downloaded for this reference
     full_text = [
         ("europepmc", lambda: _europepmc(w, client)),
+        ("arxiv", lambda: _arxiv_html(w, client)),
         ("arxiv", lambda: _arxiv(w, client, pdf_to_text, tried)),
         ("biorxiv", lambda: _biorxiv(w, client, pdf_to_text, tried)),
         ("unpaywall", lambda: _unpaywall(w, client, pdf_to_text, tried)),
@@ -319,6 +321,96 @@ def jats_to_text(xml: bytes) -> str:
             _collect(el, out)
             break  # first match only (sub-articles repeat these)
     return "\n\n".join(o for o in out if o)
+
+
+# ---------- arXiv HTML (LaTeXML) ----------
+
+# Inside <article> only; these subtrees are dropped (references, footnotes, author contact notes).
+_HTML_SKIP_TAGS = {"nav", "script", "style", "annotation", "annotation-xml", "button", "math"}
+_HTML_SKIP_CLASSES = {"ltx_bibliography", "ltx_note", "ltx_author_notes", "ltx_author_before"}
+_HTML_BLOCKS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "div", "section", "figcaption", "li", "tr"}
+_HTML_VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "wbr"}
+
+
+class _ArxivHtml(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack: list[tuple[str, bool]] = []  # (tag, starts a skipped subtree)
+        self.article = self.skip = 0
+        self.buf: list[str] = []
+        self.lines: list[str] = []
+        self.title_at: int | None = None  # index of the document title line
+
+    def _flush(self):
+        line = " ".join("".join(self.buf).split())
+        if line:
+            self.lines.append(line)
+        self.buf = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in _HTML_VOID:
+            return
+        a = dict(attrs)
+        classes = set((a.get("class") or "").split())
+        skip = tag in _HTML_SKIP_TAGS or bool(classes & _HTML_SKIP_CLASSES)
+        if tag == "sup" and "ltx_note_mark" in classes:
+            skip = True
+        live = self.article and not self.skip
+        if live and tag == "math":  # LaTeX source of the formula, never the flattened MathML
+            self.buf.append(a.get("alttext") or "")
+        elif live and tag in _HTML_BLOCKS:
+            self._flush()
+            if "ltx_title_document" in classes and self.title_at is None:
+                self.title_at = len(self.lines)
+        elif live and tag in ("sup", "sub") and not skip:
+            self.buf.append(_MARK[tag])  # 10<sup>5</sup> -> "10^5", never "105"
+        elif live and tag in ("td", "th"):
+            self.buf.append(" ")
+        self.stack.append((tag, skip))
+        self.skip += skip
+        self.article += tag == "article"
+
+    def handle_endtag(self, tag):
+        if tag not in (t for t, _ in self.stack):
+            return
+        while self.stack:
+            t, skip = self.stack.pop()
+            self.skip -= skip
+            self.article -= t == "article"
+            if t == tag:
+                break
+        if self.article and not self.skip and tag in _HTML_BLOCKS:
+            self._flush()
+
+    def handle_data(self, data):
+        if self.article and not self.skip:
+            self.buf.append(data)
+
+
+def arxiv_html_to_text(page: str) -> str:
+    """Title, author names, abstract, section headings, paragraphs, captions and equations
+    (as their LaTeX alttext) of an arXiv LaTeXML page; no references, footnotes or page chrome.
+    Text is kept as served, only whitespace collapsed."""
+    p = _ArxivHtml()
+    p.feed(page)
+    p.close()
+    p._flush()
+    lines = p.lines
+    if p.title_at is not None and p.title_at < len(lines):  # title first (a licence note
+        lines.insert(0, lines.pop(p.title_at))  # can precede it): the guard reads line one
+    return "\n\n".join(lines)
+
+
+async def _arxiv_html(w: Work, client: httpx.AsyncClient) -> tuple[str, str] | None:
+    aid = _arxiv_id(w)
+    if not aid:
+        return None
+    url = f"https://arxiv.org/html/{aid}"
+    r = await request(client, "GET", url)
+    if r.status_code != 200 or "html" not in r.headers.get("content-type", "").lower():
+        return None
+    text = arxiv_html_to_text(r.text)
+    return (text, url) if text else None
 
 
 # ---------- PDFs: arXiv, Unpaywall ----------
