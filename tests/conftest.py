@@ -2,6 +2,9 @@ import os
 
 import pytest
 
+# Live runs share the $1/day OpenAlex budget: cap paid searches per run.
+os.environ.setdefault("OPENALEX_RUN_SEARCHES", "300")
+
 
 def pytest_collection_modifyitems(config, items):
     if os.environ.get("RUN_LIVE") == "1":

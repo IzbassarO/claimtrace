@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     contact_email: str = ""  # Crossref polite pool, Unpaywall (required there)
     semantic_scholar_api_key: SecretStr = SecretStr("")
     openalex_api_key: SecretStr = SecretStr("")  # required by OpenAlex since Feb 2026
+    # OpenAlex budget: $1/day, search/list = $0.001, DOI lookup free, resets 00:00 UTC
+    openalex_daily_searches: int = 900
+    openalex_run_searches: int = 0  # per-process cap, 0 = none (eval / live tests use 300)
+    cache_dir: str = ".cache"  # OpenAlex response cache + search counter
     grobid_url: str = "http://localhost:8070"
 
     max_upload_mb: int = 20
