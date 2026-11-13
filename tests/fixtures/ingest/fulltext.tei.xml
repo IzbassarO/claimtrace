@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt><title level="a" type="main">Statins in practice</title></titleStmt>
+    </fileDesc>
+    <profileDesc>
+      <abstract><div><p><s>We review statin trials.</s></p></div></abstract>
+    </profileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div>
+        <head>Introduction</head>
+        <p><s>Statins lower LDL cholesterol <ref type="bibr" target="#b0">[1]</ref>.</s><s>This sentence cites nothing.</s><s>Mortality fell in two trials <ref type="bibr" target="#b0">[1]</ref><ref type="bibr" target="#b1">[2]</ref> but not in a third <ref type="bibr">[9]</ref>.</s></p>
+      </div>
+      <figure><figDesc>Figure 1. LDL over time.</figDesc></figure>
+    </body>
+    <back>
+      <div type="references">
+        <listBibl>
+          <biblStruct xml:id="b0">
+            <analytic>
+              <title level="a" type="main">Statin therapy lowers LDL cholesterol in adults</title>
+              <author><persName><forename type="first">John</forename><surname>Smith</surname></persName></author>
+              <author><persName><forename type="first">Anna</forename><surname>Doe</surname></persName></author>
+              <idno type="DOI">10.1056/NEJMoa1234567</idno>
+            </analytic>
+            <monogr>
+              <title level="j">N Engl J Med</title>
+              <imprint><date type="published" when="2019-01-24">2019</date></imprint>
+            </monogr>
+            <note type="raw_reference">Smith J, Doe A. Statin therapy lowers LDL cholesterol in adults. N Engl J Med. 2019.</note>
+          </biblStruct>
+          <biblStruct xml:id="b1">
+            <analytic>
+              <title level="a" type="main">Lipid lowering without statins</title>
+              <author><persName><forename type="first">Tom</forename><surname>Brown</surname></persName></author>
+              <idno type="arXiv">arXiv:2101.00001v2</idno>
+            </analytic>
+            <monogr>
+              <title level="m">arXiv preprint</title>
+              <imprint><date type="published" when="2021" /></imprint>
+            </monogr>
+          </biblStruct>
+        </listBibl>
+      </div>
+    </back>
+  </text>
+</TEI>
