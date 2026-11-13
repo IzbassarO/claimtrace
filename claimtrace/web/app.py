@@ -1,8 +1,10 @@
-"""FastAPI shell: job API, exports, chat, static UI. Jobs live in memory (single process)."""
+"""FastAPI shell: job API, exports, chat, static UI. Jobs live in memory (single process);
+finished reports are also written to CACHE_DIR/reports so permalinks survive restarts."""
 
 import asyncio
 import logging
-import uuid
+import re
+import secrets
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -25,6 +27,9 @@ STATIC = Path(__file__).parent / "static"
 ALLOWED_EXT = {".txt", ".md", ".bib", ".pdf"}
 MAX_JOBS = 50
 MAX_RUNNING = 2
+MAX_REPORTS = 1000
+# job id = report id = permalink token (the link is the only access control): token_urlsafe(16)
+JOB_ID = re.compile(r"[A-Za-z0-9_-]{22}")
 
 
 @dataclass
@@ -49,8 +54,37 @@ class Job:
         }
 
 
-# ponytail: in-memory, one process; jobs vanish on restart. Use a DB if we ever scale out.
+# ponytail: in-memory, one process; only finished reports survive a restart (on disk).
 JOBS: OrderedDict[str, Job] = OrderedDict()
+
+
+def _reports_dir() -> Path:
+    return Path(get_settings().cache_dir) / "reports"
+
+
+def _save(job_id: str, report: Report) -> None:
+    """Atomic write (tmp + replace), then keep only the newest MAX_REPORTS files."""
+    d = _reports_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / f"{job_id}.json.tmp"
+    tmp.write_text(report.model_dump_json(), encoding="utf-8")
+    tmp.replace(d / f"{job_id}.json")
+    # ponytail: mtime scan of the whole dir on every write; fine for 1000 files, use a DB beyond
+    files = sorted(d.glob("*.json"), key=lambda f: f.stat().st_mtime_ns, reverse=True)
+    for old in files[MAX_REPORTS:]:
+        old.unlink(missing_ok=True)
+
+
+def _load(job_id: str) -> Report | None:
+    """Saved report, or None. Callers must have checked JOB_ID (no path traversal)."""
+    path = _reports_dir() / f"{job_id}.json"
+    try:
+        return Report.model_validate_json(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        log.warning("cannot read saved report %s: %s", job_id, type(e).__name__)
+        return None
 
 
 @asynccontextmanager
@@ -72,11 +106,16 @@ async def _run(job: Job, text: str | None, files: list[InputFile]) -> None:
         job.status = "running"
         try:
             job.report = await pipeline.run(text, files, progress, report_id=job.id)
-            job.status = "done"
         except Exception as e:
             log.exception("job %s failed", job.id)
             # redact before cutting so a key split at the cut cannot survive
             job.error, job.status = redact(f"{type(e).__name__}: {e}")[:300], "error"
+            return
+        try:
+            _save(job.id, job.report)
+        except Exception as e:  # the report stays available in memory
+            log.warning("could not save report %s: %s", job.id, type(e).__name__)
+        job.status = "done"
 
 
 def _evict() -> None:
@@ -114,16 +153,18 @@ async def create_job(
     if text is None and not inputs:
         raise HTTPException(400, "Paste manuscript text or upload at least one file.")
     _evict()
-    job = Job(id=uuid.uuid4().hex[:12])
+    job = Job(id=secrets.token_urlsafe(16))
     JOBS[job.id] = job
     job.task = asyncio.create_task(_run(job, text, inputs))
     return {"id": job.id}
 
 
 def _job(job_id: str) -> Job:
-    if job_id not in JOBS:
-        raise HTTPException(404, "Unknown job (jobs are kept in memory and may have expired).")
-    return JOBS[job_id]
+    if job_id in JOBS:
+        return JOBS[job_id]
+    if JOB_ID.fullmatch(job_id) and (report := _load(job_id)):
+        return Job(id=job_id, status="done", report=report)
+    raise HTTPException(404, "Unknown report (it may have expired).")
 
 
 def _report(job_id: str) -> Report:
@@ -179,6 +220,14 @@ async def healthz() -> dict:
 
 @app.get("/", include_in_schema=False)
 async def index() -> FileResponse:
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/r/{job_id}", include_in_schema=False)
+async def permalink(job_id: str) -> FileResponse:
+    """The page loads the report itself from /api/jobs/{id}."""
+    if not JOB_ID.fullmatch(job_id):
+        raise HTTPException(404, "Unknown report.")
     return FileResponse(STATIC / "index.html")
 
 
