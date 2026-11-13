@@ -76,12 +76,15 @@ async def check_claim(
     judge_model: BaseChatModel | None = None,
     skeptic_model: BaseChatModel | None = None,
     embed: Embed | None = None,
+    excerpts: list[str] | None = None,
 ) -> ClaimCheck:
-    """Keyword args are test/eval hooks; the pipeline calls with the three positional ones."""
+    """Keyword args are test/eval hooks; `excerpts` lets the caller run retrieval ahead of time
+    (the pipeline does it as soon as a source is ready, outside the LLM worker slots)."""
     base = {"citation_id": citation.id, "ref_id": ref_id, "sentence": citation.sentence}
     if source is None or not source.text.strip():
         return ClaimCheck(**base, verdict=Verdict.source_not_found)
-    excerpts = await retrieve(citation.sentence, source.text, embed)
+    if excerpts is None:
+        excerpts = await retrieve(citation.sentence, source.text, embed)
     user = _user_prompt(citation, source, excerpts)
     judge, judge_err = await _ask("judge", JUDGE_SYSTEM, user, judge_model)
     first = judge.model_dump_json() if judge else '{"unavailable": "first reviewer failed"}'

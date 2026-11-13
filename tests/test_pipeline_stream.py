@@ -56,7 +56,7 @@ def wired(monkeypatch):
 
     calls: list[str] = []
 
-    async def check_claim(c, ref_id, source):
+    async def check_claim(c, ref_id, source, **kw):
         calls.append(ref_id)
         log.append(f"claim {ref_id}")
         return ClaimCheck(
@@ -108,11 +108,11 @@ async def test_problem_references_are_checked_first(wired, monkeypatch):
     gate = asyncio.Event()
     orig = claims.check_claim
 
-    async def slow_first(c, ref_id, source):  # hold the single worker until all are queued
+    async def slow_first(c, ref_id, source, **kw):  # hold the single worker until all are queued
         if not gate.is_set():
             await asyncio.sleep(0.4)
             gate.set()
-        return await orig(c, ref_id, source)
+        return await orig(c, ref_id, source, **kw)
 
     monkeypatch.setattr(claims, "check_claim", slow_first)
     await pipeline.run("text", [])
@@ -130,7 +130,7 @@ async def test_verdict_cache_reuses_clean_answers_only(wired, monkeypatch):
     ]
     assert r2.timings.get("n_verdict_cache_hit") == 3
 
-    async def failing(c, ref_id, source):
+    async def failing(c, ref_id, source, **kw):
         calls.append("x")
         raise RuntimeError("llm down")
 
@@ -153,3 +153,27 @@ async def test_partial_callback_failure_never_breaks_the_audit(wired):
 
     final = await pipeline.run("text", [], on_partial=boom)
     assert final.complete and len(final.claims) == 3
+
+
+async def test_retrieval_runs_ahead_of_the_llm_queue(wired, monkeypatch):
+    seen = {}
+
+    async def fake_retrieve(sentence, text, embed=None):
+        return [f"excerpt for {sentence}"]
+
+    async def check_claim(c, ref_id, source, **kw):
+        seen[ref_id] = kw.get("excerpts")
+        return ClaimCheck(
+            citation_id=c.id,
+            ref_id=ref_id,
+            sentence=c.sentence,
+            verdict=Verdict.supported,
+            quote="a b c d e",
+            judge=OP,
+            skeptic=OP,
+        )
+
+    monkeypatch.setattr(claims, "retrieve", fake_retrieve)
+    monkeypatch.setattr(claims, "check_claim", check_claim)
+    await pipeline.run("text", [])
+    assert seen == {r: [f"excerpt for Claim {r} [{r}]."] for r in ("1", "2", "3")}
