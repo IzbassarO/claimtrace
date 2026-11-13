@@ -176,18 +176,34 @@ async def test_long_text_fuses_injected_embedding():
     assert idx == sorted(idx)
 
 
-async def test_passages_of_a_source_are_embedded_once_across_claims():
+# Many passages, one relevant: the embedder must only ever see the BM25 shortlist.
+HUGE = " ".join(f"Filler sentence number {i} talks about weather patterns." for i in range(600))
+HUGE += " Statins reduced LDL cholesterol by 40 percent in older adults. " + HUGE
+
+
+async def test_only_bm25_candidates_are_embedded_on_a_long_text():
     calls = []
 
     def embed(texts):
-        calls.append(list(texts))
-        return [[1.0, 0.0] if "Statins" in t or t.startswith("q") else [0.0, 1.0] for t in texts]
+        calls.append(len(texts))
+        return [[1.0, 0.0] if "tatins" in t else [0.0, 1.0] for t in texts]
 
-    first = await retrieval.retrieve("q statins", LONG, embed=embed)
-    second = await retrieval.retrieve("q statins", LONG, embed=embed)
-    assert first == second
-    chunks = retrieval.passages(LONG)
-    assert calls == [chunks, ["q statins"], ["q statins"]]  # chunks once, then query only
+    assert len(retrieval.passages(HUGE)) > 10 * retrieval.CANDIDATES
+    out = await retrieval.retrieve("statins lower LDL cholesterol", HUGE, embed=embed)
+    assert calls == [1 + retrieval.CANDIDATES]  # one call: query + shortlist
+    assert len(out) == retrieval.TOP_K
+    assert any("Statins reduced LDL" in p for p in out)  # best BM25 passage survives the fusion
+
+
+async def test_embedding_failure_falls_back_to_bm25():
+    out = await retrieval.retrieve("statins lower LDL cholesterol", HUGE, embed=lambda t: 1 / 0)
+    assert len(out) == retrieval.TOP_K
+    assert any("Statins reduced LDL" in p for p in out)
+
+
+async def test_wrong_vector_count_falls_back_to_bm25():
+    out = await retrieval.retrieve("statins LDL", HUGE, embed=lambda t: [[1.0]])
+    assert any("Statins reduced LDL" in p for p in out)
 
 
 async def test_long_text_without_word_characters_does_not_crash():
