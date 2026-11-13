@@ -55,7 +55,7 @@ flowchart LR
     P --> S[sources<br/>full text → abstract]
     S --> EP[Europe PMC] & AX & BX[bioRxiv / medRxiv] & UP[Unpaywall] & OA
     P --> CL[claims]
-    CL --> RET[BM25 shortlist +<br/>dense rerank]
+    CL --> RET[BM25 shortlist +<br/>dense + cross-encoder]
     CL --> J[LLM judge<br/>Claude]
     CL --> SK[LLM skeptic<br/>Kimi]
     CL --> Q[verbatim quote gate]
@@ -102,7 +102,17 @@ abstract + 20 distractor abstracts), n = 209, no LLM:
 | retrieval | recall@6 | MRR | latency / claim |
 |---|---|---|---|
 | BM25 | 0.938 | 0.747 | 3 ms |
-| hybrid (BM25 shortlist + bge-small rerank) | 0.976 | 0.798 | 2.3 s (CPU) |
+| hybrid (BM25 shortlist + bge-small dense) | 0.976 | 0.798 | 2.3 s (CPU) |
+| hybrid + cross-encoder rerank (product) | 0.990 | 0.852 | 2.7 s (CPU) |
+
+Verdicts on the same haystacks (LLM judge + skeptic + quote gate, n = 60, seed 0):
+
+| retrieval | accuracy | false-supported rate | supported precision | supported recall | quote verified |
+|---|---|---|---|---|---|
+| hybrid | 0.850 | 0.167 | 0.778 | 0.875 | 0.80 |
+| hybrid + rerank (product) | 0.883 | 0.139 | 0.815 | 0.917 | 0.85 |
+
+Small sample (60): read the direction, not the decimals.
 
 **Large PDF** ("Attention Is All You Need", 40 references, 58 claims, full Docker stack): 7 min,
 app peak 0.71 GB.

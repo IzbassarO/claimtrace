@@ -84,3 +84,15 @@ sweep, PR #44), fix in progress.
   judge+skeptic 0.900 / 0.100; the quote gate changes nothing on SciFact abstracts (short texts,
   all positive verdicts already quote verbatim) — its value is on full texts and adversarial
   quotes, covered by unit/adversarial tests, not by this metric.
+- **A2 cross-encoder reranker — accepted (PR #68)**: retrieval (n=209) recall@6 0.976 → 0.990,
+  MRR 0.798 → 0.852, +0.39 s per claim, peak RSS 0.5 GB. Verdicts on haystacks (n=60, same seed):
+  accuracy 0.850 → 0.883, false-supported 0.167 → 0.139, precision 0.778 → 0.815, recall 0.875 →
+  0.917. Model `Xenova/ms-marco-MiniLM-L-6-v2` pre-downloaded in the image.
+- **A3 claim decomposition — not attempted**: 2–3× judge+skeptic calls per claim would break the
+  "large PDF ≤ 7 min" constraint (currently 7 min) and eat the measurement budget; no cheap way to
+  measure it on SciFact (claims are already atomic there).
+- **Multi-DOI arXiv records (PR #67)**: `Work.doi` holds the space-joined list; comparisons use
+  all of them for the preprint rule, the first otherwise. Display may show the joined string.
+- **Merge gate hardened**: aborts on uncommitted worktree changes or if main isn't an ancestor
+  after the merge (PR #68 was merged from a branch whose main-merge had silently failed; the
+  combined main was re-verified: 519 passed, CI green).
