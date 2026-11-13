@@ -60,11 +60,15 @@ class Gate:
         self.sem.release()
 
 
-async def _get(client: httpx.AsyncClient, gate: Gate, url: str, **kw) -> httpx.Response | None:
-    """GET; None on 404, raises ProviderError on any other non-200."""
+async def _get(
+    client: httpx.AsyncClient, gate: Gate, url: str, lookup: bool | str = False, **kw
+) -> httpx.Response | None:
+    """GET; raises ProviderError on any non-200 except a 404 that is an answer, which gives None.
+    A 404 is an answer only for an id lookup (`lookup=True`), or when its body contains the
+    `lookup` string. On a search endpoint it is a moved endpoint / proxy page: a failure."""
     async with gate:
         resp = await request(client, "GET", url, **kw)
-    if resp.status_code == 404:
+    if resp.status_code == 404 and (lookup is True or (lookup and lookup in resp.text)):
         return None
     if resp.status_code != 200:
         raise ProviderError(f"HTTP {resp.status_code}")
@@ -139,14 +143,16 @@ async def crossref(client: httpx.AsyncClient, gate: Gate, ref: Reference) -> lis
     mail = get_settings().contact_email
     params = {"mailto": mail} if mail else {}
     if doi := norm_doi(ref.doi):
-        resp = await _get(client, gate, f"{CROSSREF}/works/{quote(doi, safe='/')}", params=params)
+        resp = await _get(
+            client, gate, f"{CROSSREF}/works/{quote(doi, safe='/')}", True, params=params
+        )
         if resp:
             return [parse_crossref(resp.json()["message"])]
     if not ref.title:
         return []
     params |= {"query.bibliographic": _search_query(ref), "rows": 5}
     resp = await _get(client, gate, f"{CROSSREF}/works", params=params)
-    return [parse_crossref(i) for i in resp.json()["message"]["items"]] if resp else []
+    return [parse_crossref(i) for i in resp.json()["message"]["items"]]
 
 
 # ---------- OpenAlex ----------
@@ -197,7 +203,7 @@ def _openalex_params() -> dict:
 async def openalex_doi(client: httpx.AsyncClient, gate: Gate, doi: str) -> list[Work]:
     """Single-entity lookup: free on the OpenAlex budget."""
     url = f"{OPENALEX}/works/doi:{quote(doi, safe='/')}"
-    resp = await _get(client, gate, url, params=_openalex_params())
+    resp = await _get(client, gate, url, True, params=_openalex_params())
     return [parse_openalex(resp.json())] if resp else []
 
 
@@ -206,7 +212,7 @@ async def openalex_search(client: httpx.AsyncClient, gate: Gate, title: str) -> 
     # OpenAlex search treats some punctuation as syntax; words are enough
     params = _openalex_params() | {"search": " ".join(re.findall(r"\w+", title)), "per_page": 5}
     resp = await _get(client, gate, f"{OPENALEX}/works", params=params)
-    return [parse_openalex(r) for r in resp.json()["results"]] if resp else []
+    return [parse_openalex(r) for r in resp.json()["results"]]
 
 
 # ---------- Semantic Scholar ----------
@@ -243,13 +249,14 @@ async def semanticscholar(client: httpx.AsyncClient, gate: Gate, ref: Reference)
     if aid := norm_arxiv(ref.arxiv_id):
         ids.append(f"ARXIV:{aid}")
     for pid in ids:
-        resp = await _get(client, gate, f"{S2}/paper/{quote(pid, safe='/:')}", **kw)
+        resp = await _get(client, gate, f"{S2}/paper/{quote(pid, safe='/:')}", True, **kw)
         if resp:
             return [parse_s2(resp.json())]
     if not ref.title:
         return []
     kw["params"] = kw["params"] | {"query": ref.title}
-    resp = await _get(client, gate, f"{S2}/paper/search/match", **kw)  # 404 = no match
+    # S2 documents 404 {"error": "Title match not found"} as "no match"; any other 404 fails
+    resp = await _get(client, gate, f"{S2}/paper/search/match", "Title match not found", **kw)
     return [parse_s2(p) for p in resp.json().get("data") or []] if resp else []
 
 
@@ -295,8 +302,6 @@ async def arxiv_batch(
         params = {"id_list": ",".join(chunk), "max_results": len(chunk)}
         try:
             resp = await _get(client, gate, ARXIV, params=params)
-            if resp is None:
-                raise ProviderError("HTTP 404")
             found = {w.arxiv_id: w for w in parse_arxiv(resp.text)}
         except Exception as e:  # noqa: BLE001 - a failed chunk marks its ids as failed
             out.update(dict.fromkeys(chunk, e))
