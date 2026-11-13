@@ -106,34 +106,28 @@
 
 ## timing
 
-2026-11-13T23:09:36+00:00 · params `{"docs": ["attention-pdf", "attention-text"], "repeat": 1, "cold": true}`
+2026-11-13T23:27:34+00:00 · params `{"docs": ["review-200"], "repeat": 1, "cold": false}`
 
 | metric | value |
 |---|---|
 | runs | 1 |
-| skipped | 1 |
+| skipped | 0 |
 
-- skipped `attention-pdf`: GROBID not reachable at GROBID_URL (http://localhost:8070)
 
 | doc | cache | first reference s | first claim s | total s | refs | claims | partials | peak RSS MB | limit warnings |
 |---|---|---|---|---|---|---|---|---|---|
-| attention-text#0 | cold | 25.070 | 25.070 | 141.040 | 40 | 58 | 98 | 173.200 | none |
+| review-200#0 | cold | 35.430 | n/a | 45.510 | 200 | 0 | 200 | 148.200 | 4 references skipped (limit 200); Only the first 0 of 239 citation pairs checked. |
 
-### attention-text#0 stages (s since start; idle = wall x slots - busy)
+### review-200#0 stages (s since start; idle = wall x slots - busy)
 
 | stage | start | first | end | wall | slots | busy | idle |
 |---|---|---|---|---|---|---|---|
-| ingest | 0.000 | 25.060 | 25.060 | 25.060 | 1 | 25.060 | 0.000 |
-| references | 25.070 | 25.070 | 34.840 | 9.770 | n/a | n/a | n/a |
-| sources | 25.070 | 25.070 | 50.530 | 25.460 | 6 | 130.480 | 22.280 |
-| claims | 25.070 | 25.070 | 141.040 | 115.970 | 8 | 760.340 | 167.420 |
+| ingest | 0.000 | 35.050 | 35.050 | 35.050 | 1 | 35.050 | 0.000 |
+| references | 35.050 | 35.430 | 45.510 | 10.460 | n/a | n/a | n/a |
+| sources | n/a | n/a | n/a | n/a | 6 | n/a | n/a |
+| claims | n/a | n/a | n/a | n/a | 8 | n/a | n/a |
 
 | op | n | busy s | mean s |
 |---|---|---|---|
-| claim_check | 58 | 760.340 | 13.110 |
-| grobid_source | 33 | 99.530 | 3.020 |
-| ingest | 1 | 25.060 | 25.060 |
-| llm_extract | 3 | 32.950 | 10.980 |
-| llm_judge | 56 | 135.700 | 2.420 |
-| llm_skeptic | 56 | 623.480 | 11.130 |
-| source_fetch | 34 | 130.480 | 3.840 |
+| ingest | 1 | 35.050 | 35.050 |
+| llm_extract | 18 | 202.100 | 11.230 |

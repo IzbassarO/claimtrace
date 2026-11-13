@@ -105,3 +105,35 @@ sweep, PR #44), fix in progress.
   arXiv fields, SICI `<>`, Markdown links, Unicode hyphens, smart quotes, URL query/fragment, HTML
   tags, hyphen line-wraps — each from a tester case where a real paper came out `not_found` or a
   DOI mismatch.
+
+## Speed track (Fri evening)
+
+- **Baseline breakdown** (40-ref Attention PDF, cold, Docker): 533 s total; ingest 17 s, references
+  7 s, sources 24 s (GROBID 90 s busy over 28 PDFs), claims 485 s. Per claim 57 s: judge 2.9 s,
+  skeptic 16.5 s, the rest waiting for the single global retrieval lock. Report appeared only at
+  the end. Now recorded in every report (`Report.timings`) and in `eval --suite timing`.
+- **Retrieval out of the global lock + per-source index cache (PR #82) — accepted**: offline
+  58 claims / 20 sources 168 s → 66 s, identical passages, recall/MRR unchanged.
+- **Streaming conveyor + partial reports + problem-first queue + verdict cache (PRs #85, #86,
+  #87) — accepted**: no accuracy effect by construction; the existing pipeline tests pass
+  unchanged and new tests check ordering/equality. Live: first result 533 s → 9 s, total 533 s →
+  292 s (memory 1.19 GB).
+- **Saved sample (PR #87) — accepted**: instant, labelled "Saved example", "Run live" button.
+- **Retrieval prefetch outside LLM slots (PR #92, bounded in #93) — kept, effect unproven**: it
+  does not change verdicts (same function, computed earlier); the one live run with it was
+  confounded (providers 2–3× slower that hour: total 352 s) and peaked at 1.54 GB memory before
+  the bound (#93). Not re-measured live (LLM budget).
+- **Light PDF parser for sources (PR #88) — available, NOT default** (`SOURCE_PDF_PARSER=grobid`):
+  offline coverage on 49 DOIs looked good (full text 77.6%), but the one live run had 7
+  `source_not_found` claims vs 0 with GROBID; cannot show "not worse" ⇒ stays opt-in.
+  arXiv HTML as a source (same PR) — accepted (XML-like, verbatim text).
+- **Batched claims per source (PR #91) — rejected**: −56% LLM calls, −35% wall time, but accuracy
+  never better in two runs (61 claims): 0.902/0.918 vs 0.885/0.885; false_supported 0.091/0.068 vs
+  0.091/0.091 (one more false supported).
+- **200-reference document**: references only (claims not run, LLM budget): first result 35 s
+  (reference-field extraction by LLM dominates), 200 audits done at 45.5 s.
+- **P0 Try a sample (PR #79)**: browsers send CRLF; reference heading not found ⇒ empty report.
+  Fixed at the ingest entry; headings widened; CI checks the sample in the image.
+- **Design skills (PR #81)**: installed project-locally, gitignored; `design-taste-frontend`'s
+  auto-run hook removed; `web-design-guidelines` needs a network fetch ⇒ unused offline;
+  `ui-ux-pro-max` scripts not run.
