@@ -123,3 +123,67 @@ async def test_openalex_cache_and_search_budget(monkeypatch, tmp_path):
     assert calls == ["/works", "/works/doi:10.1/x", "/works"]
     day = next(tmp_path.glob("openalex/searches-*.txt"))
     assert day.read_text() == "1"
+
+
+async def test_ssrf_guard_blocks_private_targets_and_redirect_hops(monkeypatch):
+    async def fake_resolve(host, port):
+        return {"internal.example": {"10.0.0.5"}, "evil.example": {"93.184.216.34"}}.get(
+            host, {"93.184.216.34"}
+        )
+
+    monkeypatch.setattr(http, "_resolve", fake_resolve)
+
+    def handler(r):
+        if r.url.host == "evil.example":  # public host redirecting to cloud metadata
+            return httpx.Response(302, headers={"location": "http://169.254.169.254/latest/"})
+        return httpx.Response(200, content=b"%PDF ok")
+
+    t = http.PublicOnlyTransport(httpx.MockTransport(handler))
+    async with httpx.AsyncClient(transport=t, follow_redirects=True) as c:
+        for url in (
+            "http://127.0.0.1/x",
+            "http://localhost.localdomain.invalid@10.1.2.3/x",
+            "http://[::1]/x",
+            "http://internal.example/x",
+            "http://evil.example/redirect",  # the hop to 169.254.169.254 is blocked
+            "file:///etc/passwd",
+        ):
+            with pytest.raises((http.BlockedURL, httpx.UnsupportedProtocol)):
+                await c.get(url)
+        assert (await c.get("https://example.org/paper.pdf")).status_code == 200
+
+
+async def test_ssrf_guard_allows_configured_grobid(monkeypatch):
+    from claimtrace.core import settings as st
+
+    s = st.Settings(_env_file=None, grobid_url="http://grobid:8070")
+    monkeypatch.setattr(http, "get_settings", lambda: s)
+
+    async def docker_dns(host, port):
+        return {"172.18.0.3"}  # compose network address
+
+    monkeypatch.setattr(http, "_resolve", docker_dns)
+    t = http.PublicOnlyTransport(httpx.MockTransport(lambda r: httpx.Response(200)))
+    async with httpx.AsyncClient(transport=t) as c:
+        assert (await c.get("http://grobid:8070/api/isalive")).status_code == 200
+        with pytest.raises(http.BlockedURL):
+            await c.get("http://grobid:9999/x")  # same host, other port: not allowed
+
+
+def test_skeptic_on_judge_provider_is_refused(monkeypatch):
+    from claimtrace.core import llm
+    from claimtrace.core import settings as st
+
+    s = st.Settings(
+        _env_file=None,
+        llm_judge_provider="anthropic",
+        llm_judge_model="a",
+        llm_skeptic_provider="anthropic",
+        llm_skeptic_model="b",
+        anthropic_api_key="k",
+    )
+    monkeypatch.setattr(llm, "get_settings", lambda: s)
+    llm.get_model.cache_clear()
+    with pytest.raises(LLMError):
+        llm.get_model("skeptic")
+    llm.get_model.cache_clear()

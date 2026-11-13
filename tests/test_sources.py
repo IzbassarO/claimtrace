@@ -107,7 +107,33 @@ def test_guard_short_title_needs_first_author_family_name():
     assert src.looks_like(text, "Deep learning", ["Yann LeCun"])
     assert not src.looks_like(text, "Deep learning", ["Hinton, Geoffrey"])
     assert not src.looks_like(text, "Deep learning", [])  # cannot check: fall back to abstract
-    assert src.looks_like(text, "Deep learning about representation")  # 3 content words
+    long_title = "Deep learning about representation"  # 3 content words: no author check
+    assert src.looks_like(text.replace("Deep learning", long_title, 1), long_title)
+
+
+ASPIRIN = "Aspirin reduces mortality in older adults"
+BODY = "Participants were followed for five years in the trial. " * 50
+
+
+def test_guard_rejects_opposite_title_on_first_line():
+    assert src.looks_like(ASPIRIN + "\n\n" + BODY, ASPIRIN)
+    assert src.looks_like("Aspirin Reduces Mortality in Older Adults.\n\n" + BODY, ASPIRIN)
+    for wrong in (
+        "Aspirin does not reduce mortality in older adults",
+        "Aspirin doesn't reduce mortality in older adults",
+        "Aspirin fails to reduce mortality in older adults",
+        "Aspirin reduces mortality in older adults aged 70",  # extra number
+        "Statins reduce mortality in older adults with diabetes",  # different paper
+    ):
+        assert not src.looks_like(wrong + "\n\n" + BODY, ASPIRIN), wrong
+
+
+def test_guard_without_title_line_checks_first_sentence_negation():
+    # No newline: the first "line" is a 2000+ char blob, so the overlap rule applies, plus
+    # the negation words of the first sentence must equal the cited title's.
+    blob = "Aspirin does not reduce mortality in older adults. " + BODY
+    assert not src.looks_like(blob, ASPIRIN)
+    assert src.looks_like("Aspirin reduces mortality in older adults. " + BODY, ASPIRIN)
 
 
 # ---------- full text ----------
@@ -208,6 +234,26 @@ async def test_unpaywall_rejects_landing_page_then_uses_matched_oa_url():
             audit(doi=DOI, oa_pdf_url="https://oa.example.org/p.pdf"), c, fake_pdf_to_text()
         )
     assert s.origin == "unpaywall" and s.url == "https://oa.example.org/p.pdf"
+
+
+async def test_unpaywall_wrong_document_pdf_falls_through_to_matched_oa_url():
+    routes = {
+        "api.unpaywall.org/v2/" + DOI: httpx.Response(
+            200, json={"best_oa_location": {"url_for_pdf": "https://pub.example.org/a.pdf"}}
+        ),
+        "pub.example.org/a.pdf": pdf_resp(b"%PDF-1.7 other"),
+        "oa.example.org/p.pdf": pdf_resp(),
+    }
+
+    async def by_pdf(pdf: bytes) -> str:
+        return OTHER_TEXT if pdf.endswith(b"other") else GOOD_TEXT
+
+    async with client(routes) as c:
+        s = await src.fetch_source(
+            audit(doi=DOI, oa_pdf_url="https://oa.example.org/p.pdf"), c, by_pdf
+        )
+    assert s.kind == "full_text" and s.origin == "unpaywall"
+    assert s.url == "https://oa.example.org/p.pdf" and s.text == GOOD_TEXT.strip()
 
 
 async def test_pdf_size_and_magic_limits():

@@ -28,6 +28,8 @@ const VERDICT = {
 
 let jobId = null;
 let chatHistory = [];
+const BACKOFF_S = [2, 4, 8, 16, 30]; // ~1 min of retries before showing the Retry button
+let failures = 0;
 
 // el("p", {className: "x"}, "text", childNode, null) -> element; strings become text nodes.
 function el(tag, props, ...children) {
@@ -114,6 +116,13 @@ function startPolling(id) {
   show("progress");
   $("stage").textContent = "Queued";
   $("bar").removeAttribute("value");
+  resumePolling();
+}
+
+function resumePolling() {
+  failures = 0;
+  $("retry").hidden = true;
+  $("conn").textContent = "";
   poll();
 }
 
@@ -122,15 +131,31 @@ async function poll() {
   let job;
   try {
     const resp = await fetch(`/api/jobs/${encodeURIComponent(id)}`);
-    if (!resp.ok) throw new Error(await apiError(resp));
+    if (!resp.ok && resp.status < 500 && resp.status !== 429) {
+      // a definite answer (e.g. unknown report): go back to the form
+      const msg = await apiError(resp);
+      if (id !== jobId) return;
+      show("input");
+      $("form-error").textContent = msg;
+      return;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     job = await resp.json();
-  } catch (e) {
+  } catch (_) {
+    // network or server trouble: keep the job id and retry with backoff
     if (id !== jobId) return;
-    show("input");
-    $("form-error").textContent = e.message;
+    if (failures < BACKOFF_S.length) {
+      $("conn").textContent = "Connection lost, retrying…";
+      setTimeout(poll, BACKOFF_S[failures++] * 1000);
+    } else {
+      $("conn").textContent = "Connection lost. The audit may still be running on the server.";
+      $("retry").hidden = false;
+    }
     return;
   }
   if (id !== jobId) return;
+  failures = 0;
+  $("conn").textContent = "";
   if (job.status === "done") return renderReport(job.report);
   if (job.status === "error") {
     show("input");
@@ -213,7 +238,7 @@ function renderReport(r) {
   $("results-h").focus();
 }
 
-// Permanent link to this report; anyone holding it can read the report.
+// Shareable link to this report; anyone holding it can read the report while it is kept.
 function showPermalink() {
   const url = `${location.origin}/r/${encodeURIComponent(jobId)}`;
   history.replaceState(null, "", url);
@@ -269,6 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("new-job").addEventListener("click", reset);
   $("copy-link").addEventListener("click", copyLink);
   $("sample").addEventListener("click", trySample);
+  $("retry").addEventListener("click", resumePolling);
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);
 });

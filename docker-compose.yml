@@ -16,6 +16,9 @@ services:
       retries: 3
       start_period: 20s
     restart: unless-stopped
+    # measured peak on a 40-reference PDF: ~0.7 GB
+    mem_limit: 1536m
+    pids_limit: 256
 
   grobid:
     # CRF-only image: multi-arch (amd64 + arm64), ~2 GB RAM, no GPU needed.
@@ -27,6 +30,9 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
+    # measured up to ~4.1 GB while parsing; cap it so it cannot starve the app
+    mem_limit: 4608m
+    pids_limit: 512
 
   caddy:
     image: caddy:2.10
