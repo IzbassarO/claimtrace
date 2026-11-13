@@ -32,6 +32,10 @@ RETRACTING_UPDATES = {"retraction", "partial_retraction", "withdrawal", "removal
 _INLINE_TAG = re.compile(
     r"</?(jats:)?(sub|sup|i|b|em|strong|italic|bold|sc|u|underline)\b[^>]*>", re.I
 )
+# a real tag: "<name ...>" / "</name>"; "doses < 10 mg or > 50 mg" is not one
+_TAG = re.compile(r"</?[A-Za-z][\w:.-]*(\s[^<>]*)?/?>")
+# in abstracts 10<sup>5</sup> stays readable as 10^5 (and x<sub>i</sub> as x_i)
+_SUPSUB = re.compile(r"<(?:jats:)?(sup|sub)\b[^>]*>(.*?)</(?:jats:)?\1>", re.I | re.S)
 
 
 class ProviderError(RuntimeError):
@@ -67,12 +71,21 @@ async def _get(client: httpx.AsyncClient, gate: Gate, url: str, **kw) -> httpx.R
     return resp
 
 
-def _clean(s: str | None) -> str | None:
-    """Strip JATS/HTML tags and entities, collapse whitespace."""
-    if not s:
-        return None
-    s = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", _INLINE_TAG.sub("", s))).split())
+def _text(s: str | None) -> str | None:
+    """Plain text: decode entities, collapse whitespace. Never touches "<" / ">"."""
+    s = " ".join(html.unescape(s or "").split())
     return s or None
+
+
+def _clean(s: str | None) -> str | None:
+    """Titles / venues: inline markup glued (CO<sub>2</sub> -> CO2, for matching), other real
+    tags become spaces."""
+    return _text(_TAG.sub(" ", _INLINE_TAG.sub("", s or "")))
+
+
+def _jats(s: str | None) -> str | None:
+    """Crossref JATS abstract: sup/sub -> ^x / _x, inline markup glued, other tags -> space."""
+    return _clean(_SUPSUB.sub(lambda m: ("^" if m[1].lower() == "sup" else "_") + m[2], s or ""))
 
 
 def _retracted_title(title: str | None) -> bool:
@@ -116,7 +129,7 @@ def parse_crossref(item: dict) -> Work:
         arxiv_id=arxiv_from_doi(doi),
         venue=_clean((item.get("container-title") or [None])[0]),
         url=item.get("URL"),
-        abstract=_clean(item.get("abstract")),
+        abstract=_jats(item.get("abstract")),
         is_retracted=_retracted_title(title)
         or any(str(u.get("type", "")).lower() in RETRACTING_UPDATES for u in updates),
     )
@@ -143,7 +156,7 @@ def _abstract(inv: dict | None) -> str | None:
     if not inv:
         return None
     pos = sorted((i, w) for w, idx in inv.items() for i in idx)
-    return " ".join(w for _, w in pos) or None
+    return _text(" ".join(w for _, w in pos))
 
 
 def parse_openalex(r: dict) -> Work:
@@ -176,19 +189,22 @@ def parse_openalex(r: dict) -> Work:
     )
 
 
-async def openalex(client: httpx.AsyncClient, gate: Gate, ref: Reference) -> list[Work]:
+def _openalex_params() -> dict:
     mail = get_settings().contact_email
-    params = {"mailto": mail} if mail else {}
-    if doi := norm_doi(ref.doi):
-        resp = await _get(
-            client, gate, f"{OPENALEX}/works/doi:{quote(doi, safe='/')}", params=params
-        )
-        if resp:
-            return [parse_openalex(resp.json())]
-    if not ref.title:
-        return []
+    return {"mailto": mail} if mail else {}
+
+
+async def openalex_doi(client: httpx.AsyncClient, gate: Gate, doi: str) -> list[Work]:
+    """Single-entity lookup: free on the OpenAlex budget."""
+    url = f"{OPENALEX}/works/doi:{quote(doi, safe='/')}"
+    resp = await _get(client, gate, url, params=_openalex_params())
+    return [parse_openalex(resp.json())] if resp else []
+
+
+async def openalex_search(client: httpx.AsyncClient, gate: Gate, title: str) -> list[Work]:
+    """Title search: billed ($0.001 per request, ~1000/day budget). Last resort only."""
     # OpenAlex search treats some punctuation as syntax; words are enough
-    params |= {"search": " ".join(re.findall(r"\w+", ref.title)), "per_page": 5}
+    params = _openalex_params() | {"search": " ".join(re.findall(r"\w+", title)), "per_page": 5}
     resp = await _get(client, gate, f"{OPENALEX}/works", params=params)
     return [parse_openalex(r) for r in resp.json()["results"]] if resp else []
 
@@ -212,7 +228,7 @@ def parse_s2(p: dict) -> Work:
         pmcid=(pmc if pmc.upper().startswith("PMC") else f"PMC{pmc}") if pmc else None,
         venue=p.get("venue") or None,
         url=p.get("url"),
-        abstract=_clean(p.get("abstract")),
+        abstract=_text(p.get("abstract")),
         is_retracted=_retracted_title(p.get("title")),
         oa_pdf_url=(p.get("openAccessPdf") or {}).get("url") or None,
     )
@@ -261,7 +277,7 @@ def parse_arxiv(xml: str) -> list[Work]:
                 arxiv_id=aid,
                 venue=_clean(e.findtext("x:journal_ref", None, _ATOM)),
                 url=f"https://arxiv.org/abs/{aid}",
-                abstract=_clean(e.findtext("a:summary", None, _ATOM)),
+                abstract=_text(e.findtext("a:summary", None, _ATOM)),
                 oa_pdf_url=f"https://arxiv.org/pdf/{aid}",
             )
         )
