@@ -1,14 +1,11 @@
 """Source text must be what the provider returned: no merged numbers, no deleted spans."""
 
-import pytest
-
 import claimtrace.sources as src
 from claimtrace.core.schemas import Reference, ReferenceAudit, RefStatus, Work
 
 FILLER = b"<p>" + b"Further methods text follows here. " * 80 + b"</p>"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: JATS 10<sup>5</sup> becomes the number '105'")
 def test_jats_superscript_exponent_does_not_merge_into_a_different_number():
     xml = (
         b"<article><front><article-meta><title-group><article-title>Viral load"
@@ -22,7 +19,6 @@ def test_jats_superscript_exponent_does_not_merge_into_a_different_number():
     assert "105-fold" not in text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: Crossref abstract 10<jats:sup>5</jats:sup> -> '105'")
 async def test_crossref_abstract_superscript_does_not_merge_into_a_different_number():
     raw = "<jats:p>Treatment caused a 10<jats:sup>5</jats:sup>-fold drop in viral load.</jats:p>"
     w = Work(provider="crossref", title="Viral load", abstract=raw)
@@ -34,7 +30,6 @@ async def test_crossref_abstract_superscript_does_not_merge_into_a_different_num
     assert "105-fold" not in got.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: plain-text abstract loses everything between < and >")
 async def test_plain_text_abstract_with_less_than_keeps_its_words():
     # arXiv / Semantic Scholar / OpenAlex abstracts are plain text, '<' is not a tag there.
     raw = "Risk rose for doses < 10 mg per day and fell for doses > 50 mg per day."
