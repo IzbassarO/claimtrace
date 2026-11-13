@@ -327,3 +327,107 @@ async def test_no_matched_work_returns_none():
     a = ReferenceAudit(reference=Reference(id="1", raw="x"), status=RefStatus.not_found)
     async with client({}) as c:
         assert await src.fetch_source(a, c, fake_pdf_to_text()) is None
+
+
+# ---------- bioRxiv / medRxiv, OpenAlex locations ----------
+
+BIO_DOI = "10.1101/2020.03.22.002386"
+OA_WORK = "api.openalex.org/works/doi:" + DOI
+
+
+def biorxiv_details(versions):
+    return httpx.Response(200, json={"collection": [{"version": str(v)} for v in versions]})
+
+
+async def test_biorxiv_latest_version_pdf():
+    seen: list = []
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + BIO_DOI: biorxiv_details([1, 3, 2]),
+        f"www.biorxiv.org/content/{BIO_DOI}v3.full.pdf": pdf_resp(),
+    }
+    async with client(routes, seen) as c:
+        s = await src.fetch_source(audit(doi=BIO_DOI), c, fake_pdf_to_text())
+    assert (
+        s.kind == "full_text" and s.url == f"https://www.biorxiv.org/content/{BIO_DOI}v3.full.pdf"
+    )
+    assert "api.unpaywall.org/v2/" + BIO_DOI not in seen  # bioRxiv comes before Unpaywall
+
+
+async def test_medrxiv_when_biorxiv_has_no_record():
+    med = "10.1101/2020.04.14.20062463"
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + med: biorxiv_details([]),
+        "api.biorxiv.org/details/medrxiv/" + med: biorxiv_details([2]),
+        f"www.medrxiv.org/content/{med}v2.full.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=med), c, fake_pdf_to_text())
+    assert s.url == f"https://www.medrxiv.org/content/{med}v2.full.pdf"
+
+
+async def test_cshl_journal_doi_is_not_sent_to_biorxiv():
+    seen: list = []
+    async with client({}, seen) as c:
+        await src.fetch_source(audit(doi="10.1101/gr.123456.111"), c, fake_pdf_to_text())
+    assert not any(k.startswith("api.biorxiv.org") for k in seen)
+
+
+async def test_biorxiv_blocked_falls_through_to_unpaywall():
+    routes = {
+        "api.biorxiv.org/details/biorxiv/" + BIO_DOI: biorxiv_details([1]),
+        f"www.biorxiv.org/content/{BIO_DOI}v1.full.pdf": pdf_resp(b"<html>", "text/html"),
+        "api.unpaywall.org/v2/" + BIO_DOI: httpx.Response(
+            200, json={"best_oa_location": {"url_for_pdf": "https://oa.example.org/p.pdf"}}
+        ),
+        "oa.example.org/p.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=BIO_DOI), c, fake_pdf_to_text())
+    assert s.origin == "unpaywall" and s.url == "https://oa.example.org/p.pdf"
+
+
+async def test_openalex_locations_each_pass_the_guard():
+    work = {
+        "best_oa_location": {"pdf_url": "https://oa.example.org/p.pdf"},  # tried by Unpaywall
+        "primary_location": {"pdf_url": None},
+        "locations": [
+            {"pdf_url": "https://repo.example.org/other.pdf"},  # another paper
+            {"pdf_url": None},
+            {"pdf_url": "https://repo.example.org/right.pdf"},
+        ],
+    }
+    routes = {
+        OA_WORK: httpx.Response(200, json=work),
+        "oa.example.org/p.pdf": pdf_resp(b"%PDF-1.7 broken"),
+        "repo.example.org/other.pdf": pdf_resp(b"%PDF-1.7 other"),
+        "repo.example.org/right.pdf": pdf_resp(),
+    }
+    calls: list = []
+
+    async def by_pdf(pdf: bytes) -> str:
+        calls.append(pdf)
+        if pdf.endswith(b"broken"):
+            raise RuntimeError("GROBID could not parse")
+        return OTHER_TEXT if pdf.endswith(b"other") else GOOD_TEXT
+
+    async with client(routes) as c:
+        s = await src.fetch_source(
+            audit(doi=DOI, oa_pdf_url="https://oa.example.org/p.pdf"), c, by_pdf
+        )
+    assert s.kind == "full_text" and s.origin == "openalex"
+    assert s.url == "https://repo.example.org/right.pdf"
+    assert len(calls) == 3  # the url Unpaywall already tried is not downloaded twice
+
+
+async def test_openalex_locations_all_wrong_falls_back_to_openalex_abstract():
+    work = {
+        "locations": [{"pdf_url": "https://repo.example.org/other.pdf"}],
+        "abstract_inverted_index": {"Vitamin": [0], "D.": [1]},
+    }
+    routes = {
+        OA_WORK: httpx.Response(200, json=work),
+        "repo.example.org/other.pdf": pdf_resp(),
+    }
+    async with client(routes) as c:
+        s = await src.fetch_source(audit(doi=DOI), c, fake_pdf_to_text(OTHER_TEXT))
+    assert s.kind == "abstract" and s.origin == "openalex" and s.text == "Vitamin D."
