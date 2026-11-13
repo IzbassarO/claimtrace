@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClaimTrace</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <h1>ClaimTrace</h1>
+    <p class="lede">Are the references real and correctly described, and does each cited source say
+      what the citing sentence claims?</p>
+  </header>
+
+  <main id="main">
+    <section id="input" aria-labelledby="input-h">
+      <h2 id="input-h">Manuscript</h2>
+      <form id="job-form">
+        <label for="text">Paste manuscript text (including its reference list)</label>
+        <textarea id="text" name="text" rows="10" spellcheck="false"></textarea>
+        <label for="files">Or upload files (.txt, .md, .bib, .pdf)</label>
+        <input id="files" name="files" type="file" multiple accept=".txt,.md,.bib,.pdf"
+               aria-describedby="files-hint">
+        <p id="files-hint" class="hint">Pasted text plus a .bib file: the body is taken from the
+          text and the references from the .bib. Upload limit is set by the server.</p>
+        <button id="submit" type="submit">Audit citations</button>
+        <p id="form-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="progress" aria-labelledby="progress-h" hidden>
+      <h2 id="progress-h">Working</h2>
+      <progress id="bar" aria-labelledby="stage"></progress>
+      <p id="stage" aria-live="polite"></p>
+    </section>
+
+    <section id="results" aria-labelledby="results-h" hidden>
+      <h2 id="results-h">Report</h2>
+      <p class="exports">
+        <a id="export-json" download>Download JSON</a>
+        <a id="export-md" download>Download Markdown</a>
+        <button id="new-job" type="button">Audit another manuscript</button>
+      </p>
+      <ul id="warnings" class="warnings"></ul>
+
+      <h3>Summary</h3>
+      <div id="summary" class="summary"></div>
+
+      <h3 id="refs-h">References</h3>
+      <div class="table-wrap" role="region" aria-labelledby="refs-h" tabindex="0">
+        <table id="refs">
+          <thead>
+            <tr><th scope="col">Ref</th><th scope="col">Status</th><th scope="col">Cited</th>
+              <th scope="col">Found</th><th scope="col">Issues</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h3>Claims</h3>
+      <div id="claims" class="claims"></div>
+
+      <section id="chat" aria-labelledby="chat-h">
+        <h3 id="chat-h">Ask about this report</h3>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form">
+          <label for="question" class="sr-only">Question</label>
+          <input id="question" name="question" type="text" maxlength="2000" autocomplete="off"
+                 placeholder="e.g. Which claims need review, and why?">
+          <button type="submit">Ask</button>
+        </form>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "paperId": "a3f0b1c2d4e5f60718293a4b5c6d7e8f90a1b2c3",
+  "externalIds": {"DOI": "10.1371/journal.pmed.0020124", "PubMed": "16060722", "PubMedCentral": "1182327"},
+  "url": "https://www.semanticscholar.org/paper/a3f0b1c2d4e5f60718293a4b5c6d7e8f90a1b2c3",
+  "title": "Why Most Published Research Findings Are False",
+  "venue": "PLoS Medicine",
+  "year": 2005,
+  "openAccessPdf": {"url": "https://journals.plos.org/plosmedicine/article/file?id=10.1371/journal.pmed.0020124&type=printable", "status": "GOLD"},
+  "authors": [{"authorId": "1", "name": "J. Ioannidis"}],
+  "abstract": "There is increasing concern that most current published research findings are false."
+}
