@@ -2,16 +2,22 @@
 OpenAlex-location full text, else the abstract. Owner: T3.
 
 Every source is tried in order; any exception or empty answer in one source falls through to the
-next. Text is only ever copied from what a provider returned, never synthesised.
+next. Text is only ever copied from what a provider returned, never synthesised. Results are
+cached on disk under CACHE_DIR/sources (failures and None never are).
 """
 
+import hashlib
 import html
 import logging
+import os
 import re
+import tempfile
+import time
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
 from difflib import SequenceMatcher
+from pathlib import Path
 from urllib.parse import quote
 
 import httpx
@@ -38,7 +44,19 @@ async def fetch_source(
     w = audit.matched
     if w is None:
         return None
-    ref_id = audit.reference.id
+    f = _cache_file(w)
+    hit = _cache_get(f) if f else None
+    if hit:
+        return hit.model_copy(update={"ref_id": audit.reference.id})
+    got = await _fetch(w, audit.reference.id, client, pdf_to_text)
+    if got and f:
+        _cache_put(f, got)
+    return got
+
+
+async def _fetch(
+    w: Work, ref_id: str, client: httpx.AsyncClient, pdf_to_text: PdfToText
+) -> SourceText | None:
     tried: set[str] = set()  # PDF urls already downloaded for this reference
     full_text = [
         ("europepmc", lambda: _europepmc(w, client)),
@@ -84,6 +102,57 @@ async def fetch_source(
                 text=text.strip(),
             )
     return None
+
+
+# ---------- disk cache ----------
+
+CACHE_MAX_FILES = 2000
+# An abstract may be the answer only because full text failed this time (GROBID down, PDF host
+# rate-limited), so it is reused for a day; a full text is reused until evicted.
+ABSTRACT_TTL = 24 * 3600
+
+
+def _cache_file(w: Work) -> Path | None:
+    aid = _arxiv_id(w)
+    if w.doi:
+        key = "doi:" + w.doi.strip().lower()
+    elif aid:
+        key = "arxiv:" + aid.strip().lower()
+    elif w.title:  # title alone is ambiguous: add year and first author
+        first = _family(w.authors[0]) if w.authors else ""
+        key = f"title:{' '.join(_words(w.title))}|{w.year}|{first}"
+    else:
+        return None
+    name = hashlib.sha256(key.encode()).hexdigest() + ".json"
+    return Path(get_settings().cache_dir) / "sources" / name
+
+
+def _cache_get(f: Path) -> SourceText | None:
+    try:
+        s = SourceText.model_validate_json(f.read_bytes())
+        if s.kind == EvidenceKind.abstract and time.time() - f.stat().st_mtime > ABSTRACT_TTL:
+            return None
+        return s
+    except Exception:  # missing, unreadable or corrupt: fetch again
+        return None
+
+
+def _cache_put(f: Path, s: SourceText) -> None:
+    """Atomic write, then keep only the newest CACHE_MAX_FILES entries. A cache problem never
+    breaks a fetch."""
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=f.parent, suffix=".tmp")
+        with os.fdopen(fd, "w") as out:
+            out.write(s.model_dump_json())
+        os.replace(tmp, f)
+        files = list(f.parent.glob("*.json"))
+        if len(files) > CACHE_MAX_FILES:
+            files.sort(key=lambda p: p.stat().st_mtime)
+            for old in files[:-CACHE_MAX_FILES]:
+                old.unlink(missing_ok=True)
+    except OSError as e:
+        log.warning("sources: cache write failed: %s", type(e).__name__)
 
 
 # ---------- wrong-document guard ----------
