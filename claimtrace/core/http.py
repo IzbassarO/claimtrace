@@ -1,12 +1,30 @@
 """One shared httpx client factory + a retrying request helper."""
 
 import asyncio
+import logging
+import re
 
 import httpx
 
 from claimtrace.core.settings import get_settings
 
 RETRY_STATUS = {429, 500, 502, 503, 504}
+OPENALEX_HOST = "api.openalex.org"
+_KEY_RE = re.compile(r"(api_key=)[^&\s\"']+")
+
+# httpx logs full request URLs at INFO; those can carry the OpenAlex key.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def redact(text: str) -> str:
+    """Hide API keys carried in URLs (safe for logs, errors, reports)."""
+    return _KEY_RE.sub(r"\1***", text)
+
+
+async def _add_openalex_key(request: httpx.Request) -> None:
+    key = get_settings().openalex_api_key.get_secret_value()
+    if key and request.url.host == OPENALEX_HOST and "api_key" not in request.url.params:
+        request.url = request.url.copy_add_param("api_key", key)
 
 
 def make_client(timeout: float = 30.0) -> httpx.AsyncClient:
@@ -17,6 +35,7 @@ def make_client(timeout: float = 30.0) -> httpx.AsyncClient:
         follow_redirects=True,
         headers={"User-Agent": ua},
         limits=httpx.Limits(max_connections=20),
+        event_hooks={"request": [_add_openalex_key]},
     )
 
 

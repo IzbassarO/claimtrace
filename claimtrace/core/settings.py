@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     contact_email: str = ""  # Crossref polite pool, Unpaywall (required there)
     semantic_scholar_api_key: SecretStr = SecretStr("")
+    openalex_api_key: SecretStr = SecretStr("")  # required by OpenAlex since Feb 2026
     grobid_url: str = "http://localhost:8070"
 
     max_upload_mb: int = 20
@@ -44,6 +45,8 @@ class Settings(BaseSettings):
                 out.append(f"{prov.upper()}_API_KEY is empty (needed by {role})")
         if self.llm_judge_provider and self.llm_judge_provider == self.llm_skeptic_provider:
             out.append("LLM_JUDGE_PROVIDER and LLM_SKEPTIC_PROVIDER must differ")
+        if not self.openalex_api_key.get_secret_value():
+            out.append("OPENALEX_API_KEY is empty (OpenAlex requires it)")
         if not self.contact_email:
             out.append("CONTACT_EMAIL is empty (Unpaywall needs it)")
         return out
