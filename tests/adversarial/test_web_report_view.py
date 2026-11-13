@@ -333,8 +333,12 @@ def test_partial_report_counts_only_what_is_done_and_marks_sections():
     assert out["refs-wait"]["hidden"] is False and out["claims-wait"]["hidden"] is False
     assert "Still checking" in (JS.parent / "index.html").read_text()
     assert out["live"]["hidden"] is False and out["report"]["cls"] == "running"
-    # references are final once the job moved on to claims
+    # stages overlap: at "claims" the references are still running until t_references_end
     out = render_calls([[partial(audit("1", RefStatus.not_found)), running("claims")]])
+    assert out["refs-wait"]["hidden"] is False
+    # references are final once every audit finished (t_references_end in the partial timings)
+    done = partial(audit("1", RefStatus.not_found)) | {"timings": {"t_references_end": 1.0}}
+    out = render_calls([[done, running("claims")]])
     assert out["refs-wait"]["hidden"] is True and out["claims-wait"]["hidden"] is False
 
 
