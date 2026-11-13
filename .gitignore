@@ -5,7 +5,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
-.claude/worktrees/
+.worktrees/
 .claude/settings.local.json
 eval/.cache/
 *.egg-info/

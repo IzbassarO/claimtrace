@@ -16,8 +16,9 @@ Window: Fri 2026-11-13 12:20 ET → Sat 2026-11-14 23:59 ET. **Code freeze Sat 1
 
 1. Lead writes foundation (this PR): docs, `core/` contracts, pipeline, module stubs, agents.
 2. Developers T1–T7 run in parallel, each in its own worktree/branch, only in their paths,
-   finishing with a PR. Lead reviews each PR, reruns ruff + pytest (+ live tests), reports to the
-   human which PRs are ready and in what merge order. **Only the human merges into `main`.**
+   finishing with a PR. Lead reviews each PR, reruns ruff + pytest (+ live tests),
+   merges with `gh pr merge --merge` (never force-push, never commit to `main` directly), and
+   removes the worktree.
 3. After each merge a tester agent hunts for confidently-wrong results and lands them as
    failing tests (`xfail(strict=True)` with the bug described), which the owning developer fixes.
 4. Status is logged with real timestamps in `docs/STATUS.md` on its own PR.

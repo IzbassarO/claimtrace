@@ -6,6 +6,9 @@ Built from scratch during HackGlobal 2026. Code and docs in English.
 
 ## Hard rules
 
+0. **One folder.** Everything happens inside this repository (`claimtrace-hg`). Never create,
+   read or modify anything outside it. Git worktrees live only in `.worktrees/<branch>`
+   (gitignored), e.g. `.worktrees/feat/ingest`; the lead removes a worktree after its PR merges.
 1. **Never read, copy, or import anything from `../claimtrace` or `../ct-*`.** That is an old
    prototype and is banned by hackathon rules. Note: your shell `PATH`/`VIRTUAL_ENV` may point at
    `../claimtrace/.venv` — ignore it. Always run tools through `uv run ...` (run
@@ -20,8 +23,10 @@ Built from scratch during HackGlobal 2026. Code and docs in English.
    `claimtrace.core.*`, stdlib and third-party libs. Only `claimtrace/pipeline.py` (and the web
    shell / eval harness, which call the pipeline or module entry points) connect them. Functions
    one module needs from another are passed in as arguments (see `pdf_to_text`).
-5. **Git:** one branch per task (`feat/<task>`), push it, open a PR to `main` with `gh pr create`.
-   Never push to `main`, never merge, never force-push, never rewrite pushed history.
+5. **Git:** one branch per task (`feat/<task>`) in its worktree `.worktrees/feat/<task>`, push it,
+   open a PR to `main` with `gh pr create`. Never push to `main`, never force-push, never rewrite
+   pushed history. Only the lead merges (`gh pr merge --merge`), after reviewing the PR and
+   rerunning ruff + pytest itself; a tester run follows every merge.
 6. **Tests:** unit tests run with no network (use `httpx.MockTransport`, fake LLMs such as
    `langchain_core...FakeListChatModel`, or `ask_json(..., model=fake)`). Tests that hit real
    services live in `tests/live/` and run only with `RUN_LIVE=1`. Before pushing:
