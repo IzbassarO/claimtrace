@@ -13,7 +13,6 @@ OK = [
 ]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: Greek letter vs its name (TNF-α/TNF-alpha) mismatch")
 @pytest.mark.parametrize(
     ("cited", "found"),
     [
@@ -29,7 +28,6 @@ def test_greek_letter_spelled_out_is_the_same_title(cited, found):
     assert title_match(cited, found)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: correct DOI + Greek-letter spelling => title mismatch")
 def test_greek_letter_spelling_is_not_a_metadata_mismatch():
     w = Work(
         provider="crossref",
@@ -49,7 +47,6 @@ def test_greek_letter_spelling_is_not_a_metadata_mismatch():
     assert refaudit.decide(ref, [w], OK).status == RefStatus.verified
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: real paper not_found when cited authors are missing")
 def test_near_identical_title_same_year_without_authors_is_not_not_found():
     # a reference without authors (sloppy list, .bib entry without `author`); a one-letter typo
     # in the title, same year: "nothing close exists" is false
