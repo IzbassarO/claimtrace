@@ -28,6 +28,7 @@ from claimtrace.core.schemas import (
     ClaimCheck,
     InputFile,
     Manuscript,
+    ModelOpinion,
     Reference,
     ReferenceAudit,
     RefStatus,
@@ -93,11 +94,16 @@ def _verdict_key(c: Citation, src: SourceText) -> str:
 
 
 def _cached_verdict(c: Citation, ref_id: str, src: SourceText) -> ClaimCheck | None:
+    """Only the two model opinions are reused; gate, combine, section and source fields are
+    re-derived now (claims.finalize), so a cache hit can't bypass a fixed quote gate or carry
+    another source's url."""
     try:
         data = json.loads((_verdict_dir() / f"{_verdict_key(c, src)}.json").read_text())
-        return ClaimCheck.model_validate(data | {"citation_id": c.id, "ref_id": ref_id})
-    except (OSError, ValueError):
+        judge = ModelOpinion.model_validate(data["judge"])
+        skeptic = ModelOpinion.model_validate(data["skeptic"])
+    except (OSError, ValueError, KeyError, TypeError):
         return None
+    return claims.finalize(c, ref_id, src, judge, skeptic)
 
 
 def _store_verdict(c: Citation, src: SourceText, res: ClaimCheck) -> None:
@@ -109,7 +115,9 @@ def _store_verdict(c: Citation, src: SourceText, res: ClaimCheck) -> None:
         d.mkdir(parents=True, exist_ok=True)
         f = d / f"{_verdict_key(c, src)}.json"
         tmp = f.with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_text(res.model_dump_json())
+        tmp.write_text(
+            json.dumps({"judge": res.judge.model_dump(), "skeptic": res.skeptic.model_dump()})
+        )
         tmp.replace(f)
         files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime)
         # ponytail: O(n) scan per write; fine at 5000 files, index it if the cap grows

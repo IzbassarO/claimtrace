@@ -3,7 +3,6 @@ not have produced. Offline: ingest, refaudit, sources and the LLMs are fakes."""
 
 import json
 
-import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from claimtrace import claims, ingest, pipeline, refaudit, sources
@@ -61,10 +60,6 @@ def _wire(monkeypatch, cits, texts: dict[str, tuple[str, str]]):
     st.get_settings.cache_clear()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: verdict cache hit keeps another reference's source_url (key has no url)",
-)
 async def test_cache_hit_keeps_the_source_url_of_the_reference_being_checked(monkeypatch):
     # Two distinct references whose abstracts read the same (a preprint and its journal version,
     # two chapters with the publisher's book blurb, a duplicated entry). The claim for [2] must
@@ -97,10 +92,6 @@ async def test_cache_hit_keeps_the_source_url_of_the_reference_being_checked(mon
     assert urls == {"1": "https://arxiv.org/abs/2001.00001", "2": "https://doi.org/10.1/2"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: cached verdict bypasses the current quote gate (key ignores gate/combine code)",
-)
 async def test_cached_verdict_is_regated_after_a_quote_gate_fix(monkeypatch):
     # The cache stores the final, already-gated verdict. Its key covers the system prompts and
     # models, not the deterministic gate. The quote gate has been fixed many times; every

@@ -52,7 +52,12 @@ def wired(monkeypatch):
 
     async def fetch_source(audit, client, pdf_to_text):
         rid = audit.reference.id
-        return SourceText(ref_id=rid, kind=EvidenceKind.abstract, text=f"t{rid}", origin="openalex")
+        return SourceText(
+            ref_id=rid,
+            kind=EvidenceKind.abstract,
+            text=f"Source {rid}: a b c d e.",
+            origin="openalex",
+        )
 
     calls: list[str] = []
 
@@ -125,9 +130,8 @@ async def test_verdict_cache_reuses_clean_answers_only(wired, monkeypatch):
     r1 = await pipeline.run("text", [])
     r2 = await pipeline.run("text", [])
     assert len(calls) == 3  # second run served from the disk cache
-    assert [c.model_dump(exclude={"note"}) for c in r1.claims] == [
-        c.model_dump(exclude={"note"}) for c in r2.claims
-    ]
+    assert [(c.verdict, c.quote) for c in r1.claims] == [(c.verdict, c.quote) for c in r2.claims]
+    assert all(c.verdict == Verdict.supported for c in r2.claims)  # re-gated against the source
     assert r2.timings.get("n_verdict_cache_hit") == 3
 
     async def failing(c, ref_id, source, **kw):
