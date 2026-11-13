@@ -25,6 +25,9 @@ from claimtrace.core.schemas import (
 )
 from claimtrace.core.settings import get_settings
 
+SOURCE_TIMEOUT_S = 90  # whole fetch of one source (PDF download + GROBID), not per read
+MAX_SENTENCE_CHARS = 2000  # longer "sentences" are tables/extraction noise; caps report size
+
 Progress = Callable[[str, int, int], None]
 
 
@@ -76,8 +79,9 @@ async def _sources(state: State, config: RunnableConfig) -> State:
         nonlocal done
         async with sem:
             try:
-                src = await sources.fetch_source(a, client, ingest.pdf_to_text)
-            except Exception:  # a failed fetch degrades to "no source", never crashes the job
+                async with asyncio.timeout(SOURCE_TIMEOUT_S):
+                    src = await sources.fetch_source(a, client, ingest.pdf_to_text)
+            except Exception:  # incl. TimeoutError: degrade to "no source", never crash the job
                 src = None
         if src:
             out[a.reference.id] = src
@@ -93,7 +97,19 @@ async def _claims(state: State, config: RunnableConfig) -> State:
     _, progress = _ctx(config)
     ms, srcs = state["manuscript"], state["sources"]
     known = {r.id for r in ms.references}
-    pairs = [(c, r) for c in ms.citations for r in c.ref_ids if r in known]
+    long_ = [c for c in ms.citations if len(c.sentence) > MAX_SENTENCE_CHARS]
+    if long_:
+        ms.warnings.append(
+            f"{len(long_)} citing sentence(s) longer than {MAX_SENTENCE_CHARS} characters skipped "
+            "(not a sentence: likely a table or extraction artefact)."
+        )
+    pairs = [
+        (c, r)
+        for c in ms.citations
+        if len(c.sentence) <= MAX_SENTENCE_CHARS
+        for r in c.ref_ids
+        if r in known
+    ]
     limit = get_settings().max_claims
     if len(pairs) > limit:
         ms.warnings.append(f"Only the first {limit} of {len(pairs)} citation pairs checked.")

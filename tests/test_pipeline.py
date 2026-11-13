@@ -1,3 +1,5 @@
+import asyncio
+
 from claimtrace import claims, ingest, pipeline, refaudit, sources
 from claimtrace.core.schemas import (
     Citation,
@@ -49,3 +51,37 @@ async def test_pipeline_wires_modules(monkeypatch):
     assert rep.claims[0].needs_review
     assert stages[0] == "ingest" and stages[-1] == "done"
     assert isinstance(rep.claims[0], ClaimCheck)
+
+
+async def test_overlong_sentence_and_slow_source_are_bounded(monkeypatch):
+    refs = [Reference(id=str(i), raw=f"r{i}", title=f"Paper {i}", year=2020) for i in (1, 2)]
+    huge = Citation(id="c1", sentence="x " * 5000 + "[1]", ref_ids=["1"], marker="[1]")
+    ok = Citation(id="c2", sentence="Y holds [2].", ref_ids=["2"], marker="[2]")
+
+    async def parse_inputs(text, files):
+        return Manuscript(body=text, references=refs, citations=[huge, ok])
+
+    async def audit_references(rs, client, on_progress=None):
+        return [
+            ReferenceAudit(
+                reference=r, status=RefStatus.verified, matched=Work(provider="crossref", title="t")
+            )
+            for r in rs
+        ]
+
+    async def fetch_source(audit, client, pdf_to_text):
+        await asyncio.sleep(3600)  # slow-drip server: must hit the per-source deadline
+
+    async def check_claim(c, ref_id, source):
+        return ClaimCheck(
+            citation_id=c.id, ref_id=ref_id, sentence=c.sentence, verdict=Verdict.source_not_found
+        )
+
+    monkeypatch.setattr(ingest, "parse_inputs", parse_inputs)
+    monkeypatch.setattr(refaudit, "audit_references", audit_references)
+    monkeypatch.setattr(sources, "fetch_source", fetch_source)
+    monkeypatch.setattr(claims, "check_claim", check_claim)
+    monkeypatch.setattr(pipeline, "SOURCE_TIMEOUT_S", 0.05)
+    report = await pipeline.run("text", [])
+    assert [c.citation_id for c in report.claims] == ["c2"]
+    assert any("longer than" in w for w in report.warnings)
