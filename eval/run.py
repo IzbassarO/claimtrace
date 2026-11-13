@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from claimtrace import claims, refaudit
+from claimtrace.claims.quote import verify_quote
 from claimtrace.core.http import make_client
 from claimtrace.core.schemas import Citation, EvidenceKind, Reference, SourceText
 from claimtrace.core.settings import get_settings
@@ -216,12 +217,6 @@ def scifact_items(dev: list[dict], corpus: dict, n: int, seed: int) -> list[dict
     return random.Random(seed).sample(items, min(n, len(items)))
 
 
-def norm(s: str) -> str:
-    s = s.replace("­", "").replace("​", "")
-    s = s.translate(str.maketrans("‘’“”", "''\"\""))
-    return " ".join(s.split()).casefold()
-
-
 def predicted(verdict: str) -> str:
     return "supported" if verdict in POSITIVE else verdict if verdict == "unsupported" else "nei"
 
@@ -284,7 +279,8 @@ async def check_item(item: dict) -> dict:
     return row | {
         "verdict": res.verdict.value,
         "quote": res.quote,
-        "quote_in_source": bool(res.quote) and norm(res.quote) in norm(item["text"]),
+        # the product's own strict gate (word boundaries, digits, >= 5 words), not a substring
+        "quote_in_source": bool(res.quote) and verify_quote(res.quote, item["text"]),
         "needs_review": res.needs_review,
         "judge": res.judge.verdict if res.judge else None,
         "skeptic": res.skeptic.verdict if res.skeptic else None,
