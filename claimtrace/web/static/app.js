@@ -279,7 +279,7 @@ const refAttention = (a) => a.status !== "verified";
 // its reference is gone or its readers disagree.
 const claimKey = (c) => (refBad(c) ? "badref" : disagree(c) ? "review" : c.verdict);
 // counts shown beside the per-verdict ones (screen counters and print): [value, count, words, mark class]
-const claimExtras = (cs) => [["badref", cs.filter((c) => claimKey(c) === "badref").length, "cite a missing or retracted reference", "s-bad"],
+const claimExtras = (cs) => [["badref", cs.filter((c) => claimKey(c) === "badref").length, "cite a missing or retracted reference", "s-unknown"],
   ["review", cs.filter((c) => claimKey(c) === "review").length, "need review", "s-review"]].filter(([, n]) => n);
 // "Needs review" means the two readers disagree, nothing else: the backend's needs_review is also
 // true when only one model answered (or none), which is shown as "judge only" / "skeptic only"
@@ -295,7 +295,7 @@ const claimAttention = (c) => ["badref", "review", "unsupported"].includes(claim
 const CLAIM_GROUPS = [
   ["partly", "Partly supported", "s-partly v u-partly_supported", (c) => c.verdict === "partly_supported"],
   ["supported", "Supported", "s-ok v u-supported", (c) => c.verdict === "supported"],
-  ["unchecked", "Could not check", "s-unknown v u-insufficient_evidence", (c) => !["partly_supported", "supported"].includes(c.verdict)],
+  ["unchecked", "Not enough evidence", "s-unknown v u-insufficient_evidence", (c) => !["partly_supported", "supported"].includes(c.verdict)],
 ];
 // header order: "References · 38 verified · 1 differs · 1 unchecked"
 const REF_SHORT = { verified: "verified", metadata_mismatch: "differs", unchecked: "unchecked", not_found: "not found", retracted: "retracted" };
@@ -398,7 +398,7 @@ function details(key, props, ...children) {
 function opinion(role, o, shown) {
   if (!o) return el("div", { className: "well" }, el("h4", {}, role), el("p", {}, "No answer (model call failed)."));
   return el("div", { className: "well" },
-    el("h4", {}, role, mark(o.verdict, VERDICT)),
+    el("h4", {}, role, o.model ? el("span", { className: "model" }, ` · ${o.model}`) : null, mark(o.verdict, VERDICT)),
     o.rationale ? el("p", {}, o.rationale) : null,
     o.quote && o.quote !== shown ? el("p", { className: "quiet" }, `Other excerpt it quoted (not verified verbatim): “${o.quote}”`) : null);
 }
@@ -549,14 +549,15 @@ function counters(items, labels, prefix, valueOf, extras = []) {
   }));
 }
 
-// Readout meter: one tick per item, pending ticks while the total is known but not reached.
+// Readout meter: one tick per item, pending ticks while the total is known but not reached. Only
+// while checking: a finished section keeps its "n / n checked" text and drops the ruler.
 function meter(name, items, total, done, countsNode, waitNote) {
   const n = items.length;
   const of = total && total > n ? total : done ? n : null;
-  return el("div", { className: "meter" },
+  return el("div", { className: done ? "meter done" : "meter" },
     el("p", { className: "meter-head" }, el("strong", {}, name),
       el("span", { className: "n" }, of !== null ? `${n} / ${of} checked` : `${n} checked so far`)),
-    el("div", { className: (of || n) > 40 ? "ruler dense" : "ruler", role: "img", "aria-label": of !== null ? `${n} of ${of} checked` : `${n} checked so far` },
+    done ? null : el("div", { className: (of || n) > 40 ? "ruler dense" : "ruler", role: "img", "aria-label": of !== null ? `${n} of ${of} checked` : `${n} checked so far` },
       Array.from({ length: Math.max(of || 0, n) }, (_, i) => el("span", { className: i < n ? "tick" : "tick todo" }))),
     done ? countsNode : el("p", { className: "meter-note" }, waitNote));
 }

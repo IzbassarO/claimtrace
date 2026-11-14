@@ -316,6 +316,8 @@ progress { width: 100%; height: var(--space-2); accent-color: var(--color-accent
 .ruler { display: flex; gap: var(--tick-gap); height: var(--tick-height); min-width: 0; overflow: hidden; }
 .tick { flex: 1; background: var(--color-tick-done); border: var(--border-width) solid var(--color-tick-done); border-radius: var(--border-radius-sm); }
 .ruler.dense { gap: 0; }
+.meter.done { grid-template-columns: var(--col-meter-name) minmax(0, 1fr); }
+.well h4 .model { font-weight: var(--font-weight-normal); color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .ruler.dense .tick:not(.todo) { border-width: 0; }
 .tick { min-width: 0; }
 .tick.todo { background: transparent; border-color: var(--color-tick-todo); } /* hollow: shape differs too */
