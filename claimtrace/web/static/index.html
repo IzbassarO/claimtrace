@@ -56,6 +56,7 @@
           <p id="form-error" class="error" role="alert"></p>
           <div class="actions">
             <button id="submit" type="submit">Audit citations</button>
+            <span id="usage" class="hint usage"></span>
           </div>
         </form>
       </div>
@@ -80,6 +81,18 @@
           <li><span class="mark s-review"><span class="word">Needs review</span></span>
             <span class="hint">the two readers disagree</span></li>
         </ul>
+        <h2 id="data-h">About your data</h2>
+        <p class="hint">Best used on published or preprint papers; avoid uploading confidential manuscripts.</p>
+        <details class="about">
+          <summary>What is stored, and who can see it</summary>
+          <ul class="hint">
+            <li>Stored: the finished report, including the manuscript's citing sentences and its
+              reference list. Uploaded files are not kept after the audit.</li>
+            <li id="keep-note">How long: only a limited number of recent reports are kept; older ones are deleted.</li>
+            <li>Who can see a report: anyone with its link.</li>
+            <li>No accounts and no IP addresses; only a count of visits per country per day.</li>
+          </ul>
+        </details>
       </aside>
     </section>
 
