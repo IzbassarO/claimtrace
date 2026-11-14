@@ -161,11 +161,19 @@ PDF was **not re-measured live**.
 
 ## How we used Vultr
 
-ClaimTrace is designed to run on a single **Vultr Cloud Compute** instance (8 GB RAM, Ubuntu
-24.04) with Docker Compose: `app` + `grobid` + `caddy` (automatic HTTPS, e.g. via sslip.io).
-Reports, the OpenAlex cache and the paid-search counter live in a Docker volume that survives
-restarts and updates. Step-by-step and verification status per step: `docs/DEPLOY.md`.
-*Status: not yet deployed — waiting for credits.*
+ClaimTrace runs live at **https://66-135-11-202.sslip.io** on one **Vultr Cloud Compute**
+instance: 4 dedicated vCPU, 16 GB RAM, 240 GB NVMe, Ubuntu 24.04, Docker Compose with `app`
+(FastAPI + the pipeline), `grobid` (PDF parsing) and `caddy` (automatic HTTPS via sslip.io).
+Hardened: SSH keys only, ufw 22/80/443, fail2ban, unattended upgrades, 4 GB swap; containers
+restart on boot. Sizing lives in a non-secret `server.env`: 3 concurrent jobs, retrieval 2
+threads × 2 slots, memory caps app 3 GB / GROBID 6 GB. Measured there: a 40-reference PDF in
+191 s (first result 19 s); five concurrent PDFs finished in 144–322 s with peaks of 1.2 GB (app)
+and 5.3 GB (GROBID). Cost guards: a daily cap on audits (default 300, reset 00:00 UTC) and the
+OpenAlex paid-search budget. Usage is counted per day and country only — no IP addresses are
+stored. Steps: `docs/DEPLOY.md`.
+
+IP-to-country data: IP to Country Lite by [DB-IP](https://db-ip.com), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ## AI assistance
 
