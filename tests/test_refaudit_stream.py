@@ -17,6 +17,8 @@ REFS = [Reference(id=str(i), raw="", title=f"Study {t} of things") for i, t in e
 def offline(monkeypatch):
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "")
     monkeypatch.setenv("CONTACT_EMAIL", "")
+    # the arXiv title-search fallback answers "no record" at once (no 3 s arXiv spacing)
+    monkeypatch.setattr(refaudit, "arxiv_search", lambda *a: asyncio.sleep(0, []))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
