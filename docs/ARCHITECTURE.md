@@ -1,6 +1,6 @@
 # Architecture
 
-![Architecture](architecture.svg)
+![Architecture](architecture.png)
 
 ```
             text / .bib / .pdf
