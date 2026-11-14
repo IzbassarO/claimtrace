@@ -45,7 +45,7 @@ async def ask(model):
 
 async def test_breaker_skips_role_after_three_failures_then_probes_once(monkeypatch):
     monkeypatch.setattr(llm, "BREAKER_COOLDOWN_S", 0.2)
-    t = timing.start()
+    t = timing.start(breakers=True)
     model = Flaky(responses=[OK] * 10)
     for _ in range(3):
         with pytest.raises(openai.RateLimitError):
@@ -63,7 +63,7 @@ async def test_breaker_skips_role_after_three_failures_then_probes_once(monkeypa
 
 async def test_failed_probe_reopens(monkeypatch):
     monkeypatch.setattr(llm, "BREAKER_COOLDOWN_S", 0.2)
-    timing.start()
+    timing.start(breakers=True)
     model = Flaky(responses=[OK] * 10)
     for _ in range(3):
         with pytest.raises(openai.RateLimitError):

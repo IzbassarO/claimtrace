@@ -143,8 +143,10 @@ class _Breaker:
 
 
 def _breaker(role: str) -> _Breaker | None:
-    t = current()  # no run (unit tests, eval calling claims directly): no breaker
-    return t.breakers.setdefault(role, _Breaker()) if t is not None else None  # type: ignore[return-value]
+    t = current()  # only pipeline runs turn breakers on (eval and unit tests see every failure)
+    if t is None or t.breakers is None:
+        return None
+    return t.breakers.setdefault(role, _Breaker())  # type: ignore[return-value]
 
 
 async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) -> BaseMessage:
