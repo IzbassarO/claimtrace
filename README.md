@@ -38,9 +38,12 @@ link; uploaded files are not kept).
   cited → found), `retracted`, `not_found`, or `unchecked` (a lookup failed or nothing could be
   compared; never presented as "fake").
 - **Claims**: `supported`, `partly_supported`, `unsupported` (each only with a ≥ 5-word quote
-  found verbatim in the source), `insufficient_evidence`, or `source_not_found`; **needs review**
-  when the two models disagree; **judge only** when one model was unavailable; "abstract only"
-  vs "full text".
+  found verbatim in the source), `insufficient_evidence`, or `source_not_found`. "Not supported"
+  is shown only when both models agree. When they disagree the claim is shown as **Needs review**
+  with both verdicts ("Judge: partly supported · Skeptic: not supported"); the JSON keeps the
+  more cautious verdict. **Judge only** when the second model was unavailable: the claim shows
+  that model's verdict and a line above the report says how many claims were checked by one
+  model. "Abstract only" vs "full text".
 - The report opens with what needs attention first; JSON / Markdown export and a chat that answers
   only from the report.
 
