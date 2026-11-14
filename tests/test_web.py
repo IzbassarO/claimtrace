@@ -469,7 +469,7 @@ def test_ui_shareable_link_wording(client):
     assert "Permanent" not in page + js and "Shareable link" in js
     # the retention count comes from the server, never baked into the page
     assert str(web.MAX_REPORTS) not in page and "/api/info" in js
-    assert client.get("/api/info").json() == {"max_reports": web.MAX_REPORTS}
+    assert client.get("/api/info").json()["max_reports"] == web.MAX_REPORTS
 
 
 def test_partial_report_is_served_while_running_and_not_saved(client, monkeypatch):

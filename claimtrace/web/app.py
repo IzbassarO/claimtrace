@@ -22,13 +22,12 @@ from claimtrace import pipeline
 from claimtrace.core.http import redact
 from claimtrace.core.schemas import InputFile, Report
 from claimtrace.core.settings import get_settings
-from claimtrace.web import chat, export
+from claimtrace.web import chat, export, guards
 
 log = logging.getLogger("claimtrace.web")
 STATIC = Path(__file__).parent / "static"
 ALLOWED_EXT = {".txt", ".md", ".bib", ".pdf"}
 MAX_JOBS = 50
-MAX_RUNNING = 2
 MAX_REPORTS = 1000
 MAX_QUEUED = 4  # uploads waiting for a worker are held in RAM
 JOB_TIMEOUT_S = 1200
@@ -97,7 +96,7 @@ def _load(job_id: str) -> Report | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.running = asyncio.Semaphore(MAX_RUNNING)
+    app.state.running = asyncio.Semaphore(get_settings().max_running_jobs)
     app.state.chat_running = asyncio.Semaphore(MAX_CHAT_RUNNING)
     # ponytail: per-process dicts that only grow (one int / few floats per report / client IP);
     # fine for a demo server, move to a TTL store if it runs for months
@@ -235,15 +234,30 @@ async def create_job(
         inputs.append(InputFile(name=name, content=content))
     if text is None and not inputs:
         raise HTTPException(400, "Paste manuscript text or upload at least one file.")
-    ip, now = _client_ip(request), time.monotonic()
+    ip = _client_ip(request)
+    # only the country is kept, never the IP; the first lookup loads the CSV (off the loop).
+    # Looked up before the checks so check + accept + count run with no await in between.
+    country = await asyncio.to_thread(guards.country, ip)
+    now = time.monotonic()
     recent = [t for t in request.app.state.job_times.get(ip, []) if now - t < RATE_WINDOW_S]
     if len(recent) >= RATE_JOBS:
         raise HTTPException(429, "Too many audits from your address, try again in a few minutes.")
+    limit = get_settings().max_jobs_per_day
+    if guards.jobs_today() >= limit:
+        raise HTTPException(
+            429,
+            f"Daily limit of {limit} audits reached on this server; "
+            f"it resets at 00:00 UTC (in {guards.until_reset()}).",
+        )
     _evict()
     request.app.state.job_times[ip] = [*recent, now]
     job = Job(id=secrets.token_urlsafe(16))
     JOBS[job.id] = job
     job.task = asyncio.create_task(_run(job, text, inputs))
+    try:
+        guards.record(country)
+    except OSError as e:  # the job runs anyway; only the counter misses it
+        log.warning("could not record usage: %s", type(e).__name__)
     return {"id": job.id}
 
 
@@ -264,7 +278,10 @@ def _report(job_id: str) -> Report:
 
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str) -> dict:
-    return _job(job_id).view()
+    job = _job(job_id)
+    queued = [k for k, j in JOBS.items() if j.status == "queued"]  # dict order = submission
+    pos = queued.index(job_id) + 1 if job.status == "queued" and job_id in queued else None
+    return {**job.view(), "queue_position": pos, "queue_length": len(queued)}
 
 
 @app.get("/api/jobs/{job_id}/export.json")
@@ -311,7 +328,22 @@ async def chat_route(job_id: str, body: ChatIn, request: Request) -> dict:
 @app.get("/api/info")
 async def info() -> dict:
     """Facts the page states instead of hard-coding them."""
-    return {"max_reports": MAX_REPORTS}
+    return {
+        "max_reports": MAX_REPORTS,
+        "jobs_today": guards.jobs_today(),
+        "daily_limit": get_settings().max_jobs_per_day,
+    }
+
+
+@app.get("/api/usage")
+async def usage(token: str = "") -> dict:
+    """Jobs per day and per country (last 30 days). No IPs are ever stored."""
+    expected = get_settings().usage_token.get_secret_value()
+    if not expected:
+        raise HTTPException(404, "Not Found")
+    if not secrets.compare_digest(token.encode(), expected.encode()):
+        raise HTTPException(403, "Wrong token.")
+    return guards.summary()
 
 
 @app.get("/healthz")

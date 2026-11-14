@@ -20,6 +20,16 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-smal
     && python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder('Xenova/ms-marco-MiniLM-L-6-v2')" \
     && chown -R app:app /opt/fastembed
 
+# Offline IP -> country for the usage counter (IPs are never stored): db-ip.com
+# "IP to Country Lite", CC BY 4.0, https://db-ip.com. Bump GEOIP_MONTH to refresh.
+ARG GEOIP_MONTH=2026-11
+ENV GEOIP_CSV=/opt/geo/dbip-country-lite.csv.gz
+# (Cloudflare there rejects urllib's default User-Agent, hence the curl one)
+RUN mkdir -p /opt/geo && python -c "import sys, urllib.request as u; \
+r = u.urlopen(u.Request(sys.argv[1], headers={'User-Agent': 'curl/8.5.0'}), timeout=120); \
+open(sys.argv[2], 'wb').write(r.read())" \
+    "https://download.db-ip.com/free/dbip-country-lite-${GEOIP_MONTH}.csv.gz" "$GEOIP_CSV"
+
 COPY claimtrace ./claimtrace
 RUN uv sync --frozen --no-dev
 
