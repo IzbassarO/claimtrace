@@ -10,7 +10,8 @@ Window: Fri 2026-11-13 12:20 ET → Sat 2026-11-14 23:59 ET. **Code freeze Sat 1
 | Fri 22:00 | Docker stack (app + grobid + caddy) built and verified locally; CI green | T7 |
 | Sat 12:00 | PDF via real GROBID, full text (Europe PMC / arXiv / Unpaywall), eval numbers, chat | T1 PDF, T3 full text, T6, T5 chat |
 | Sat 15:00 | Deployed on Vultr Compute over HTTPS | T7 + lead |
-| Sat 18:00 | Freeze. README final (numbers, architecture, limits, Vultr, AI assistance) | lead |
+| Sat 12:00 | **Code freeze.** After this only docs and deploy fixes | lead |
+| Sat 15:00 | **Submission.** README final (numbers, architecture, limits, Vultr, AI assistance); the human leaves at 15:30 | lead |
 
 ## Process
 
