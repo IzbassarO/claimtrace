@@ -1,5 +1,7 @@
 # Architecture
 
+![Architecture](architecture.svg)
+
 ```
             text / .bib / .pdf
                     │
