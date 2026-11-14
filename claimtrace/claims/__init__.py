@@ -105,7 +105,16 @@ def finalize(
     section label, source fields. Pure; also used to re-derive cached opinions, so a cache hit
     always passes the CURRENT gate and carries the CURRENT source's url/kind."""
     verdict, quote, needs_review, note = combine(judge, skeptic, source.text)
-    notes = [n for n in (*(errors or []), note) if n]
+    # one model down: say so first, never let it read as a disagreement
+    single = {
+        (True, False): "skeptic unavailable — judge only",
+        (False, True): "judge unavailable — skeptic only",
+    }
+    notes = [
+        n
+        for n in (single.get((judge is not None, skeptic is not None)), *(errors or []), note)
+        if n
+    ]
     return ClaimCheck(
         citation_id=citation.id,
         ref_id=ref_id,

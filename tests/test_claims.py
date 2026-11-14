@@ -93,7 +93,13 @@ async def test_fallback_to_other_models_quote_with_same_verdict():
 async def test_one_model_failed_uses_other_and_flags_review():
     res = await run(fake("nope", "still nope"), fake(op("partly_supported", REAL)))
     assert res.verdict == "partly_supported" and res.needs_review and res.judge is None
-    assert "judge failed" in res.note
+    assert res.note.startswith("judge unavailable — skeptic only") and "judge failed" in res.note
+
+
+async def test_skeptic_failed_is_labelled_judge_only():
+    res = await run(fake(op("supported", REAL)), fake("nope", "still nope"))
+    assert res.verdict == "supported" and res.needs_review and res.skeptic is None
+    assert res.note.startswith("skeptic unavailable — judge only")
 
 
 async def test_both_failed_is_insufficient_evidence_never_unsupported():

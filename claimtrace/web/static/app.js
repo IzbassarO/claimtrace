@@ -377,6 +377,7 @@ function refShort(id) {
 }
 
 function claimReason(c) {
+  if (!c.judge !== !c.skeptic) return c.note ? c.note.split(";")[0] : "Only one of the two models answered.";
   if (c.needs_review) return "The judge and the skeptic disagree; the more cautious verdict is shown.";
   if (c.note) return firstSentence(c.note);
   const o = [c.judge, c.skeptic].find((x) => x && x.verdict === c.verdict && x.rationale);
