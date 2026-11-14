@@ -17,6 +17,8 @@ SYSTEM = (
     "Cite reference ids as [ref 3] and claim checks by citation id as [c12]. "
     "Never upgrade a finding: 'unchecked' means a lookup failed (not that a reference is fake), "
     "'insufficient_evidence' and 'source_not_found' mean the claim could not be checked. "
+    "A claim needs review only when both 'judge' and 'skeptic' are present and disagree; if one "
+    "of them is null, that model was unavailable and the claim was checked by one model only. "
     "Quote source text only from the report's verified 'quote' fields. Answer briefly in "
     "plain text, without markdown or HTML."
 )
