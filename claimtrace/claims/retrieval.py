@@ -50,12 +50,13 @@ _HEADING_LIKE = re.compile(r"[A-Z0-9][^\n|]*[^\s.,:;!?]")
 _HEADING_MAX_WORDS = 8
 
 _lock = threading.Lock()  # lazy model loading only
-# ponytail: 2 concurrent inferences (ONNX `run` is thread-safe); each ONNX session uses 2 threads
-# and batch 16, so memory stays bounded. Raise with care: the container is capped at 1.5 GB.
+# ponytail: RETRIEVAL_SLOTS concurrent inferences (ONNX `run` is thread-safe), RETRIEVAL_THREADS
+# each, batch 4 sorted by length, so memory stays bounded (~0.7 GB container peak at 4x2;
+# cap 1.5 GB: batch 16 at 4x2 was OOM-killed).
 _infer = threading.BoundedSemaphore(max(1, get_settings().retrieval_slots))
 _model = None
 _reranker = None
-_EMBED_BATCH = 16
+_EMBED_BATCH = 4  # container bench on real full texts: batch 16 -> 4 = -25% wall, half the RSS
 
 
 def fastembed_embed(texts: list[str]) -> list[list[float]]:
@@ -70,7 +71,9 @@ def fastembed_embed(texts: list[str]) -> list[list[float]]:
             threads = get_settings().retrieval_threads
             _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=threads)
     with _infer:
-        return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
+        return _length_sorted(
+            texts, lambda xs: [v.tolist() for v in _model.embed(xs, batch_size=_EMBED_BATCH)]
+        )
 
 
 def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
@@ -84,7 +87,24 @@ def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
             threads = get_settings().retrieval_threads
             _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=threads)
     with _infer:
-        return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
+        return _length_sorted(
+            docs,
+            lambda xs: [float(x) for x in _reranker.rerank(query, xs, batch_size=_EMBED_BATCH)],
+        )
+
+
+def _length_sorted(texts: list[str], run: Callable[[list[str]], list]) -> list:
+    """run(texts) with the texts sent shortest first and the results put back in input order:
+    a batch is padded to its longest text, so mixing lengths wastes most of the compute on full
+    texts (-19% wall in the container bench)."""
+    order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
+    out = run([texts[i] for i in order])
+    if len(out) != len(texts):
+        raise ValueError("model returned the wrong number of results")
+    res: list = [None] * len(texts)
+    for j, i in enumerate(order):
+        res[i] = out[j]
+    return res
 
 
 def passages(text: str) -> list[str]:
