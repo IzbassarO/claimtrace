@@ -330,12 +330,13 @@ async def _openalex(ref: Reference, client, gate, crossref_task) -> list[Work]:
     return works + (await openalex_search(client, gate, ref.title) if ref.title else [])
 
 
-async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
-    # search and match on the title without a glued-on venue; the report keeps the cited one
-    if (t := strip_venue(ref.title)) != ref.title:
-        res = await _audit_one(
-            ref.model_copy(update={"title": t}), client, gates, arxiv_task, use_s2
-        )
+async def _audit_one(ref, client, gates, arxiv_task, use_s2, cited=None) -> ReferenceAudit:
+    """`cited`: the reference as cited, when `ref` is it with a glued-on venue stripped from
+    the title. Search uses `ref`; matching tries the cited title first, and the report always
+    shows the cited reference."""
+    if cited is None and (t := strip_venue(ref.title)) != ref.title:
+        q = ref.model_copy(update={"title": t})
+        res = await _audit_one(q, client, gates, arxiv_task, use_s2, cited=ref)
         res.reference = ref
         return res
     aid = _ref_arxiv(ref)
@@ -376,6 +377,8 @@ async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
             pairs.append((ProviderOutcome(provider="doi.org", ok=True, candidates=int(reg)), []))
         except Exception as e:  # noqa: BLE001
             pairs.append(_outcome("doi.org", e))
+    if cited and any(identifies(cited, w) for w in works):
+        ref = cited  # the full cited title identifies a record: never match on less of it
     return decide(ref, works, [o for o, _ in pairs])
 
 
