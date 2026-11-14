@@ -336,11 +336,14 @@ async def info() -> dict:
 
 
 @app.get("/api/usage")
-async def usage(token: str = "") -> dict:
-    """Jobs per day and per country (last 30 days). No IPs are ever stored."""
+async def usage(request: Request) -> dict:
+    """Jobs per day and per country (last 30 days). No IPs are ever stored. The token goes in
+    `Authorization: Bearer <USAGE_TOKEN>` (a query string would land in access logs)."""
     expected = get_settings().usage_token.get_secret_value()
     if not expected:
         raise HTTPException(404, "Not Found")
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
     if not secrets.compare_digest(token.encode(), expected.encode()):
         raise HTTPException(403, "Wrong token.")
     return guards.summary()

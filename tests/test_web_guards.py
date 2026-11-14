@@ -112,7 +112,9 @@ def test_queue_position(client, monkeypatch):
         while (j := client.get(f"/api/jobs/{i}").json())["status"] != "done":
             assert time.monotonic() < end
             time.sleep(0.01)
-        assert j["queue_position"] is None and j["queue_length"] == 0
+        assert j["queue_position"] is None
+    # only once every job has finished is the queue guaranteed to be empty
+    assert all(client.get(f"/api/jobs/{i}").json()["queue_length"] == 0 for i in ids)
 
 
 def test_max_running_jobs_from_settings(client, monkeypatch):
@@ -123,16 +125,18 @@ def test_max_running_jobs_from_settings(client, monkeypatch):
 
 
 def test_usage_endpoint(client, monkeypatch):
-    assert client.get("/api/usage?token=x").status_code == 404  # disabled by default
+    bearer = {"Authorization": "Bearer x"}
+    assert client.get("/api/usage", headers=bearer).status_code == 404  # disabled by default
     monkeypatch.setenv("USAGE_TOKEN", "s3cret-token")
     get_settings.cache_clear()
     assert client.get("/api/usage").status_code == 403
-    assert client.get("/api/usage?token=wrong").status_code == 403
+    assert client.get("/api/usage", headers={"Authorization": "Bearer wrong"}).status_code == 403
     post(client, "2.16.0.1")
     post(client, "2.16.0.2")
     post(client, "2001:4860::1")
     post(client, "10.0.0.1")
-    r = client.get("/api/usage?token=s3cret-token")
+    assert client.get("/api/usage?token=s3cret-token").status_code == 403  # never via query
+    r = client.get("/api/usage", headers={"Authorization": "Bearer s3cret-token"})
     assert r.status_code == 200
     body = r.json()
     assert len(body["days"]) == 30 and body["days"][0]["date"] == guards.today()
