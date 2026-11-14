@@ -4,7 +4,11 @@ name: claimtrace-hg
 services:
   app:
     build: .
-    env_file: .env
+    env_file:
+      - .env
+      # optional, non-secret per-server tuning (see deploy/server.env.example)
+      - path: server.env
+        required: false
     environment:
       GROBID_URL: http://grobid:8070
       CACHE_DIR: /cache
@@ -22,7 +26,7 @@ services:
       start_interval: 2s
     restart: unless-stopped
     # measured peak on a 40-reference PDF: ~0.7 GB
-    mem_limit: 1536m
+    mem_limit: ${APP_MEM_LIMIT:-1536m}
     pids_limit: 256
 
   grobid:
@@ -36,7 +40,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     # measured up to ~4.1 GB while parsing; cap it so it cannot starve the app
-    mem_limit: 4608m
+    mem_limit: ${GROBID_MEM_LIMIT:-4608m}
     pids_limit: 512
 
   caddy:
