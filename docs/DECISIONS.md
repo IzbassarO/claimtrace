@@ -174,3 +174,24 @@ sweep, PR #44), fix in progress.
   identical passages and recall@6/MRR. Settings: Mac 4/2, 4-vCPU server 2/2 (not measured on a
   real server). Projected effect on the 40-ref PDF (retrieval was ~300 s of the 317 s total):
   roughly 150–200 s, **not measured live** (no LLM budget for another run).
+
+## Vultr deployment (2026-11-14)
+
+- **Server:** Vultr Cloud Compute, 4 dedicated vCPU / 16 GB / 240 GB NVMe, Ubuntu 24.04,
+  `https://66-135-11-202.sslip.io`. Per-server sizing in a non-secret `server.env`
+  (`deploy/server.env.example`), not in code: `MAX_RUNNING_JOBS=3`, retrieval 2 threads × 2 slots,
+  `APP_MEM_LIMIT=3g` (measured single-job peak 0.84 GB, 5 concurrent 1.21 GB → ~2.5× headroom),
+  `GROBID_MEM_LIMIT=6g` (measured peak 5.31 GB under 5 concurrent PDFs).
+- **sshd drop-in is `00-claimtrace.conf`:** sshd keeps the first value it reads and the cloud
+  image's `50-cloud-init.conf` enables password login; a later-sorting file had no effect.
+- **Cost guard:** daily cap `MAX_JOBS_PER_DAY=300` (429 with reset time, rejected requests not
+  counted); queue position/length exposed per job. **Usage counter** stores only
+  `{date: {country: n}}`; country from the offline DB-IP Lite CSV in the image, IP never stored or
+  logged. `/api/usage` is off unless `USAGE_TOKEN` is set; token only via `Authorization: Bearer`
+  (query strings land in access logs).
+- **Measured on the server:** Attention PDF (40 refs, 58 claims) 191 s, first ref 18.7 s, first
+  claim 27 s; 5 concurrent PDFs 144–322 s, no restarts. The 3-minute target is not met for one
+  40-ref PDF (191 s).
+- **Found on the server:** the GAN paper gave 6 `not_found` for real references (venue glued to the
+  title, recall of the top-5 search, unindexed tech reports). Fix in progress on
+  `feat/false-not-found`.
