@@ -15,6 +15,7 @@ from collections.abc import Callable, Sequence
 from rank_bm25 import BM25Okapi
 
 from claimtrace.claims.quote import verify_quote
+from claimtrace.core.settings import get_settings
 from claimtrace.core.timing import span
 
 Embed = Callable[[list[str]], Sequence[Sequence[float]]]
@@ -51,7 +52,7 @@ _HEADING_MAX_WORDS = 8
 _lock = threading.Lock()  # lazy model loading only
 # ponytail: 2 concurrent inferences (ONNX `run` is thread-safe); each ONNX session uses 2 threads
 # and batch 16, so memory stays bounded. Raise with care: the container is capped at 1.5 GB.
-_infer = threading.BoundedSemaphore(2)
+_infer = threading.BoundedSemaphore(max(1, get_settings().retrieval_slots))
 _model = None
 _reranker = None
 _EMBED_BATCH = 16
@@ -66,7 +67,8 @@ def fastembed_embed(texts: list[str]) -> list[list[float]]:
         if _model is None:
             from fastembed import TextEmbedding
 
-            _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=2)
+            threads = get_settings().retrieval_threads
+            _model = TextEmbedding("BAAI/bge-small-en-v1.5", threads=threads)
     with _infer:
         return [v.tolist() for v in _model.embed(texts, batch_size=_EMBED_BATCH)]
 
@@ -79,7 +81,8 @@ def fastembed_rerank(query: str, docs: list[str]) -> list[float]:
         if _reranker is None:
             from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-            _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=2)
+            threads = get_settings().retrieval_threads
+            _reranker = TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2", threads=threads)
     with _infer:
         return [float(x) for x in _reranker.rerank(query, docs, batch_size=_EMBED_BATCH)]
 

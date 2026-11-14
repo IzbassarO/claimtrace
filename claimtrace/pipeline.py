@@ -44,8 +44,6 @@ log = logging.getLogger(__name__)
 SOURCE_TIMEOUT_S = 90  # whole fetch of one source (PDF download + GROBID), not per read
 MAX_SENTENCE_CHARS = 2000  # longer "sentences" are tables/extraction noise; caps report size
 SOURCE_CONCURRENCY = 6
-# retrieval prefetches in flight; each builds/holds a source index, so this bounds memory
-PREFETCH_CONCURRENCY = 2
 MAX_CACHED_VERDICTS = 5000
 
 Progress = Callable[[str, int, int], None]
@@ -250,7 +248,8 @@ async def run(
     seq = itertools.count()
     fetches: list[asyncio.Task] = []
     source_sem = asyncio.Semaphore(SOURCE_CONCURRENCY)
-    prefetch_sem = asyncio.Semaphore(PREFETCH_CONCURRENCY)
+    # retrieval prefetches in flight; each builds/holds a source index, so this bounds memory
+    prefetch_sem = asyncio.Semaphore(max(1, get_settings().retrieval_slots))
 
     def emit() -> None:
         if not on_partial:
