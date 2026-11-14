@@ -174,11 +174,19 @@ def test_supported_claim_citing_mismatched_reference_is_shown_with_a_note():
         ],
     )
     out = render(report)
-    shown = open_text(out["claims"])
-    assert "details differ from the found record" in shown
-    assert "Residual learning eases training" in shown
+    # the Supported group is collapsed, but its header says a claim in it cites a doubtful
+    # reference, and the collapsed row carries a tag (layout change: groups start collapsed)
+    shown = visible(out["claims"])
+    assert "1 cites a reference that differs or could not be checked" in shown
+    assert "reference differs" in text(out["claims"])
+    assert "Residual learning eases training" in text(out["claims"])
     # counted by its own verdict: a mismatch alone is not a claim problem
     assert "0 of 1 claim need attention" in text(out["summary"])
+    calls = [
+        [report.model_dump(mode="json")],
+        'openKeys.add("row-c:c1:1"); renderReport(...lastRender);',
+    ]
+    assert "details differ from the found record" in text(render_calls(calls)["claims"])
 
 
 def test_unchecked_with_all_providers_ok_is_not_called_a_lookup_failure():
@@ -217,7 +225,13 @@ def test_unchecked_after_provider_failure_says_lookup_failed():
     )
     shown = text(render(report)["refs"])
     assert "Could not check (lookup failed)" in shown
-    assert "crossref failed: timeout" in shown
+    assert "crossref did not answer; this is not a finding against the reference." in shown
+    # the per-provider lookups are in the row body, shown once the row is expanded
+    calls = [
+        [report.model_dump(mode="json")],
+        'openKeys.add("row-r:1"); renderReport(...lastRender);',
+    ]
+    assert "crossref failed: timeout" in text(render_calls(calls)["refs"])
 
 
 def test_summary_does_not_report_all_clear_when_no_claim_was_checked():
@@ -239,7 +253,7 @@ def test_summary_does_not_report_all_clear_when_no_claim_was_checked():
     assert "No citing sentences were found or checked" in summary
 
 
-def test_collapsed_group_count_is_pluralised():
+def test_collapsed_group_headers_carry_their_counts():
     w = Work(provider="crossref", title="Deep residual learning", year=2005)
     report = Report(
         id="x",
@@ -265,10 +279,12 @@ def test_collapsed_group_count_is_pluralised():
         ],
     )
     out = render(report)
-    assert "1 verified references" not in text(out["refs"])
-    assert "1 supported claims" not in text(out["claims"])
-    assert "1 verified reference" in text(out["refs"])
-    assert "1 supported claim" in text(out["claims"])
+    summaries = [
+        h for k in ("refs", "claims") for h in find(out[k], lambda n: n["tag"] == "summary")
+    ]
+    heads = [text(h) for h in summaries]
+    assert "References· 1 verified" in heads  # "References · 1 verified ▸" (spacing is CSS gap)
+    assert "Supported· 1" in heads
 
 
 def test_supported_claim_citing_unchecked_reference_is_not_hidden():
@@ -300,10 +316,15 @@ def test_supported_claim_citing_unchecked_reference_is_not_hidden():
         ],
     )
     out = render(report)
-    # shown open in the middle group, with a note about the reference
-    assert "Oceans warmed" not in collapsed(out["claims"])
-    assert "Oceans warmed" in text(out["claims"])
-    assert "The cited reference could not be confirmed." in text(out["claims"])
+    # its group is collapsed (layout change), but the header names the doubtful reference and
+    # the collapsed row carries a tag; the full note is in the expanded row
+    assert "1 cites a reference that differs or could not be checked" in visible(out["claims"])
+    assert "reference unchecked" in collapsed(out["claims"])
+    calls = [
+        [report.model_dump(mode="json")],
+        'openKeys.add("row-c:c1:1"); renderReport(...lastRender);',
+    ]
+    assert "The cited reference could not be confirmed." in text(render_calls(calls)["claims"])
 
 
 # ---------- streaming: partial snapshots rendered while the job runs ----------
@@ -371,7 +392,7 @@ def test_opened_group_stays_open_across_partial_renders():
         ]
     )
     fine = [k for k in out["refs"]["kids"] if k["cls"] == "fine"][0]
-    assert "open" in fine["attrs"] and "2 verified references" in text(fine)
+    assert "open" in fine["attrs"] and "2 verified" in text(fine)
 
 
 def test_saved_sample_is_labelled_as_saved():
@@ -547,14 +568,118 @@ def test_claim_citing_a_missing_reference_needs_attention_and_is_never_green():
     assert text(out["headline"]) == "1 reference not found."
 
 
-def test_headline_counts_say_when_they_overlap():
+def test_headline_names_at_most_the_two_worst_counts():
+    # one count for claims, one for references; every other count is in the counters below
     r = Report.model_validate(two_claims())
     r.claims[0].needs_review = True
+    r.references.append(audit("2", RefStatus.unchecked))
+    r.references.append(audit("3", RefStatus.metadata_mismatch))
     out = render_calls([[r.model_dump(mode="json")]])
-    assert text(out["headline"]) == (
-        "1 claim not supported · 1 claim needs review (1 claim is in both counts)."
-    )
+    assert text(out["headline"]) == "1 claim not supported · 2 references need attention."
+    r.claims[0].verdict = Verdict.partly_supported
+    out = render_calls([[r.model_dump(mode="json")]])
+    assert text(out["headline"]) == "1 claim needs review · 2 references need attention."
     ok_only = Report.model_validate(two_claims())
     ok_only.claims = ok_only.claims[1:]
     out = render_calls([[ok_only.model_dump(mode="json")]])
     assert text(out["headline"]) == "No problems found in 1 claim and 1 reference."
+
+
+# ---------- dense report: collapsed rows, first attention row open, "Show all N" ----------
+
+
+def rows(n) -> list:
+    """Ledger rows (li.row) with their toggle button."""
+    return find(n, lambda x: x["tag"] == "li" and "row" in x["cls"].split())
+
+
+def head(row) -> dict:
+    return find(row, lambda x: x["cls"] == "row-head")[0]
+
+
+def attention_report(n: int, **kw) -> dict:
+    refs = [
+        ReferenceAudit(
+            reference=ref("1", "Deep residual learning"), status=RefStatus.verified, providers=ok
+        )
+    ]
+    claims = [
+        ClaimCheck(
+            citation_id=f"c{i}",
+            ref_id="1",
+            sentence=f"Claim number {i} says residual nets train 1000 layers [1].",
+            verdict=Verdict.unsupported,
+            quote=f"QUOTE-{i} we train residual networks with depth of 152 layers",
+            evidence_kind=EvidenceKind.full_text,
+            judge=ModelOpinion(verdict="unsupported", rationale=f"RATIONALE-{i}."),
+            skeptic=ModelOpinion(verdict="unsupported", rationale="Skeptic agrees."),
+        )
+        for i in range(1, n + 1)
+    ]
+    return Report(id="x", references=refs, claims=claims, **kw).model_dump(mode="json")
+
+
+def test_first_attention_row_is_expanded_by_default_and_stays_as_the_reader_left_it():
+    out = render_calls([[attention_report(3)]])
+    first, second, third = rows(out["claims"])
+    assert head(first)["attrs"]["aria-expanded"] == "true"
+    assert head(first)["attrs"]["aria-controls"] == "body-c:c1:1"
+    assert "QUOTE-1" in text(first)
+    assert [head(r)["attrs"]["aria-expanded"] for r in (second, third)] == ["false", "false"]
+    # the reader collapses it; a streamed update must not open it again
+    out = render_calls(
+        [
+            [attention_report(3, complete=False), running("claims")],
+            'openKeys.delete("row-c:c1:1")',
+            [attention_report(3, complete=False), running("claims")],
+        ]
+    )
+    assert all(head(r)["attrs"]["aria-expanded"] == "false" for r in rows(out["claims"]))
+
+
+def test_show_all_reveals_the_rest_of_the_attention_rows():
+    out = render_calls([[attention_report(8)]])
+    assert len(rows(out["claims"])) == 5
+    (btn,) = find(out["claims"], lambda n: n["attrs"].get("data-toggle") == "all-attention")
+    assert text(btn) == "Show all 8" and btn["attrs"]["aria-expanded"] == "false"
+    assert "Claim number 8" not in text(out["claims"])
+    out = render_calls(
+        [[attention_report(8)], 'openKeys.add("all-attention"); renderReport(...lastRender);']
+    )
+    assert len(rows(out["claims"])) == 8 and "Claim number 8" in text(out["claims"])
+
+
+def test_collapsed_rows_carry_no_quote_reason_or_rationale():
+    out = render_calls([[attention_report(3)]])
+    for r in rows(out["claims"])[1:]:
+        t = text(r)
+        assert head(r)["attrs"]["aria-expanded"] == "false"
+        assert "Claim number" in t
+        assert "QUOTE-" not in t and "RATIONALE-" not in t and "Skeptic agrees" not in t
+        assert len(r["kids"]) == 1  # the toggle button only: no body in the DOM
+
+
+def test_single_model_claim_shows_a_visible_tag_on_the_collapsed_row():
+    r = Report.model_validate(attention_report(2))
+    r.claims[1].skeptic = None
+    r.claims[1].note = "skeptic unavailable — judge only"
+    r.claims[0].judge = None
+    r.claims[0].note = "judge unavailable — skeptic only"
+    out = render_calls([[r.model_dump(mode="json")]])
+    tags = {
+        text(t)
+        for row in rows(out["claims"])
+        for t in find(head(row), lambda n: "tag" in n["cls"].split())
+    }
+    assert {"judge only", "skeptic only"} <= tags
+
+
+def test_expand_all_opens_every_group_and_row_and_collapse_all_closes_them():
+    out = render_calls([[two_claims()], "expandAll(true); renderReport(...lastRender);"])
+    assert all(
+        head(r)["attrs"]["aria-expanded"] == "true" for r in rows(out["claims"]) + rows(out["refs"])
+    )
+    groups = [g for k in ("refs", "claims") for g in find(out[k], lambda n: n["cls"] == "fine")]
+    assert groups and all("open" in g["attrs"] for g in groups)
+    out = render_calls([[two_claims()], "expandAll(false); renderReport(...lastRender);"])
+    assert all(head(r)["attrs"]["aria-expanded"] == "false" for r in rows(out["claims"]))
