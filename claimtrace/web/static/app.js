@@ -275,6 +275,9 @@ const refAttention = (a) => a.status !== "verified";
 // counter/filter value of a claim: one citing a missing or retracted reference is never counted
 // under its (possibly green) verdict
 const claimKey = (c) => (refBad(c) ? "badref" : c.verdict);
+// counts shown beside the per-verdict ones (screen counters and print): [value, count, words, mark class]
+const claimExtras = (cs) => [["badref", cs.filter(refBad).length, "cite a missing or retracted reference", "s-bad"],
+  ["review", cs.filter((c) => c.needs_review).length, "need review", "s-review"]].filter(([, n]) => n);
 const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review || refBad(c);
 // collapsed claim groups below "Needs your attention", in this order
 const CLAIM_GROUPS = [
@@ -580,9 +583,14 @@ function headline(r, pending) {
   const notSup = count(r.claims, (c) => c.verdict === "unsupported");
   const review = count(r.claims, (c) => c.needs_review);
   const unchecked = count(r.claims, (c) => !c.needs_review && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict));
+  const partly = count(r.claims, (c) => c.verdict === "partly_supported");
+  const oneModel = count(r.claims, singleModel);
+  // nothing contradicted, but not everything plainly backed either: never "No problems found" over it
   const claimPart = notSup ? `${plural(notSup, "claim")} not supported`
-    : review ? `${plural(review, "claim")} ${review === 1 ? "needs" : "need"} review`
-      : unchecked ? `${plural(unchecked, "claim")} could not be checked` : null;
+    : review ? `${plural(review, "claim")} ${need(review)} review`
+      : unchecked ? `${plural(unchecked, "claim")} could not be checked`
+        : partly ? `No claims contradicted · ${partly} partly supported`
+          : oneModel ? `No claims contradicted · ${oneModel} checked by one model only` : null;
   const parts = (gone.length ? [refPart, claimPart] : [claimPart, refPart]).filter(Boolean);
   const lead = pending ? "So far: " : "";
   if (!parts.length) {
@@ -655,14 +663,10 @@ function renderReport(r, opts = {}) {
   // readout: totals are known only for the stage the job is in right now
   const job = opts.job || {};
   const total = (stage) => (job.stage === stage && job.total ? job.total : null);
-  const review = r.claims.filter((c) => c.needs_review).length;
-  const badref = r.claims.filter(refBad).length;
   const extraMark = (cls, word) => el("span", { className: `mark ${cls}` }, el("span", { className: "word" }, word));
   $("meters").replaceChildren(
     meter("Claims", r.claims, total("claims"), !pending,
-      counters(r.claims, VERDICT, "c:", claimKey, [
-        badref ? ["badref", badref, extraMark("s-bad", "cite a missing or retracted reference")] : null,
-        review ? ["review", review, extraMark("s-review", "need review")] : null]),
+      counters(r.claims, VERDICT, "c:", claimKey, claimExtras(r.claims).map(([v, n, word, cls]) => [v, n, extraMark(cls, word)])),
       "Counts by verdict appear when every claim is checked."),
     meter("References", r.references, total("references"), !refsPending,
       counters(r.references, STATUS, "r:", (a) => a.status), "Counts by status appear when every reference is checked."));
@@ -747,13 +751,12 @@ function printView(r, opts, refsFirst) {
       el("tbody", {}, order(r.references.slice(), STATUS, (a) => a.status, false).map(refRowP)))
       : el("p", {}, "No references were found in this manuscript."));
   const day = new Date(r.created_at || Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const review = r.claims.filter((c) => c.needs_review).length;
-  const badref = r.claims.filter(refBad).length;
   return [
     el("h1", {}, r.title || "Report"),
     el("p", { className: "headline" }, headline(r, r.complete === false)),
-    el("p", {}, "Claims: ", [tally(r.claims, (c) => c.verdict, VERDICT, " · "),
-      badref ? `${badref} cite a missing or retracted reference` : "", review ? `${review} need review` : ""].filter(Boolean).join(" · ") || "none"),
+    // same counting as the on-screen counters: a claim citing a missing reference is never under its verdict
+    el("p", {}, "Claims: ", [tally(r.claims, claimKey, VERDICT, " · "),
+      ...claimExtras(r.claims).map(([, n, word]) => `${n} ${word}`)].filter(Boolean).join(" · ") || "none"),
     el("p", {}, "References: ", tally(r.references, (a) => a.status, STATUS, " · ") || "none"),
     el("p", { className: "p-meta" }, opts.saved ? `Saved example, computed on ${day}; results may differ in a live run.`
       : [`Audited on ${day} · Shareable link: `, el("span", { className: "mono" }, `${location.origin}/r/${encodeURIComponent(jobId)}`)]),

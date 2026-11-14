@@ -3,6 +3,8 @@
 from claimtrace.core.schemas import ClaimCheck, ModelOpinion, ReferenceAudit, Report
 
 EVIDENCE = {"full_text": "full text", "abstract": "abstract only"}
+# as in the UI: a claim citing a missing or retracted reference is never shown as plainly supported
+BAD_REF = {"not_found": "cited reference not found", "retracted": "cited reference retracted"}
 
 
 def _one_line(s: str | None) -> str:
@@ -37,8 +39,10 @@ def _opinion(role: str, o: ModelOpinion | None) -> list[str]:
     return [f"- {role}: {o.verdict} — {_one_line(o.rationale)}"] if o else []
 
 
-def _claim(c: ClaimCheck) -> list[str]:
+def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
     head = f"### {c.citation_id} -> [{c.ref_id}] {c.verdict.value}"
+    if bad := BAD_REF.get(ref_status.get(c.ref_id, "")):
+        head += f" — {bad}"
     out = [
         head + (" (needs review)" if c.needs_review else ""),
         "",
@@ -78,6 +82,7 @@ def to_markdown(r: Report) -> str:
     for a in r.references:
         out += _reference(a)
     out += ["## Claims", ""]
+    ref_status = {a.reference.id: a.status.value for a in r.references}
     for c in r.claims:
-        out += _claim(c)
+        out += _claim(c, ref_status)
     return "\n".join(out).rstrip() + "\n"
