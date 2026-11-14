@@ -14,7 +14,7 @@ shot() { # name url width height
 if [[ "${1:-static}" == static ]]; then
   shot home-light "$B/dev/show/home?theme=light" 1280 1000
   shot home-dark "$B/dev/show/home?theme=dark" 1280 1000
-  shot home-mobile "$B/dev/frame?src=/dev/show/home%3Ftheme%3Dlight&w=390&h=1500" 390 1500
+  shot home-mobile "$B/dev/frame?src=/dev/show/home%3Ftheme%3Dlight&w=390&h=1800" 390 1800
   shot report-sample-light "$B/dev/show/sample?theme=light&open=1" 1280 2200
   shot report-final-light "$B/dev/show/final?theme=light&open=1" 1280 4200
   shot report-final-dark "$B/dev/show/final?theme=dark&open=1" 1280 4200

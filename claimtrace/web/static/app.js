@@ -71,8 +71,9 @@ function mark(value, labels, label, levelOverride) {
 }
 
 const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); return i < 0 ? 0 : i; };
-// worst first: verdict/status, then needs review, then the cited reference's status
-const severity = (labels, key, x) => rank(labels, key(x)) * 100
+// worst first: a claim citing a missing/retracted reference, then verdict/status, then needs
+// review, then the cited reference's status
+const severity = (labels, key, x) => (!x.reference && refBad(x) ? -1000 : rank(labels, key(x)) * 100)
   + (x.reference ? 0 : (x.needs_review ? 0 : 10) + rank(STATUS, refStatus.get(x.ref_id) || "verified"));
 
 async function apiError(resp) {
@@ -105,6 +106,7 @@ async function submitJob(ev) {
     const resp = await fetch("/api/jobs", { method: "POST", body: form });
     if (resp.status === 429 || resp.status === 503) {
       formMessage(`${await apiError(resp)} Your text is still here; submit again when ready.`, "notice");
+      describeServer(); // the daily count may have changed
       return;
     }
     if (!resp.ok) throw new Error(await apiError(resp));
@@ -193,7 +195,10 @@ function renderStages(job) {
       label, count ? el("span", { className: "count" }, count) : null,
       el("span", { className: "sr-only" }, { done: " (done)", current: " (in progress)", todo: "" }[state]));
   }));
-  const label = job.status === "queued" ? "Queued: waiting for a free worker"
+  // queue_position / queue_length may be absent (older server): fall back to the generic line
+  const pos = Number.isInteger(job.queue_position) && job.queue_position > 0 ? job.queue_position : null;
+  const len = Number.isInteger(job.queue_length) && job.queue_length >= pos ? job.queue_length : null;
+  const label = job.status === "queued" ? (pos ? `Waiting in queue — position ${pos}${len ? ` of ${len}` : ""}` : "Queued: waiting for a free worker")
     : cur >= STAGES.length ? "Finishing" : (STAGES[cur] || [, "Working"])[1];
   for (const line of ["stage", "live-stage"]) $(line).textContent = job.total ? `${label}: ${job.done} of ${job.total}` : label;
   if (job.total) { $("bar").max = job.total; $("bar").value = job.done; } else $("bar").removeAttribute("value");
@@ -263,6 +268,9 @@ const refNote = (c) => {
 // the cited work is missing or retracted: whatever the source text said, the citation is a problem
 const refBad = (c) => ["not_found", "retracted"].includes(refStatus.get(c.ref_id));
 const refAttention = (a) => a.status !== "verified";
+// counter/filter value of a claim: one citing a missing or retracted reference is never counted
+// under its (possibly green) verdict
+const claimKey = (c) => (refBad(c) ? "badref" : c.verdict);
 const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review || refBad(c);
 // partly supported, not checkable, or citing a doubtful reference: shown open, below the claims that need attention
 const claimMiddle = (c) => !claimAttention(c) && (c.verdict !== "supported" || refNote(c) !== null);
@@ -281,7 +289,7 @@ const cell = (cols, i, ...children) => el("div", { className: i === 0 ? "id" : i
 let filter = null; // "c:<verdict>", "c:review", "r:<status>" or null (show everything)
 let lastRender = null; // [report, opts] for re-rendering when a filter changes
 let fresh = new Set(); // keys that arrived in this render (briefly highlighted)
-const filterMatch = (x) => (filter === "c:review" ? !!x.needs_review : filter.slice(2) === (x.reference ? x.status : x.verdict));
+const filterMatch = (x) => (filter === "c:review" ? !!x.needs_review : filter.slice(2) === (x.reference ? x.status : claimKey(x)));
 
 function rowEl(key, ...children) {
   return el("li", { className: fresh.has(key) ? "row new" : "row" }, children);
@@ -432,11 +440,11 @@ function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle, 
 }
 
 // One counter per status present; each is a toggle button that filters its section.
-function counters(items, labels, prefix, valueOf, extra) {
+function counters(items, labels, prefix, valueOf, extras = []) {
   const n = new Map();
   for (const x of items) n.set(valueOf(x), (n.get(valueOf(x)) || 0) + 1);
   const entries = Object.keys(labels).filter((v) => n.get(v)).map((v) => [v, n.get(v), mark(v, labels, `${labels[v][0].toLowerCase()}`)]);
-  if (extra) entries.push(extra);
+  entries.push(...extras.filter(Boolean));
   return el("ul", { className: "counts", "aria-label": "Filter by status" }, entries.map(([v, count, m]) => {
     const f = `${prefix}${v}`;
     return el("li", {}, el("button", { type: "button", "data-filter": f, "data-fk": `f:${f}`, "aria-pressed": String(filter === f) },
@@ -497,6 +505,10 @@ function headline(r, pending) {
     [notSup, "claim", "not supported"],
     [review, "claim", review === 1 ? "needs review" : "need review"],
     [count(r.references, (a) => a.status === "metadata_mismatch"), "reference", "with details that differ"],
+    // not findings, but nothing was verified for them: never "No problems found" over them
+    [count(r.references, (a) => a.status === "unchecked"), "reference", "could not be checked"],
+    [count(r.claims, (c) => !c.needs_review && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict)),
+      "claim", "could not be checked"],
   ].filter(([n]) => n).map(([n, noun, what]) => `${plural(n, noun)} ${what}`);
   const lead = pending ? "So far: " : "";
   if (!parts.length) {
@@ -567,10 +579,13 @@ function renderReport(r, opts = {}) {
   const job = opts.job || {};
   const total = (stage) => (job.stage === stage && job.total ? job.total : null);
   const review = r.claims.filter((c) => c.needs_review).length;
+  const badref = r.claims.filter(refBad).length;
+  const extraMark = (cls, word) => el("span", { className: `mark ${cls}` }, el("span", { className: "word" }, word));
   $("meters").replaceChildren(
     meter("Claims", r.claims, total("claims"), !pending,
-      counters(r.claims, VERDICT, "c:", (c) => c.verdict,
-        review ? ["review", review, el("span", { className: "mark s-review" }, el("span", { className: "word" }, "need review"))] : null),
+      counters(r.claims, VERDICT, "c:", claimKey, [
+        badref ? ["badref", badref, extraMark("s-bad", "cite a missing or retracted reference")] : null,
+        review ? ["review", review, extraMark("s-review", "need review")] : null]),
       "Counts by verdict appear when every claim is checked."),
     meter("References", r.references, total("references"), !refsPending,
       counters(r.references, STATUS, "r:", (a) => a.status), "Counts by status appear when every reference is checked."));
@@ -578,7 +593,8 @@ function renderReport(r, opts = {}) {
   $("refs-n").textContent = String(r.references.length);
   if (filter) {
     const [labels, v] = filter.startsWith("c:") ? [VERDICT, filter.slice(2)] : [STATUS, filter.slice(2)];
-    const name = v === "review" ? "needs review" : (labels[v] || [v])[0].toLowerCase();
+    const name = v === "review" ? "needs review" : v === "badref" ? "citing a missing or retracted reference"
+      : (labels[v] || [v])[0].toLowerCase();
     $("filter-note").replaceChildren(`Showing only ${filter.startsWith("c:") ? "claims" : "references"}: ${name}.`,
       el("button", { type: "button", className: "link", "data-filter": "", "data-fk": "f:" }, "Show all"));
   } else $("filter-note").replaceChildren();
@@ -683,10 +699,16 @@ function initDrop() {
 }
 
 // Retention of shareable links, from the server (no number baked into the page).
+// Every field is optional: an older server without jobs_today / daily_limit just shows less.
 async function describeServer() {
-  let n = null;
-  try { n = (await (await fetch("/api/info")).json()).max_reports; } catch (_) { /* keep generic text */ }
-  $("share-note").textContent = `Shareable link (anyone with it can view this report; ${Number.isInteger(n) ? `kept for the newest ${n} reports on this server` : "kept for a limited number of recent reports"}): `;
+  let info = {};
+  try { info = (await (await fetch("/api/info")).json()) || {}; } catch (_) { /* keep generic text */ }
+  const n = info.max_reports;
+  const kept = Number.isInteger(n) ? `kept for the newest ${n} reports on this server` : "kept for a limited number of recent reports";
+  $("share-note").textContent = `Shareable link (anyone with it can view this report; ${kept}): `;
+  $("keep-note").textContent = `How long: ${Number.isInteger(n) ? `the newest ${n} reports are kept` : "only a limited number of recent reports are kept"}; older ones are deleted.`;
+  const { jobs_today: used, daily_limit: cap } = info;
+  $("usage").textContent = Number.isInteger(used) && Number.isInteger(cap) && cap > 0 ? `${Math.min(used, cap)} of ${cap} audits used today` : "";
 }
 
 // "Try a sample" description, counted from the saved sample report itself.
