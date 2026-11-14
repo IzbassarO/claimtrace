@@ -324,3 +324,13 @@ async def arxiv_batch(
         else:
             out.update({i: [found[i]] if i in found else [] for i in chunk})
     return out
+
+
+async def arxiv_search(client: httpx.AsyncClient, gate: Gate, title: str) -> list[Work]:
+    """arXiv title search (free): every word of >= 4 letters in the title field
+    (a stop word such as "for" in ti: matches nothing), top 5."""
+    words = [w for w in re.findall(r"[^\W_]+", title) if len(w) >= 4][:12]
+    if not words:
+        return []
+    params = {"search_query": " AND ".join(f"ti:{w}" for w in words), "max_results": 5}
+    return parse_arxiv((await _get(client, gate, ARXIV, params=params)).text)

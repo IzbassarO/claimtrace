@@ -3,6 +3,7 @@ Owner: T2 (docs/TASKS.md). Status semantics: docs/ARCHITECTURE.md."""
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from difflib import SequenceMatcher
 
@@ -31,14 +32,17 @@ from claimtrace.refaudit.match import (
     norm_doi,
     normalize_title,
     strip_notice,
+    strip_venue,
     title_match,
     title_prefix,
     title_similarity,
+    word_coverage,
     year_ok,
 )
 from claimtrace.refaudit.providers import (
     Gate,
     arxiv_batch,
+    arxiv_search,
     crossref,
     doi_registered,
     openalex_doi,
@@ -50,6 +54,12 @@ PRIORITY = {"crossref": 0, "openalex": 1, "semanticscholar": 2, "arxiv": 3}
 MERGE_FIELDS = ("doi", "arxiv_id", "pmid", "pmcid", "abstract", "oa_pdf_url", "venue")
 log = logging.getLogger(__name__)
 DOI_REGISTERED = "DOI is registered (doi.org) but not indexed by Crossref/OpenAlex; not compared"
+GREY_NOTE = "not indexed in Crossref/OpenAlex (grey literature) — check manually"
+# technical reports, theses, workshop papers, datasets, software manuals: often in no index
+_GREY = re.compile(
+    r"\b(technical\s+report|tech\.\s*rep|thesis|dissertation|workshop|dataset|manual)\b", re.I
+)
+_GREY_TR = re.compile(r"\bTR\s")  # "UTML TR 2010-001"
 
 
 def _preprint(w: Work) -> bool:
@@ -137,14 +147,22 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
             and (
                 (
                     first_author_equal(ref.authors, w.authors)
-                    and (ref.year is None or w.year is None or year_ok(ref.year, w.year))
                     and (
+                        # one title is the other's prefix: the same author's book chapter or
+                        # journal version of it may be years apart
                         title_prefix(ref.title, w.title)
-                        or max(
-                            title_similarity(ref.title, w.title),
-                            _head_similarity(ref.title, w.title),
+                        or (
+                            (ref.year is None or w.year is None or year_ok(ref.year, w.year))
+                            and (
+                                max(
+                                    title_similarity(ref.title, w.title),
+                                    _head_similarity(ref.title, w.title),
+                                )
+                                >= 0.85
+                                # a reworded title: >= 80% of its content words
+                                or word_coverage(ref.title, w.title) >= 0.8
+                            )
                         )
-                        >= 0.85
                     )
                 )
                 # no cited authors to confirm with: a near-identical title + year is still close
@@ -178,6 +196,8 @@ def decide(ref: Reference, works: list[Work], outcomes: list[ProviderOutcome]) -
         elif close:
             w = close[0]
             out.note = f"possible match: {w.title} ({w.provider}, {w.year})"
+        elif _GREY.search(text := ref.raw or ref.title or "") or _GREY_TR.search(text):
+            out.note = GREY_NOTE
         else:
             out.status = RefStatus.not_found
             out.note = f"no matching record in {', '.join(o.provider for o in outcomes)}"
@@ -311,6 +331,13 @@ async def _openalex(ref: Reference, client, gate, crossref_task) -> list[Work]:
 
 
 async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
+    # search and match on the title without a glued-on venue; the report keeps the cited one
+    if (t := strip_venue(ref.title)) != ref.title:
+        res = await _audit_one(
+            ref.model_copy(update={"title": t}), client, gates, arxiv_task, use_s2
+        )
+        res.reference = ref
+        return res
     aid = _ref_arxiv(ref)
     aid = aid if aid and ARXIV_ID.match(aid) else None
     if not (ref.title or norm_doi(ref.doi) or aid):
@@ -332,6 +359,15 @@ async def _audit_one(ref, client, gates, arxiv_task, use_s2) -> ReferenceAudit:
             res = e
         pairs.append(_outcome("arxiv", res))
     works = [w for _, ws in pairs for w in ws]
+    ok = all(o.ok for o, _ in pairs)
+    if ok and ref.title and not aid and not any(identifies(ref, w) for w in works):
+        # recall: ML conference papers (ICML/PMLR) are often in neither index but on arXiv
+        try:
+            res = await arxiv_search(client, gates["arxiv"], ref.title)
+        except Exception as e:  # noqa: BLE001
+            res = e
+        pairs.append(_outcome("arxiv", res))
+        works += pairs[-1][1]
     d = norm_doi(ref.doi)
     if d and not any(_carries_doi(w, d) for w in works):
         # decide() reads candidates as the doi.org answer: 1 = registered, 0 = no such DOI

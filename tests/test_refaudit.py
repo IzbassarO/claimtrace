@@ -181,6 +181,14 @@ def transport(routes):
     return httpx.MockTransport(handler)
 
 
+# arXiv title search (the recall fallback) answering "no record"
+ARXIV_EMPTY = {
+    "export.arxiv.org": lambda r: httpx.Response(
+        200, text='<feed xmlns="http://www.w3.org/2005/Atom"></feed>'
+    )
+}
+
+
 async def run(refs, routes):
     async with httpx.AsyncClient(transport=transport(routes)) as client:
         return await refaudit.audit_references(refs, client)
@@ -265,7 +273,7 @@ async def test_fabricated_reference_all_answered_is_not_found():
         )
     }
     no_handle = {"doi.org": lambda r: httpx.Response(404, json={"responseCode": 100})}
-    [a] = await run([ref], empty_cr | {"api.openalex.org": oa_empty} | no_handle)
+    [a] = await run([ref], empty_cr | {"api.openalex.org": oa_empty} | no_handle | ARXIV_EMPTY)
     assert a.status == RefStatus.not_found
     assert all(p.ok for p in a.providers)
     assert [p.provider for p in a.providers][-1] == "doi.org"
@@ -371,6 +379,6 @@ async def test_s2_title_match_404_is_an_answer_only_when_documented(monkeypatch,
         "api.crossref.org": lambda r: httpx.Response(200, json={"message": {"items": []}}),
         "api.openalex.org": oa_empty,
         "api.semanticscholar.org": lambda r: httpx.Response(404, text=body),
-    }
+    } | ARXIV_EMPTY
     [a] = await run([ref], routes)
     assert a.status == status

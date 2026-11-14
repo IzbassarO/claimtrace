@@ -199,6 +199,31 @@ def title_match(cited: str | None, found: str | None) -> bool:
     )
 
 
+def word_coverage(cited: str, found: str) -> float:
+    """Share of the cited title's content words (>= 4 of them) that the found title has: a
+    reworded citation of the same title ('Theano: a CPU and GPU math expression compiler' vs
+    'Theano: A CPU and GPU Math Compiler in Python')."""
+    wc, wf = _content_words(cited), set(_content_words(found))
+    return sum(w in wf for w in wc) / len(wc) if len(wc) >= 4 else 0.0
+
+
+# a venue glued onto the title by GROBID / the LLM: ". In ICML'13", ". In Proceedings of ...",
+# ". Deep Learning and Unsupervised Feature Learning NIPS 2012 Workshop", ". J. Mach. Learn. Res."
+_VENUE_TAIL = re.compile(
+    r"(?<=[.?!])\s+(?:In\s+[A-Z]|(?:J|Proc|Trans|Ann|Rev|Phys)\.\s"
+    r"|[^.?!]*\b(?:Workshop|Conference|Symposium|Proceedings)\b).*$"
+)
+
+
+def strip_venue(title: str | None) -> str | None:
+    """The title without a trailing venue segment; for search and matching only, never shown.
+    The head must keep >= 3 words, else the title is returned unchanged."""
+    if not title:
+        return title
+    head = _VENUE_TAIL.sub("", title).rstrip(" .")
+    return head if head != title.rstrip(" .") and len(head.split()) >= 3 else title
+
+
 def title_prefix(a: str | None, b: str | None) -> bool:
     """One title's words are a prefix of the other's ('A decomposable attention model' vs '...
     for natural language inference'), with >= 3 words on the shorter side."""
