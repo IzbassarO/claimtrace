@@ -572,6 +572,7 @@ def test_headline_names_at_most_the_two_worst_counts():
     # one count for claims, one for references; every other count is in the counters below
     r = Report.model_validate(two_claims())
     r.claims[0].needs_review = True
+    r.claims[0].skeptic.verdict = "partly_supported"  # "needs review" = the readers disagree
     r.references.append(audit("2", RefStatus.unchecked))
     r.references.append(audit("3", RefStatus.metadata_mismatch))
     out = render_calls([[r.model_dump(mode="json")]])

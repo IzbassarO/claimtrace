@@ -14,6 +14,7 @@ import pytest
 from claimtrace.core.schemas import (
     ClaimCheck,
     EvidenceKind,
+    ModelOpinion,
     ProviderOutcome,
     Reference,
     ReferenceAudit,
@@ -117,6 +118,9 @@ def big_report() -> Report:
             quote=None if v == Verdict.insufficient_evidence else f"quote {i} {LONG} end{i}",
             evidence_kind=EvidenceKind.full_text,
             needs_review=i == 0,
+            # "needs review" means the two readers disagree (claim 0 only)
+            judge=ModelOpinion(verdict=v.value) if i == 0 else None,
+            skeptic=ModelOpinion(verdict="partly_supported") if i == 0 else None,
             source_url="https://example.org/paper.pdf",
         )
         for i, v in enumerate(verdicts)

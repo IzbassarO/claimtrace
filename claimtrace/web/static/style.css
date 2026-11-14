@@ -340,6 +340,7 @@ progress { width: 100%; height: var(--space-2); accent-color: var(--color-accent
 .method .sheet { margin: 0; }
 .filter-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-3) 0 0; }
 .filter-note:empty { display: none; }
+.one-model { margin: var(--space-2) 0 0; font-size: var(--font-size-sm); }
 .n { font-size: var(--font-size-sm); font-weight: var(--font-weight-normal); color: var(--color-text-secondary); margin-left: var(--space-2); }
 .wait { display: inline-flex; font-size: var(--font-size-sm); font-weight: var(--font-weight-normal); color: var(--color-text-secondary); margin-left: var(--space-2); }
 .wait::before { content: ""; width: var(--mark-size); height: var(--mark-size); margin-right: var(--space-2); align-self: center; border: var(--mark-stroke) solid currentColor; border-radius: var(--border-radius-full); background: linear-gradient(currentColor, currentColor) center 15% / var(--mark-stroke) 40% no-repeat; }
@@ -496,6 +497,7 @@ blockquote.quote::after { content: "\201D"; }
   #print h3 { font-size: 11pt; margin: 10pt 0 2pt; break-after: avoid; }
   #print p { margin: 2pt 0; }
   #print .headline { font-size: 12pt; margin-top: 4pt; }
+  #print .p-notice { font-size: 10pt; border: 1px solid #999; padding: 3pt 5pt; }
   #print .mark, #print .mark::before { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   #print a { color: #000; }
   #print a.src::after { content: " (" attr(href) ")"; }
