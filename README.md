@@ -132,6 +132,16 @@ retrieval on CPU inside the container: 50 retrievals × ~12 s each, at most 2 at
 for memory; app peak 1.39 GB of the 1.5 GB cap). A 200-reference document's first result is 35 s
 (reference-field extraction), measured before chunked streaming of the reference list landed.
 
+## Experiments that were measured and rejected
+
+| experiment | result | why rejected |
+|---|---|---|
+| Faster skeptic `kimi-k2.7-code-highspeed` | SciFact n=100: 0.91 acc / 0.083 false-supported (base 0.90 / 0.10); live PDF 317 s vs 292 s | no full-time gain; more `unsupported` on method citations (7 vs 2–4) |
+| Several claims per model call (batching) | 61 claims ×2 runs: acc 0.885 vs 0.902–0.918, one more false supported | accuracy never better |
+| Section-aware passages | retrieval recall@6 0.990 → 0.971, MRR 0.852 → 0.834 | worse retrieval (section *label* kept) |
+| Number-in-quote cap | SciFact: no metric changed (5/100 claims have numbers) | no measurable gain |
+| Fast PDF parser for sources (default) | live: 7 claims without a source vs 0 | coverage regression; kept opt-in |
+
 ## Limitations
 
 - Claims are judged by LLMs; a verbatim quote proves the words exist in the source, not that the

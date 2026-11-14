@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # text extraction for SOURCE PDFs: "grobid" (default) or "fast" (pypdfium2); the user's own
     # manuscript always goes through GROBID
     source_pdf_parser: str = "grobid"
+    # retrieval on CPU: ONNX intra-op threads per model call, and how many retrievals run at once
+    # (memory grows with slots; keep threads x slots <= the container's CPUs)
+    retrieval_threads: int = 2
+    retrieval_slots: int = 2
     cache_dir: str = ".cache"  # OpenAlex response cache + search counter
     grobid_url: str = "http://localhost:8070"
 

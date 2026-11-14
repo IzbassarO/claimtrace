@@ -160,3 +160,10 @@ sweep, PR #44), fix in progress.
   app peak 1.39 GB; LLM busy 604 s over 16 workers, retrieval 595 s busy over 2 slots ⇒ retrieval
   is now the bottleneck. **3-minute target not reached; speed track closed per the human's
   instruction.**
+- **Faster skeptic candidate — REJECTED by the human (Fri 19:10 ET)**: `kimi-k2.7-code-highspeed`
+  passed SciFact (0.91 / 0.083 vs 0.90 / 0.10) but gave no full-time gain on the live PDF (317 s
+  vs 292 s; retrieval became the bottleneck) and added false-looking `unsupported` verdicts on
+  method citations (7 vs 2–4). Skeptic stays `kimi-k3.1-pro-highspeed`. The human set
+  `LLM_CONCURRENCY_SKEPTIC=16` in `.env`.
+- **Retrieval threads/slots are settings now** (`RETRIEVAL_THREADS`, `RETRIEVAL_SLOTS`, defaults
+  2 / 2) for the 4-vCPU server; the last speed pass tunes them in the container.
