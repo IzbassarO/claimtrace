@@ -576,7 +576,8 @@ def test_headline_names_at_most_the_two_worst_counts():
     r.references.append(audit("2", RefStatus.unchecked))
     r.references.append(audit("3", RefStatus.metadata_mismatch))
     out = render_calls([[r.model_dump(mode="json")]])
-    assert text(out["headline"]) == "1 claim not supported · 2 references need attention."
+    # the readers disagree (unsupported vs partly): "needs review", not "not supported"
+    assert text(out["headline"]) == "1 claim needs review · 2 references need attention."
     r.claims[0].verdict = Verdict.partly_supported
     out = render_calls([[r.model_dump(mode="json")]])
     assert text(out["headline"]) == "1 claim needs review · 2 references need attention."

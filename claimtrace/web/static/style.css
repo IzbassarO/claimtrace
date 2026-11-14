@@ -365,6 +365,11 @@ progress { width: 100%; height: var(--space-2); accent-color: var(--color-accent
 .row-head:focus-visible { outline-offset: calc(var(--focus-width) * -1); }
 .row-head > * { min-width: 0; }
 .row-head > .mark { white-space: nowrap; }
+/* "Judge: … · Skeptic: …" under the sentence of a disagreement row (a second, small line) */
+.row-head { row-gap: 0; }
+.row-head > .readers { grid-column: 2; grid-row: 2; }
+.readers { font-size: var(--font-size-sm); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-head .readers { margin: 0 var(--space-2); }
 .line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--color-text-primary); }
 .line, .line .text, .aside { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line .text { min-width: 0; }
@@ -465,6 +470,7 @@ blockquote.quote::after { content: "\201D"; }
   .row-head > .aside { grid-area: aside; }
   .row-head > .id { grid-area: id; }
   .row-head > .cue { grid-area: cue; }
+  .row-head > .readers { grid-column: 1 / -1; grid-row: 3; }
   .row-head > .aside { text-align: right; }
   #refs-sec .row-head > .aside { text-align: left; }
   .row-body { padding-left: var(--space-4); }
