@@ -5,36 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ClaimTrace</title>
   <link rel="icon" href="data:,">
+  <!-- theme before first paint: a stored manual choice wins over prefers-color-scheme -->
+  <script>try { const t = localStorage.getItem("ct-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (_) {}</script>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <header class="top"><a class="brand" href="/">ClaimTrace</a></header>
+  <header class="top">
+    <div class="top-in">
+      <a class="brand" href="/">ClaimTrace</a>
+      <button id="theme" type="button" class="ghost">Dark theme</button>
+    </div>
+  </header>
 
   <main id="main">
-    <section id="input" aria-labelledby="input-h">
-      <h1 id="input-h">Check that every reference in a manuscript is real, and that each cited
-        source says what the sentence citing it claims.</h1>
-      <form id="job-form">
-        <label for="text">Manuscript text, including its reference list</label>
-        <textarea id="text" name="text" rows="12" spellcheck="false"></textarea>
-        <label for="files">Or attach files <span class="quiet">(.txt, .md, .bib, .pdf)</span></label>
-        <input id="files" name="files" type="file" multiple accept=".txt,.md,.bib,.pdf"
-               aria-describedby="files-hint">
-        <p id="files-hint" class="hint">With pasted text and a .bib file, the body comes from the
-          text and the references from the .bib.</p>
-        <p id="form-error" class="error" role="alert"></p>
-        <div class="actions">
-          <button id="submit" type="submit">Audit citations</button>
-          <button id="sample" type="button" class="secondary" aria-describedby="sample-hint">Try a sample</button>
-        </div>
-        <p id="sample-hint" class="sr-only">Shows a saved audit of a short sample manuscript with one correct
-          citation, one overstated claim and one fabricated reference.</p>
-      </form>
+    <section id="input" class="home" aria-labelledby="input-h">
+      <div class="home-main">
+        <h1 id="input-h">Check every citation in a manuscript against its source.</h1>
+        <p class="lede">Each reference is looked up and compared field by field. Each citing sentence
+          is read against the cited paper, and every verdict comes with the paper's own words as
+          evidence.</p>
+        <form id="job-form" class="panel">
+          <div class="tabrow">
+            <div class="tabs" role="tablist" aria-label="Manuscript input">
+              <button id="tab-upload" type="button" role="tab" aria-selected="true"
+                      aria-controls="panel-upload">Upload files</button>
+              <button id="tab-paste" type="button" role="tab" aria-selected="false"
+                      aria-controls="panel-paste" tabindex="-1">Paste text</button>
+            </div>
+            <button id="sample" type="button" class="secondary" aria-describedby="sample-hint">Try a sample</button>
+          </div>
+          <p id="sample-hint" class="sr-only"></p>
+          <div id="panel-upload" role="tabpanel" aria-labelledby="tab-upload">
+            <label id="drop" class="drop" for="files">
+              <span class="drop-title">Drop the manuscript here, or choose files</span>
+              <span class="drop-hint">PDF, .bib, .txt or .md, several at once</span>
+              <input id="files" name="files" type="file" multiple accept=".txt,.md,.bib,.pdf"
+                     class="sr-only" aria-describedby="files-hint file-list">
+            </label>
+            <p id="file-list" class="hint" aria-live="polite"></p>
+            <p id="files-hint" class="hint">With pasted text and a .bib file, the body comes from the
+              text and the references from the .bib.</p>
+          </div>
+          <div id="panel-paste" role="tabpanel" aria-labelledby="tab-paste" hidden>
+            <label for="text">Manuscript text, including its reference list</label>
+            <textarea id="text" name="text" rows="14" spellcheck="false"
+                      placeholder="Paste the body and the references. Plain text, Markdown or LaTeX with \cite{…}."></textarea>
+          </div>
+          <p id="form-error" class="error" role="alert"></p>
+          <div class="actions">
+            <button id="submit" type="submit">Audit citations</button>
+          </div>
+        </form>
+      </div>
+      <aside class="datasheet" aria-labelledby="measured-h">
+        <h2 id="measured-h">What is measured</h2>
+        <dl class="sheet">
+          <dt>References</dt><dd>Crossref, OpenAlex, arXiv, Semantic Scholar and doi.org. Title,
+            authors, year (±1) and DOI are compared by code, not by a model.</dd>
+          <dt>Claims</dt><dd>Full text where open, otherwise the abstract; the report says which.</dd>
+          <dt>Evidence</dt><dd>A verdict is shown only with a quote of at least 5 words found
+            verbatim in the source.</dd>
+          <dt>Two readers</dt><dd>A judge and a skeptic on different model providers. If they
+            disagree, the claim is flagged and the more cautious verdict is kept.</dd>
+        </dl>
+        <h2>Readout key</h2>
+        <ul class="key">
+          <li><span class="mark s-ok v u-supported"><span class="word">Supported</span></span></li>
+          <li><span class="mark s-partly v u-partly_supported"><span class="word">Partly supported</span></span></li>
+          <li><span class="mark s-bad v u-unsupported"><span class="word">Not supported</span></span></li>
+          <li><span class="mark s-unknown v u-insufficient_evidence"><span class="word">Not enough evidence</span></span>
+            <span class="hint">never counted against you</span></li>
+          <li><span class="mark s-review"><span class="word">Needs review</span></span>
+            <span class="hint">the two readers disagree</span></li>
+        </ul>
+      </aside>
     </section>
 
-    <section id="progress" aria-labelledby="progress-h" hidden>
+    <section id="progress" class="narrow" aria-labelledby="progress-h" hidden>
       <h1 id="progress-h">Auditing the manuscript</h1>
       <ol id="stages" class="stages"></ol>
       <progress id="bar" aria-labelledby="stage"></progress>
@@ -49,15 +98,18 @@
         <p id="saved-note"></p>
         <button id="run-live" type="button" class="secondary">Run live</button>
       </div>
-      <div id="live" class="live" hidden>
-        <p id="live-stage"></p>
-        <progress id="live-bar" aria-labelledby="live-stage"></progress>
-      </div>
       <div id="empty" hidden></div>
       <div id="report">
-      <p id="summary" class="summary"></p>
-      <ul id="warnings" class="warnings"></ul>
-
+      <div class="readout">
+        <div class="readout-text">
+          <p id="headline" class="headline"></p>
+          <p id="summary" class="summary"></p>
+          <div id="live" class="live" hidden>
+            <p id="live-stage" aria-live="polite"></p>
+          </div>
+        </div>
+        <div id="meters" class="meters"></div>
+      </div>
       <p id="exports" class="exports">
         <a id="export-json" download>Download JSON</a>
         <a id="export-md" download>Download Markdown</a>
@@ -65,14 +117,26 @@
         <button id="new-job" type="button" class="link">Audit another manuscript</button>
         <span id="copy-status" role="status"></span>
       </p>
-      <p id="share" class="permalink">Shareable link (anyone with it can view this report; kept for the
-        newest 1000 reports on this server): <a id="permalink"></a></p>
+      <p id="share" class="permalink"><span id="share-note"></span><a id="permalink"></a></p>
+      <p id="filter-note" class="filter-note" role="status"></p>
 
-      <h2 id="refs-h">References <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
-      <div id="refs"></div>
+      <div id="ledgers">
+      <section id="claims-sec" aria-labelledby="claims-h">
+        <h2 id="claims-h">Claims <span id="claims-n" class="n"></span> <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
+        <div id="claims"></div>
+      </section>
 
-      <h2 id="claims-h">Claims <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
-      <div id="claims"></div>
+      <section id="refs-sec" aria-labelledby="refs-h">
+        <h2 id="refs-h">References <span id="refs-n" class="n"></span> <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
+        <div id="refs"></div>
+      </section>
+      </div>
+
+      <details id="tech" class="tech">
+        <summary>Technical details: warnings and timings</summary>
+        <ul id="warnings" class="warnings"></ul>
+        <dl id="timings" class="timings"></dl>
+      </details>
 
       <section id="chat" aria-labelledby="chat-h">
         <h2 id="chat-h">Ask about this report</h2>
