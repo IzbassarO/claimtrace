@@ -16,6 +16,7 @@ class Timings:
         self.ops: defaultdict[str, float] = defaultdict(float)
         self.counts: Counter[str] = Counter()
         self.marks: dict[str, float] = {}
+        self.breakers: dict[str, object] = {}  # core.llm circuit breakers, one per role per run
 
     def now(self) -> float:
         return time.monotonic() - self.t0
