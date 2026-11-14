@@ -137,3 +137,26 @@ sweep, PR #44), fix in progress.
 - **Design skills (PR #81)**: installed project-locally, gitignored; `design-taste-frontend`'s
   auto-run hook removed; `web-design-guidelines` needs a network fetch ⇒ unused offline;
   `ui-ux-pro-max` scripts not run.
+
+## Speed track closed (Fri night)
+
+- **Per-provider concurrency (PR #97)**: `LLM_CONCURRENCY_SKEPTIC` with 429 back-off to
+  `LLM_CONCURRENCY`; pipeline runs max(judge, skeptic) claim workers. Token counts per role in
+  `Report.timings`; eval reports tokens + cost (PR #102; Anthropic list prices, Moonshot unknown).
+- **Streaming reference list (PRs #99, #100)**: chunks of 5 then 20 entries are audited as soon as
+  extracted; DOI/arXiv references warm the provider cache before extraction finishes (free
+  lookups only); Crossref DOI records cached on disk. Not re-measured on the 200-ref document.
+- **Verdict cache hardened (PR #96)**: only model opinions are cached; every hit re-runs
+  `claims.finalize` (current quote gate, current source url).
+- **Faster skeptic candidate** — judge is Anthropic, so an Anthropic skeptic (claude-haiku-5-5 as
+  suggested) would break the different-providers rule; the candidate stayed on Moonshot:
+  `kimi-k2.7-code-highspeed` (2.4 s vs 7.3 s per probe call). SciFact n=100 (seed 0): accuracy
+  0.90 → 0.91, false-supported 0.10 → 0.083, precision 0.857 → 0.878, recall 0.90 → 0.90, quote
+  verified 0.82 → 0.84 ⇒ **passes the selection rule**. Caveat: on the live Attention PDF it is
+  stricter: `unsupported` 7 vs 2–4 before (2 harsher than warranted on method citations, 1 a
+  genuine catch, 1 debatable arithmetic). SciFact counts NEI→unsupported as correct, so a false
+  "unsupported" is not penalised there. Not switched in `.env` (human's file) — human's decision.
+- **Final live run** (cold, candidate skeptic, 16 skeptic slots): first result 5.3 s, total 317 s,
+  app peak 1.39 GB; LLM busy 604 s over 16 workers, retrieval 595 s busy over 2 slots ⇒ retrieval
+  is now the bottleneck. **3-minute target not reached; speed track closed per the human's
+  instruction.**
