@@ -24,6 +24,10 @@ reusing an already-running `grobid` container; PDF parsing was not exercised end
 - Vultr → Deploy → Cloud Compute (shared CPU is fine), **8 GB RAM** (GROBID peaks at ~4 GB,
   the app at ~0.7 GB; compose caps them at 4.5 GB and 1.5 GB), ≥ 2 vCPU, ≥ 50 GB disk
   (images ~4 GB), **Ubuntu 24.04 LTS x64**, add your SSH key.
+- Retrieval CPU: `RETRIEVAL_THREADS` × `RETRIEVAL_SLOTS` ≈ the vCPUs the app may use. On a
+  4-vCPU server keep the defaults `RETRIEVAL_THREADS=2`, `RETRIEVAL_SLOTS=2` (GROBID and the
+  LLM calls need the rest only briefly); on a 8+-core machine `4` / `2`. Container bench on 50
+  real full-text retrievals: 2/2 → 161 s, 4/2 → 103 s; app RSS ~0.7 GB either way.
 - Note the public IP, e.g. `203.0.113.7`.
 
 ## 2. Domain — [reviewed only]

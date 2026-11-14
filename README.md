@@ -131,6 +131,9 @@ between runs, so read the order of magnitude):
 retrieval on CPU inside the container: 50 retrievals × ~12 s each, at most 2 at a time (bounded
 for memory; app peak 1.39 GB of the 1.5 GB cap). A 200-reference document's first result is 35 s
 (reference-field extraction), measured before chunked streaming of the reference list landed.
+A last no-LLM pass (length-sorted small batches) then cut container retrieval for the same 50
+retrievals from 264 s to 103 s (4 threads × 2) at half the memory; the end-to-end effect on the
+PDF was **not re-measured live**.
 
 ## Experiments that were measured and rejected
 
