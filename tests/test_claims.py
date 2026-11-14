@@ -281,3 +281,17 @@ def test_default_embedder_runs_at_most_two_inferences_at_once(monkeypatch):
         out = list(pool.map(lambda _: _REAL_EMBED(["a", "b"]), range(8)))
     assert out == [[[1.0], [1.0]]] * 8
     assert peak == 2  # parallel (no global lock) but bounded (memory)
+
+
+def test_length_sorted_runs_shortest_first_and_restores_input_order():
+    seen = []
+
+    def run(xs):
+        seen.extend(xs)
+        return [len(x) for x in xs]
+
+    texts = ["ccc", "a", "bb"]
+    assert retrieval._length_sorted(texts, run) == [3, 1, 2]
+    assert seen == ["a", "bb", "ccc"]
+    with pytest.raises(ValueError):
+        retrieval._length_sorted(texts, lambda xs: xs[:1])
