@@ -436,7 +436,7 @@ blockquote.quote::after { content: "\201D"; }
 
 /* not usable until the report is final (exports/chat need it) */
 .exports.running #copy-link, .exports.running #downloads, .exports.running #new-job { display: none; }
-.running #chat, .saved #chat, .saved #share, .exports.saved #downloads, .exports.saved #copy-link { display: none; }
+.exports.running #print-pdf, .running #chat, .saved #chat, .saved #share, .exports.saved #downloads, .exports.saved #copy-link { display: none; }
 
 @media (min-width: 64rem) {
   .home { grid-template-columns: minmax(0, 1fr) var(--width-aside); gap: var(--space-8); }
@@ -471,6 +471,47 @@ blockquote.quote::after { content: "\201D"; }
 }
 @media (pointer: coarse) {
   .counts button, .exports > a, .exports > button, .downloads, .more > summary, .show-all, #saved button { min-height: var(--tap-min); }
+}
+
+/* ---------- print / "PDF (print)": only the flat #print copy (app.js printView), black on white ---------- */
+.print-only { display: none; }
+@media print {
+  @page { margin: 16mm; }
+  :root {
+    color-scheme: light !important;
+    --color-bg-primary: #fff !important; --color-bg-secondary: #fff !important; --color-bg-tertiary: #fff !important;
+    --color-text-primary: #000 !important; --color-text-secondary: #333 !important; --color-text-tertiary: #333 !important;
+    --color-text-link: #000 !important; --color-border-primary: #999 !important; --color-border-secondary: #bbb !important;
+    --color-status-supported: #1d6b3a !important; --color-status-partly: #7a5600 !important;
+    --color-status-unsupported: #a3261b !important; --color-status-neutral: #444 !important;
+    --color-status-review: #8c2f6b !important; --color-status-mismatch: #7a5600 !important;
+  }
+  html { font-size: 10pt; }
+  body { background: #fff; color: #000; }
+  .skip, .top, #results:has(> #print:not([hidden])) > :not(#print) { display: none !important; }
+  main { max-width: none; padding: 0; }
+  #print { display: block; }
+  #print h1 { margin: 0 0 4pt; font-size: 18pt; }
+  #print h2 { font-size: 13pt; margin: 16pt 0 4pt; break-after: avoid; }
+  #print h3 { font-size: 11pt; margin: 10pt 0 2pt; break-after: avoid; }
+  #print p { margin: 2pt 0; }
+  #print .headline { font-size: 12pt; margin-top: 4pt; }
+  #print .mark, #print .mark::before { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #print a { color: #000; }
+  #print a.src::after { content: " (" attr(href) ")"; }
+  .p-list { list-style: none; margin: 0; padding: 0; }
+  .p-row { break-inside: avoid; padding: 5pt 0; border-top: var(--border-width) solid var(--color-border-secondary); overflow-wrap: anywhere; }
+  .p-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2pt 8pt; }
+  #print .quote { font-size: 10.5pt; margin: 2pt 0; }
+  .p-reason, .p-diff { font-size: 9pt; }
+  .p-refs table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  .p-refs thead { display: table-header-group; }
+  .p-refs tr { break-inside: avoid; }
+  .p-refs th, .p-refs td { text-align: left; vertical-align: top; padding: 3pt 6pt 3pt 0; border-bottom: var(--border-width) solid var(--color-border-secondary); overflow-wrap: anywhere; }
+  .p-refs th, .p-refs td:first-child, .p-refs td.id { white-space: nowrap; overflow-wrap: normal; }
+  #print-method { break-inside: avoid; }
+  #print-method .sheet dt, #print-method .sheet dd { padding-block: 3pt; font-size: 9pt; }
+  .print-foot { margin-top: 16pt; padding-top: 4pt; border-top: var(--border-width) solid var(--color-border-primary); font-size: 9pt; }
 }
 
 @media (prefers-reduced-motion: reduce) {

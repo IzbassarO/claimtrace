@@ -287,6 +287,9 @@ const REF_SHORT = { verified: "verified", metadata_mismatch: "differs", unchecke
 const REF_TAG = { not_found: "reference not found", retracted: "reference retracted", metadata_mismatch: "reference differs", unchecked: "reference unchecked" };
 const need = (n) => (n === 1 ? "needs" : "need");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+// "38 verified, 1 details differ": one count per status present, in severity order
+const tally = (xs, key, labels, sep = ", ") => Object.keys(labels).map((v) => [xs.filter((x) => key(x) === v).length, labels[v][0].toLowerCase()])
+  .filter(([n]) => n).map(([n, w]) => `${n} ${w}`).join(sep);
 // first sentence; "et al." / "e.g." / "Fig." do not end one
 const firstSentence = (s) => String(s || "").split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|Fig|Eq|No)\.)(?<=[.!?])\s+(?=[A-Z0-9“"(])/)[0];
 
@@ -597,6 +600,7 @@ function renderReport(r, opts = {}) {
   $("empty").hidden = !empty;
   $("report").hidden = empty;
   $("exports").hidden = empty;
+  $("print").hidden = empty;
   if (empty) {
     renderEmpty(r);
     show("results");
@@ -679,6 +683,7 @@ function renderReport(r, opts = {}) {
   const refsFirst = r.references.some((a) => a.status === "not_found" || a.status === "retracted");
   $("ledgers").replaceChildren(...(refsFirst ? [$("refs-sec"), $("claims-sec")] : [$("claims-sec"), $("refs-sec")]));
   if (!opts.saved) showPermalink();
+  $("print-report").replaceChildren(...printView(r, opts, refsFirst));
   show("results");
   // "Show full quote" only where the 3-line clamp actually cuts the quote
   // ponytail: measured once per render, not on resize; a resize to narrower shows no button until the next render
@@ -695,6 +700,65 @@ function renderReport(r, opts = {}) {
     const again = document.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
     if (again) again.focus();
   }
+}
+
+// Print / "PDF (print)": a flat copy of the whole report that only @media print shows. Built from
+// the data, so every group and row is expanded with its full quote while the reader's on-screen
+// open rows, filter and "Show all" stay exactly as they were.
+function printView(r, opts, refsFirst) {
+  const src = (url) => Object.assign(link(url, "source"), { className: "src" }); // print shows its URL
+  const claim = (c) => {
+    const a = refAudits.get(c.ref_id);
+    const one = singleModel(c);
+    const reason = claimReason(c);
+    const note = refNote(c);
+    const kind = { full_text: "full text", abstract: "abstract only" }[c.evidence_kind];
+    return el("li", { className: "p-row" },
+      el("p", { className: "p-head" }, refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT),
+        c.needs_review ? tag("needs review", "mark s-review") : null, one ? tag(one) : null,
+        a && REF_TAG[a.status] ? tag(REF_TAG[a.status]) : null),
+      el("p", { className: "p-sentence" }, c.sentence),
+      c.quote ? el("blockquote", { className: "quote" }, c.quote) : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
+      reason ? el("p", { className: "p-reason" }, reason) : null,
+      note ? el("p", { className: "ref-note" }, note) : null,
+      el("p", { className: "provenance" }, `${c.citation_id} → ref ${c.ref_id}`, kind ? ` · ${kind}` : "",
+        refShort(c.ref_id) ? ` · ${refShort(c.ref_id)}` : "", c.source_url ? [" · ", src(c.source_url)] : null));
+  };
+  const byVerdict = (xs) => order(xs, VERDICT, (c) => c.verdict, false);
+  const rest = r.claims.filter((c) => !claimAttention(c));
+  const groups = [["Needs your attention", byVerdict(r.claims.filter(claimAttention))],
+    ...CLAIM_GROUPS.map(([, word, , test]) => [word, byVerdict(rest.filter(test))])];
+  const claims = el("section", { className: "p-claims" }, el("h2", {}, `Claims · ${r.claims.length}`),
+    r.claims.length ? groups.filter(([, xs]) => xs.length).map(([word, xs]) => [el("h3", {}, `${word} · ${xs.length}`),
+      el("ol", { className: "p-list" }, xs.map(claim))]) : el("p", {}, "No citing sentences were found or checked."));
+  const refRowP = (a) => {
+    const failed = a.providers.some((p) => !p.ok);
+    const reason = refReason(a);
+    return el("tr", {},
+      el("td", {}, mark(a.status, STATUS, a.status === "unchecked" && failed ? "Could not check (lookup failed)" : null)),
+      el("td", { className: "id" }, a.reference.id),
+      el("td", {}, a.reference.raw),
+      el("td", {}, foundLine(a), a.mismatches.map((x) => el("p", { className: "p-diff" }, `${x.field}: ${x.cited} → ${x.found}`))),
+      el("td", {}, reason || a.note || ""));
+  };
+  const refs = el("section", { className: "p-refs" }, el("h2", {}, `References · ${r.references.length}`),
+    r.references.length ? el("table", {},
+      el("thead", {}, el("tr", {}, ["Status", "Ref", "Cited", "Found / differences", "Note"].map((h) => el("th", { scope: "col" }, h)))),
+      el("tbody", {}, order(r.references.slice(), STATUS, (a) => a.status, false).map(refRowP)))
+      : el("p", {}, "No references were found in this manuscript."));
+  const day = new Date(r.created_at || Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const review = r.claims.filter((c) => c.needs_review).length;
+  const badref = r.claims.filter(refBad).length;
+  return [
+    el("h1", {}, r.title || "Report"),
+    el("p", { className: "headline" }, headline(r, r.complete === false)),
+    el("p", {}, "Claims: ", [tally(r.claims, (c) => c.verdict, VERDICT, " · "),
+      badref ? `${badref} cite a missing or retracted reference` : "", review ? `${review} need review` : ""].filter(Boolean).join(" · ") || "none"),
+    el("p", {}, "References: ", tally(r.references, (a) => a.status, STATUS, " · ") || "none"),
+    el("p", { className: "p-meta" }, opts.saved ? `Saved example, computed on ${day}; results may differ in a live run.`
+      : [`Audited on ${day} · Shareable link: `, el("span", { className: "mono" }, `${location.origin}/r/${encodeURIComponent(jobId)}`)]),
+    refsFirst ? [refs, claims] : [claims, refs],
+  ].flat();
 }
 
 function rerender(focusKey) {
@@ -810,8 +874,6 @@ async function describeServer() {
 async function describeSample() {
   try {
     const r = await (await fetch("/static/sample-report.json")).json();
-    const tally = (xs, key, labels) => Object.keys(labels).map((v) => [xs.filter((x) => key(x) === v).length, labels[v][0].toLowerCase()])
-      .filter(([n]) => n).map(([n, w]) => `${n} ${w}`).join(", ");
     $("sample-hint").textContent = `Shows a saved audit of a short sample manuscript: ${plural(r.references.length, "reference")} (${tally(r.references, (a) => a.status, STATUS)}) and ${plural(r.claims.length, "claim")} (${tally(r.claims, (c) => c.verdict, VERDICT)}).`;
   } catch (_) { /* the button still works; it just has no description */ }
 }
@@ -885,6 +947,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $("expand-all").addEventListener("click", () => { expandAll(true); rerender("expand-all"); });
   $("collapse-all").addEventListener("click", () => { expandAll(false); rerender("collapse-all"); });
   $("retry").addEventListener("click", resumePolling);
+  $("print-pdf").addEventListener("click", () => window.print());
+  // the method note, printed once at the end of the print copy (static text, no report data)
+  $("print-method").append($("method").firstElementChild.cloneNode(true));
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);
 });
