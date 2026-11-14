@@ -84,7 +84,11 @@ def test_all_judge_only_report_is_not_needs_review_on_screen():
     # attention: the unsupported claim and the one citing a missing reference, not all 7
     assert attention_ids(out) == ["1", "7"]
     groups = [text(g) for g in find(out["claims"], lambda n: n["cls"] == "fine")]
-    assert [g.split("·")[0] for g in groups] == ["Partly supported", "Supported", "Could not check"]
+    assert [g.split("·")[0] for g in groups] == [
+        "Partly supported",
+        "Supported",
+        "Not enough evidence",
+    ]
     assert "· 2" in groups[0] and "· 2" in groups[1] and "· 1" in groups[2]
     tags = {text(t) for t in find(out["claims"], lambda n: "tag" in n["cls"].split())}
     assert "judge only" in tags
