@@ -90,9 +90,35 @@ def _rate_limited(e: Exception) -> bool:
     return status == 429 or "RateLimit" in type(e).__name__
 
 
+_QUOTA = ("quota", "insufficient", "balance", "billing", "credit")
+
+
+def _transient(e: Exception) -> bool:
+    """Worth another try: a burst rate limit, a 5xx, a dropped connection or a timeout."""
+    status = getattr(e, "status_code", None) or getattr(
+        getattr(e, "response", None), "status_code", None
+    )
+    name = type(e).__name__
+    return (
+        (_rate_limited(e) and not _quota_exhausted(e))
+        or (isinstance(status, int) and status >= 500)
+        or name in ("APIConnectionError", "APITimeoutError", "InternalServerError")
+    )
+
+
+def _quota_exhausted(e: Exception) -> bool:
+    """A 429 that means "out of credit" (Moonshot `exceeded_current_quota_error`, OpenAI
+    `insufficient_quota`): waiting never clears it, so it must not be retried."""
+    body = getattr(e, "body", None)
+    err = body.get("error", body) if isinstance(body, dict) else {}
+    text = " ".join(str(err.get(k, "")) for k in ("type", "code")) if isinstance(err, dict) else ""
+    return _rate_limited(e) and any(w in f"{text} {e}".lower() for w in _QUOTA)
+
+
 async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) -> BaseMessage:
-    """One model call under the role's limiter; 429 ⇒ lower the limit, wait, retry (the job never
-    fails on a rate limit alone: the caller turns a final error into insufficient_evidence)."""
+    """One model call under the role's limiter; a transient error (burst 429 ⇒ also lower the
+    limit, 5xx, connection, timeout) ⇒ wait, retry; out of quota ⇒ fail at once. The caller turns a
+    final error into "judge only" / insufficient_evidence, never a negative verdict."""
     lim = _limiter(role)
     for attempt in range(RATE_LIMIT_RETRIES + 1):
         async with lim:
@@ -100,9 +126,12 @@ async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) 
                 with span(f"llm_{role}"):
                     msg = await model.ainvoke(messages)
             except Exception as e:
-                if not _rate_limited(e) or attempt == RATE_LIMIT_RETRIES:
+                if not _transient(e) or attempt == RATE_LIMIT_RETRIES:
+                    if _quota_exhausted(e):
+                        log.warning("%s provider: out of quota, not retried", role)
                     raise
-                lim.throttle()
+                if _rate_limited(e):
+                    lim.throttle()
             else:
                 usage = getattr(msg, "usage_metadata", None) or {}
                 if (t := current()) and usage:
@@ -148,7 +177,9 @@ def get_model(role: Role) -> BaseChatModel:
             api_key=s.moonshot_api_key,
             base_url=s.moonshot_base_url,
             timeout=120,
-            max_retries=2,
+            # retries live in _invoke, which tells a burst limit from an empty account; the client
+            # would retry an out-of-quota 429 too, with long waits
+            max_retries=0,
         )
     raise LLMError(f"LLM_{role.upper()}_PROVIDER must be anthropic or moonshot")
 
