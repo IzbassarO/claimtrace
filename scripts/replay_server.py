@@ -5,7 +5,7 @@ then claims) on that run's own `timings` marks, squeezed into ~150 s. No LLM or 
 
 Also serves, for design screenshots only:
   /dev/show/<name>?theme=light|dark&open=1   the real page, with report <name> rendered into it
-      names: home (no report), sample, final, empty, long, refs200
+      names: home (no report), sample, final, empty, long, refs200, judgeonly
   /dev/show/home?theme=light&job=<id>         a running job, polled like its /r/<id> permalink
   /dev/frame?src=<path>&w=390                 the page inside a 390 px iframe (phone width)
 
@@ -214,6 +214,14 @@ def refs200() -> Report:
     )
 
 
+def judge_only(final: Report) -> Report:
+    """The skeptic provider down for every claim (it answered 429): only the judge's opinion."""
+    r = final.model_copy(deep=True)
+    for c in r.claims:
+        c.skeptic, c.needs_review = None, True
+    return r
+
+
 def reports(final: Report) -> dict[str, Report]:
     static = Path(web.__file__).parent / "static"
     return {
@@ -222,6 +230,7 @@ def reports(final: Report) -> dict[str, Report]:
         "empty": Report(id="empty", warnings=["No reference section found.", "No citations."]),
         "long": long_cases(),
         "refs200": refs200(),
+        "judgeonly": judge_only(final),
     }
 
 
