@@ -4,7 +4,6 @@ skipped without node."""
 
 import re
 
-import pytest
 from test_web_report_view import find, ok, ref, render_calls, text
 
 from claimtrace.core.schemas import (
@@ -26,10 +25,6 @@ def claim(cid: str, rid: str, verdict: Verdict, **kw) -> ClaimCheck:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: headline says 'No problems found' when no reference could be checked",
-)
 def test_headline_does_not_say_no_problems_when_nothing_could_be_checked():
     # every provider rate-limited and the LLM down: nothing was verified at all
     report = Report(
@@ -48,10 +43,6 @@ def test_headline_does_not_say_no_problems_when_nothing_could_be_checked():
     assert "No problems found" not in text(out["headline"]), text(out["headline"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: green 'supported' counter counts a claim whose cited reference was not found",
-)
 def test_green_supported_counter_excludes_claims_citing_a_missing_reference():
     # the only claim cites a reference no provider knows (likely fabricated); its row is moved
     # to "Needs your attention" and never shown green, but the readout counter is
@@ -81,10 +72,6 @@ def test_green_supported_counter_excludes_claims_citing_a_missing_reference():
     assert counted == 0, f"{counted} claim(s) under a green counter: {[text(b) for b in green]}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: claim citing a not-found reference sorted below LLM-outage claims",
-)
 def test_claim_citing_missing_reference_is_not_sorted_below_failed_checks():
     # judge/skeptic call failed (pipeline._failed): insufficient_evidence + needs_review, which
     # the readout key calls "never counted against you"; ref 9 does not exist at all
@@ -114,3 +101,14 @@ def test_claim_citing_missing_reference_is_not_sorted_below_failed_checks():
     attention = text(out["claims"]).split("Needs your attention", 1)[1]
     order = re.findall(r"(c\d) → ref", attention)
     assert order[0] == "c4", order
+
+
+def test_queue_position_shown_while_queued_and_absent_fields_fall_back():
+    # #stage is not dumped by the harness: copy its text into #headline
+    copy = '$("headline").textContent = $("stage").textContent;'
+    out = render_calls(
+        [f'renderStages({{status: "queued", queue_position: 2, queue_length: 3}}); {copy}']
+    )
+    assert text(out["headline"]) == "Waiting in queue — position 2 of 3"
+    out = render_calls([f'renderStages({{status: "queued"}}); {copy}'])
+    assert text(out["headline"]) == "Queued: waiting for a free worker"
