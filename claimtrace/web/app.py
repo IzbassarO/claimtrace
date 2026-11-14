@@ -14,7 +14,7 @@ from pathlib import Path, PurePath
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -359,11 +359,20 @@ async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
 
 
-@app.get("/r/{job_id}", include_in_schema=False)
-async def permalink(job_id: str) -> FileResponse:
+# static text only: the mistyped id is never echoed back
+NOT_FOUND_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report not found · ClaimTrace</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main><h1>Report not found</h1>
+<p>This report link is not valid. Check that it was copied in full.</p>
+<p><a href="/">Audit a manuscript</a></p></main></body></html>"""
+
+
+@app.get("/r/{job_id}", include_in_schema=False, response_model=None)
+async def permalink(job_id: str) -> FileResponse | HTMLResponse:
     """The page loads the report itself from /api/jobs/{id}."""
     if not JOB_ID.fullmatch(job_id):
-        raise HTTPException(404, "Unknown report.")
+        return HTMLResponse(NOT_FOUND_PAGE, status_code=404)
     return FileResponse(STATIC / "index.html")
 
 
