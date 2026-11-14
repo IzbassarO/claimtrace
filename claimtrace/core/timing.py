@@ -11,12 +11,14 @@ _current: contextvars.ContextVar["Timings | None"] = contextvars.ContextVar("tim
 
 
 class Timings:
-    def __init__(self) -> None:
+    def __init__(self, breakers: bool = False) -> None:
         self.t0 = time.monotonic()
         self.ops: defaultdict[str, float] = defaultdict(float)
         self.counts: Counter[str] = Counter()
         self.marks: dict[str, float] = {}
-        self.breakers: dict[str, object] = {}  # core.llm circuit breakers, one per role per run
+        # core.llm circuit breakers, one per role; None = off (eval, tests): only pipeline runs
+        # skip a failing provider, an eval must see every failure
+        self.breakers: dict[str, object] | None = {} if breakers else None
 
     def now(self) -> float:
         return time.monotonic() - self.t0
@@ -33,8 +35,8 @@ class Timings:
         return out
 
 
-def start() -> Timings:
-    t = Timings()
+def start(breakers: bool = False) -> Timings:
+    t = Timings(breakers)
     _current.set(t)
     return t
 

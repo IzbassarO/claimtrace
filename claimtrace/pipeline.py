@@ -224,7 +224,7 @@ async def run(
     """`on_partial(report)` (optional) receives partial snapshots (`complete=False`) as reference
     audits and claim checks finish; the returned report is the final one (`complete=True`)."""
     user_progress = on_progress or (lambda *_: None)
-    t = timing.start()
+    t = timing.start(breakers=True)
     rid = report_id or uuid.uuid4().hex[:12]
 
     def progress(stage: str, done: int, total: int) -> None:

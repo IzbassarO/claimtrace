@@ -77,7 +77,7 @@ const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); 
 // worst first: a claim citing a missing/retracted reference, then verdict/status (claims the two
 // readers disagree on after every agreed one), then the cited reference's status
 const severity = (labels, key, x) => (!x.reference && refBad(x) ? -1000 : rank(labels, key(x)) * 100)
-  + (x.reference ? 0 : (disagree(x) && !refBad(x) ? 1000 : 0) + rank(STATUS, refStatus.get(x.ref_id) || "verified"));
+  + (x.reference ? 0 : (claimKey(x) === "review" ? 1000 : 0) + rank(STATUS, refStatus.get(x.ref_id) || "verified"));
 
 async function apiError(resp) {
   try {
@@ -272,23 +272,25 @@ const refNote = (c) => {
 // the cited work is missing or retracted: whatever the source text said, the citation is a problem
 const refBad = (c) => ["not_found", "retracted"].includes(refStatus.get(c.ref_id));
 const refAttention = (a) => a.status !== "verified";
-// counter/filter value of a claim: one citing a missing or retracted reference is never counted
-// under its (possibly green) verdict
-// under its (possibly green) verdict; one the two readers disagree on is counted as "review", never
-// under its cautious verdict
+// THE one classification of a claim, used by the row label, headline, counters, filters, groups,
+// print, and (mirrored in export.py claim_key) the Markdown export and the chat prompt.
+// Precedence: cites a missing/retracted reference ("badref") > the two readers disagree ("review")
+// > its verdict. So a claim is never counted under its (possibly green or cautious) verdict when
+// its reference is gone or its readers disagree.
 const claimKey = (c) => (refBad(c) ? "badref" : disagree(c) ? "review" : c.verdict);
 // counts shown beside the per-verdict ones (screen counters and print): [value, count, words, mark class]
-const claimExtras = (cs) => [["badref", cs.filter(refBad).length, "cite a missing or retracted reference", "s-bad"],
+const claimExtras = (cs) => [["badref", cs.filter((c) => claimKey(c) === "badref").length, "cite a missing or retracted reference", "s-bad"],
   ["review", cs.filter((c) => claimKey(c) === "review").length, "need review", "s-review"]].filter(([, n]) => n);
 // "Needs review" means the two readers disagree, nothing else: the backend's needs_review is also
 // true when only one model answered (or none), which is shown as "judge only" / "skeptic only"
 const disagree = (c) => !!(c.judge && c.skeptic && c.judge.verdict !== c.skeptic.verdict);
 const verdictWord = (v) => (VERDICT[v] || [v])[0].toLowerCase();
 const readers = (c) => `Judge: ${verdictWord(c.judge.verdict)} · Skeptic: ${verdictWord(c.skeptic.verdict)}`;
-// main label: "Needs review" when the readers disagree (both verdicts shown beside it), else the verdict
-const claimMark = (c) => (disagree(c) ? el("span", { className: "mark s-review" }, el("span", { className: "word" }, "Needs review"))
-  : refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT));
-const claimAttention = (c) => c.verdict === "unsupported" || disagree(c) || refBad(c);
+// main label, by claimKey: "Needs review" (both verdicts shown beside it), a grey verdict for a
+// claim citing a missing reference (its tag says so), else the verdict
+const claimMark = (c) => (claimKey(c) === "review" ? el("span", { className: "mark s-review" }, el("span", { className: "word" }, "Needs review"))
+  : mark(c.verdict, VERDICT, null, claimKey(c) === "badref" ? "unknown" : null));
+const claimAttention = (c) => ["badref", "review", "unsupported"].includes(claimKey(c));
 // collapsed claim groups below "Needs your attention", in this order
 const CLAIM_GROUPS = [
   ["partly", "Partly supported", "s-partly v u-partly_supported", (c) => c.verdict === "partly_supported"],
@@ -598,11 +600,12 @@ function headline(r, pending) {
     ? `${plural(gone.length, "reference")} ${!retracted ? "not found" : retracted === gone.length ? "retracted" : "not found or retracted"}`
     // not findings, but nothing was verified for them: never "No problems found" over them
     : refAtt ? `${plural(refAtt, "reference")} ${need(refAtt)} attention` : null;
-  // "not supported" only where the readers agree (or one model read it); disagreements are "review"
-  const notSup = count(r.claims, (c) => c.verdict === "unsupported" && !disagree(c));
-  const review = count(r.claims, disagree);
-  const unchecked = count(r.claims, (c) => !disagree(c) && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict));
-  const partly = count(r.claims, (c) => c.verdict === "partly_supported" && !disagree(c));
+  // claim counts come from claimKey, exactly as the counters and filters below
+  const key = (...ks) => count(r.claims, (c) => ks.includes(claimKey(c)));
+  const notSup = key("unsupported");
+  const review = key("review");
+  const unchecked = key("insufficient_evidence", "source_not_found");
+  const partly = key("partly_supported");
   const oneModel = count(r.claims, singleModel);
   const read = count(r.claims, (c) => c.judge || c.skeptic);
   // nothing contradicted, but not everything plainly backed (or read by only one model):

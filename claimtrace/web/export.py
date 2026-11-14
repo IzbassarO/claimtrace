@@ -21,6 +21,28 @@ def _disagree(c: ClaimCheck) -> bool:
     return bool(c.judge and c.skeptic and c.judge.verdict != c.skeptic.verdict)
 
 
+# words for the claim classes that are not a verdict (Markdown counts, chat summary)
+CLASS_WORDS = {"badref": "cites a missing or retracted reference", "review": "needs review"}
+
+
+def claim_key(c: ClaimCheck, ref_status: dict[str, str]) -> str:
+    """Mirror of app.js claimKey, the one classification behind every count and label:
+    cites a missing/retracted reference ("badref") > the readers disagree ("review") > verdict."""
+    if ref_status.get(c.ref_id) in BAD_REF:
+        return "badref"
+    return "review" if _disagree(c) else c.verdict.value
+
+
+def display_counts(r: Report) -> dict[str, dict[str, int]]:
+    """Counts as the report page shows them (not Report.summary's raw cautious verdicts)."""
+    status = {a.reference.id: a.status.value for a in r.references}
+    keys = (claim_key(c, status) for c in r.claims)
+    return {
+        "references": dict(Counter(a.status.value for a in r.references)),
+        "claims": dict(Counter(CLASS_WORDS.get(k, k) for k in keys)),
+    }
+
+
 def _one_model_note(r: Report) -> str | None:
     n = sum(1 for c in r.claims if _single(c))
     m = sum(1 for c in r.claims if c.judge or c.skeptic)
@@ -75,7 +97,7 @@ def _opinion(role: str, o: ModelOpinion | None) -> list[str]:
 
 def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
     label = c.verdict.value
-    if _disagree(c):
+    if claim_key(c, ref_status) == "review":
         j, s = (WORDS.get(o.verdict, o.verdict) for o in (c.judge, c.skeptic))
         label = f"needs review — judge: {j}, skeptic: {s}"
     head = f"### {c.citation_id} -> [{c.ref_id}] {label}"
@@ -102,12 +124,8 @@ def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
     return out + [""]
 
 
-def _claim_counts(r: Report) -> dict[str, int]:
-    """By verdict, as in the UI: a disagreement is 'needs review', not its cautious verdict."""
-    return dict(Counter("needs review" if _disagree(c) else c.verdict.value for c in r.claims))
-
-
 def to_markdown(r: Report) -> str:
+    counts = display_counts(r)
     out = [
         f"# ClaimTrace report: {_one_line(r.title) or 'untitled manuscript'}",
         "",
@@ -116,8 +134,8 @@ def to_markdown(r: Report) -> str:
         *([f"> {note}", ""] if (note := _one_model_note(r)) else []),
         "## Summary",
         "",
-        f"- References: {_counts(r.summary.get('references', {}))}",
-        f"- Claims: {_counts(_claim_counts(r))}",
+        f"- References: {_counts(counts['references'])}",
+        f"- Claims: {_counts(counts['claims'])}",
         "",
     ]
     if r.warnings:

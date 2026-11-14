@@ -120,4 +120,8 @@ def test_markdown_heading_and_counts():
     md = export.to_markdown(report())
     assert "### c2 -> [1] needs review — judge: supported, skeptic: not supported\n" in md
     assert "### c1 -> [1] unsupported\n" in md
-    assert "- Claims: needs review: 2, supported: 2, unsupported: 1" in md
+    # same classes as the screen counters: c5 (cites the missing ref 9) is not under "supported"
+    assert (
+        "- Claims: cites a missing or retracted reference: 1, needs review: 2, supported: 1, "
+        "unsupported: 1"
+    ) in md
