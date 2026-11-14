@@ -7,6 +7,29 @@ EVIDENCE = {"full_text": "full text", "abstract": "abstract only"}
 BAD_REF = {"not_found": "cited reference not found", "retracted": "cited reference retracted"}
 
 
+def _single(c: ClaimCheck) -> str | None:
+    """'judge only' / 'skeptic only' when exactly one model answered (as in the UI)."""
+    if bool(c.judge) == bool(c.skeptic):
+        return None
+    return "judge only" if c.judge else "skeptic only"
+
+
+def _disagree(c: ClaimCheck) -> bool:
+    """The only case shown as "needs review": both models answered and differ."""
+    return bool(c.judge and c.skeptic and c.judge.verdict != c.skeptic.verdict)
+
+
+def _one_model_note(r: Report) -> str | None:
+    n = sum(1 for c in r.claims if _single(c))
+    m = sum(1 for c in r.claims if c.judge or c.skeptic)
+    if not n:
+        return None
+    return (
+        f"The second reader was unavailable for {n} of {m} claim{'' if m == 1 else 's'}; "
+        "they were checked by one model. Run the audit again later for the two-reader check."
+    )
+
+
 def _one_line(s: str | None) -> str:
     return " ".join((s or "").split())
 
@@ -44,7 +67,7 @@ def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
     if bad := BAD_REF.get(ref_status.get(c.ref_id, "")):
         head += f" — {bad}"
     out = [
-        head + (" (needs review)" if c.needs_review else ""),
+        head + (" (needs review)" if _disagree(c) else f" ({one})" if (one := _single(c)) else ""),
         "",
         f"> {_one_line(c.sentence)}",
         "",
@@ -70,6 +93,7 @@ def to_markdown(r: Report) -> str:
         "",
         f"Report `{r.id}`, created {r.created_at.isoformat(timespec='seconds')}.",
         "",
+        *([f"> {note}", ""] if (note := _one_model_note(r)) else []),
         "## Summary",
         "",
         f"- References: {_counts(r.summary.get('references', {}))}",
