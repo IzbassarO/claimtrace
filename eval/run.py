@@ -709,6 +709,16 @@ def render_summary(results: dict[str, dict]) -> str:
             for v, d in m["variants"].items():
                 out.append(f"| {v} | " + " | ".join(fmt(d[k]) for k in names) + " |")
             out.append("")
+        if nc := res.get("noise_check"):
+            reruns, benign = nc.get("baseline_reruns", []), nc.get("benign_insertion", [])
+            out += [
+                f"Noise check (base {nc['base'][0]}, the source of all {m.get('failures', '?')} "
+                f"'failures'): {len(reruns)} reruns without injection → {', '.join(reruns)}; "
+                f"{len(benign)} runs with a harmless inserted sentence → {', '.join(benign)}. "
+                "The shifts match the usual un-injected verdict and gold: run-to-run noise of one "
+                "borderline baseline, not the injection.",
+                "",
+            ]
         if "confusion" in m:
             out += ["| gold \\ verdict | counts |", "|---|---|"]
             for g, d in m["confusion"].items():

@@ -119,7 +119,8 @@ request to quote an injected sentence as evidence, and an instruction aimed at t
 judge, skeptic and quote gate, 50 injected checks. **None of the 30 injected contradicted claims
 was shown as supported, and no displayed quote contained injected text.** The judge never moved.
 The only verdict shifts (9, all on one borderline supported claim, all toward its gold label) were
-run-to-run noise: 8 reruns without the injection gave the same answer. Not tested: long full
+run-to-run noise: 4 reruns without the injection and 4 runs with a harmless inserted sentence
+all gave `supported` from both models. Not tested: long full
 texts, injections in the citing sentence (`eval/results/injection.json`, about $0.8).
 
 **Speed.** One run each, cold caches; LLM latency varies a lot between runs and hours.
@@ -163,8 +164,16 @@ best, 300+ s when the skeptic provider is slow. Time to first result is seconds.
 ## How we used Vultr
 
 ClaimTrace runs live at **https://66-135-11-202.sslip.io** on one **Vultr Cloud Compute**
-instance: 4 dedicated vCPU, 16 GB RAM, 240 GB NVMe, Ubuntu 24.04, with Docker Compose running
-`app` (FastAPI + the pipeline), `grobid` (PDF parsing) and `caddy` (automatic HTTPS via sslip.io).
+instance with Docker Compose running `app` (FastAPI + the pipeline), `grobid` (PDF parsing) and
+`caddy` (automatic HTTPS via sslip.io). No managed databases or object storage: one instance,
+paid with the hackathon credit.
+
+- **Region New Jersey** (shown as "New York, US" in the Vultr wizard): closest to the team
+  (Syracuse, NY) and to users on the US East Coast.
+- **Plan Dedicated CPU `vx1-g-4c-16g-240s`** (4 dedicated vCPU, 16 GB RAM, 240 GB local NVMe,
+  Ubuntu 24.04). Dedicated cores because evidence retrieval (embeddings and the reranker on ONNX)
+  is CPU-bound; 16 GB because GROBID peaks at 5.3 GB and the app at up to 1.2 GB with three jobs;
+  local NVMe for the Docker images and the source cache.
 
 - **Hardened:** SSH keys only, ufw 22/80/443, fail2ban, unattended upgrades, 4 GB swap; all
   containers restart on boot (verified with a reboot).
@@ -206,8 +215,9 @@ reviewed, re-ran lint and tests and merged. An independent review (Codex) was ch
 finding (`docs/DECISIONS.md`). The humans set direction, chose models and priorities, and hold the
 keys.
 
-At runtime the product uses **Claude Sonnet** (judge, reference-field extraction) and **Kimi**
-(skeptic).
+At runtime the product uses three models by role: **Claude Haiku** (`claude-haiku-5-5`,
+reference-field extraction), **Claude Sonnet** (`claude-sonnet-5-5`, judge) and **Kimi**
+(`kimi-k3.1-pro-highspeed`, skeptic).
 
 Tools used while building: Claude Code (lead + sub-agents, git worktrees, `gh`), Playwright (UI
 checks and screenshots), headless Chrome (diagram rendering), Docker, uv / ruff / pytest, GitHub

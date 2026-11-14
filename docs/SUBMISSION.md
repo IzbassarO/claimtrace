@@ -30,16 +30,22 @@ no displayed quote contained injected text.
 ## Stack
 
 Python 3.12, FastAPI, asyncio streaming pipeline; GROBID for PDF structure; BM25 + bge-small dense
-retrieval + cross-encoder rerank (CPU, fastembed); Claude Sonnet (judge, field extraction) and Kimi
+retrieval + cross-encoder rerank (CPU, fastembed); Claude Haiku (reference-field extraction), Claude
+Sonnet (judge) and Kimi
 (skeptic) through LangChain with pydantic-validated JSON; plain HTML/CSS/JS front end (untrusted text
 via `textContent` only); Docker Compose with Caddy for automatic HTTPS; pytest (offline, adversarial
 suites) and a reproducible eval harness; GitHub Actions CI.
 
 ## How we used Vultr
 
-ClaimTrace runs on one Vultr Cloud Compute instance (4 dedicated vCPU, 16 GB RAM, 240 GB NVMe,
-Ubuntu 24.04) at https://66-135-11-202.sslip.io, with Docker Compose running the app, GROBID and
-Caddy (Let's Encrypt via sslip.io, so no DNS setup). We hardened it (SSH keys only, ufw, fail2ban,
+ClaimTrace runs on one Vultr Cloud Compute instance at https://66-135-11-202.sslip.io: Dedicated
+CPU plan `vx1-g-4c-16g-240s` (4 dedicated vCPU, 16 GB RAM, 240 GB local NVMe, Ubuntu 24.04) in the
+New Jersey region ("New York, US" in the wizard), the closest to our team in Syracuse, NY and to
+users on the US East Coast. We chose dedicated cores because evidence retrieval (embeddings and a
+reranker on ONNX) is CPU-bound, 16 GB because GROBID peaks at 5.3 GB and the app at up to 1.2 GB
+with three jobs, and local NVMe for Docker images and the source cache. There are no managed
+databases or storage: one instance, paid with the hackathon credit, with Docker Compose running the
+app, GROBID and Caddy (Let's Encrypt via sslip.io, so no DNS setup). We hardened it (SSH keys only, ufw, fail2ban,
 unattended upgrades, swap) and verified the containers come back after a reboot. We sized it from
 measurements, not guesses, in a non-secret `server.env`: 3 concurrent audits with a visible queue,
 retrieval 2 threads × 2 slots, memory caps of 3 GB for the app and 6 GB for GROBID after measuring

@@ -1,7 +1,8 @@
 # Deploy (Vultr Compute, Docker Compose)
 
-**Live:** https://66-135-11-202.sslip.io — deployed 2026-11-14 on Vultr Cloud Compute, 4 dedicated
-vCPU, 16 GB RAM, 240 GB NVMe, Ubuntu 24.04. Every step marked **[done on Vultr]** was run on that
+**Live:** https://66-135-11-202.sslip.io — deployed 2026-11-14 on Vultr Cloud Compute, Dedicated CPU
+plan `vx1-g-4c-16g-240s` (4 dedicated vCPU, 16 GB RAM, 240 GB local NVMe, Ubuntu 24.04), region New
+Jersey ("New York, US" in the wizard). Every step marked **[done on Vultr]** was run on that
 server as written.
 
 Three containers, compose project `claimtrace-hg` (name pinned, so volumes are always
