@@ -102,3 +102,44 @@ def test_chat_prompt_summary_does_not_count_a_disagreement_as_unsupported():
     # the UI says "1 claim not supported · 1 needs review"; the prompt's precomputed summary must
     # not hand the model "unsupported: 2" (it answers "how many are not supported?" from it)
     assert sent["summary"].get("claims", {}).get("unsupported", 0) <= 1, sent["summary"]
+
+
+def test_js_and_python_claim_classification_agree_on_every_combination():
+    # app.js claimKey and export.claim_key must be the same rule: every reference status x
+    # (agreed verdicts, disagreements, one model, no model)
+    from test_web_report_view import render_calls
+
+    from claimtrace.core.schemas import ClaimCheck, ModelOpinion, Verdict
+
+    statuses = list(RefStatus)
+    audits = [
+        ReferenceAudit(reference=ref(str(i), f"T{i}"), status=s, providers=ok)
+        for i, s in enumerate(statuses)
+    ]
+    verdicts = ["supported", "partly_supported", "unsupported", "insufficient_evidence"]
+    pairs = [(j, s) for j in verdicts for s in verdicts] + [(v, None) for v in verdicts]
+    pairs += [(None, None)]
+    claims = []
+    for i, _ in enumerate(statuses):
+        for k, (j, s) in enumerate(pairs):
+            ops = [o for o in (j, s) if o]
+            claims.append(
+                ClaimCheck(
+                    citation_id=f"c{i}-{k}",
+                    ref_id=str(i),
+                    sentence="S.",
+                    verdict=Verdict(max(ops, key=verdicts.index) if ops else "source_not_found"),
+                    judge=ModelOpinion(verdict=j) if j else None,
+                    skeptic=ModelOpinion(verdict=s) if s else None,
+                )
+            )
+    r = Report(id="x", references=audits, claims=claims)
+    js = render_calls(
+        [
+            [r.model_dump(mode="json")],
+            '$("headline").textContent = JSON.stringify(lastRender[0].claims.map(claimKey));',
+        ]
+    )
+    status = {a.reference.id: a.status.value for a in audits}
+    assert json.loads(text(js["headline"])) == [export.claim_key(c, status) for c in claims]
+    assert {"badref", "review", "unsupported", "supported"} <= set(json.loads(text(js["headline"])))

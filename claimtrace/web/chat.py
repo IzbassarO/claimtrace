@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from claimtrace.core.llm import ask_text, wrap_untrusted
 from claimtrace.core.schemas import Report
+from claimtrace.web.export import display_counts
 
 # ponytail: hard cut on the reference part sent to the model; summarise per section if reports grow
 MAX_REPORT_CHARS = 150_000
@@ -21,6 +22,7 @@ SYSTEM = (
     "of them is null, that model was unavailable and the claim was checked by one model only. "
     "Present a claim whose readers disagree as 'needs review' with both verdicts, never as its "
     "'verdict' field alone (that holds the more cautious of the two). "
+    "The 'summary' counts are the ones the report page shows; quote counts from there. "
     "Quote source text only from the report's verified 'quote' fields. Answer briefly in "
     "plain text, without markdown or HTML."
 )
@@ -33,7 +35,9 @@ class Turn(BaseModel):
 
 def report_json(report: Report) -> str:
     """Summary, warnings and claims always go in whole; only the reference list is trimmed."""
-    head = json.dumps(report.model_dump(mode="json", exclude={"references"}), ensure_ascii=False)
+    data = report.model_dump(mode="json", exclude={"references"})
+    data["summary"] = display_counts(report)  # what the page shows, not raw cautious verdicts
+    head = json.dumps(data, ensure_ascii=False)
     budget = MAX_REPORT_CHARS - len(head)
     drop = {"matched": {"abstract"}}
     for slim in (drop, {**drop, "providers": True, "reference": {"raw"}}):
