@@ -106,8 +106,9 @@ def _cached_verdict(c: Citation, ref_id: str, src: SourceText) -> ClaimCheck | N
 
 
 def _store_verdict(c: Citation, src: SourceText, res: ClaimCheck) -> None:
-    # Only clean model answers are reusable; a failed call must be retried next time.
-    if res.judge is None or res.skeptic is None:
+    # Only clean answers of the CONFIGURED models are reusable: a failed call must be retried, and
+    # a fallback skeptic's opinion must not stand in for the primary's in a later run.
+    if res.judge is None or res.skeptic is None or _used_fallback(res):
         return
     d = _verdict_dir()
     try:
@@ -173,10 +174,17 @@ def _failed(c: Citation, r: str, e: Exception) -> ClaimCheck:
     )
 
 
+def _used_fallback(c: ClaimCheck) -> bool:
+    """The skeptic opinion came from a model other than the configured primary skeptic (None =
+    a report from before opinions recorded their model)."""
+    m = c.skeptic.model if c.skeptic else None
+    return m is not None and m != get_settings().llm_skeptic_model
+
+
 def _report(rid, ms, audits, checks, complete: bool) -> Report:
-    fb = get_settings().llm_skeptic_fallback_model
-    n_fb = sum(1 for c in checks if fb and c.skeptic and c.skeptic.model == fb)
-    fb_note = [f"{n_fb} claims used the fallback skeptic ({fb})."] if n_fb else []
+    used = sorted({c.skeptic.model for c in checks if _used_fallback(c)})  # type: ignore[union-attr]
+    n_fb = sum(1 for c in checks if _used_fallback(c))
+    fb_note = [f"{n_fb} claims used the fallback skeptic ({', '.join(used)})."] if n_fb else []
     return Report(
         id=rid,
         title=ms.title,

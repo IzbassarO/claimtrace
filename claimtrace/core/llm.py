@@ -273,9 +273,15 @@ def _model_name(model: BaseChatModel) -> str | None:
 
 def _fallback(role: Role) -> BaseChatModel | None:
     """The skeptic's fallback model, only inside a pipeline run (breakers on; eval: never)."""
-    name = get_settings().llm_skeptic_fallback_model
-    t = current()
-    if role != "skeptic" or not name or t is None or t.breakers is None:
+    s = get_settings()
+    name, t = s.llm_skeptic_fallback_model, current()
+    if (
+        role != "skeptic"
+        or not name
+        or name == s.llm_skeptic_model
+        or t is None
+        or t.breakers is None
+    ):
         return None
     return get_model("skeptic", name)
 
