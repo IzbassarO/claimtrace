@@ -167,3 +167,10 @@ sweep, PR #44), fix in progress.
   `LLM_CONCURRENCY_SKEPTIC=16` in `.env`.
 - **Retrieval threads/slots are settings now** (`RETRIEVAL_THREADS`, `RETRIEVAL_SLOTS`, defaults
   2 / 2) for the 4-vCPU server; the last speed pass tunes them in the container.
+- **Retrieval in the container (PR #106) — accepted, last speed pass, no LLM**: the container
+  was memory-bound (batch 16 of length-padded passages pushed the app to its 1.5 GB cap; 4
+  threads OOM-killed), not CPU-quota bound. Length-sorted batches of 4: 50 real retrievals on
+  cached sources 264 s → 161 s at 2×2 threads×slots, 103 s at 4×2; peak 1.44 GiB → 0.74 GiB;
+  identical passages and recall@6/MRR. Settings: Mac 4/2, 4-vCPU server 2/2 (not measured on a
+  real server). Projected effect on the 40-ref PDF (retrieval was ~300 s of the 317 s total):
+  roughly 150–200 s, **not measured live** (no LLM budget for another run).
