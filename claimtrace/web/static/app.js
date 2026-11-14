@@ -105,7 +105,7 @@ async function submitJob(ev) {
   try {
     const resp = await fetch("/api/jobs", { method: "POST", body: form });
     if (resp.status === 429 || resp.status === 503) {
-      formMessage(`${await apiError(resp)} Your text is still here; submit again when ready.`, "notice");
+      formMessage(`${await apiError(resp)} Your text is still here.`, "notice");
       describeServer(); // the daily count may have changed
       return;
     }

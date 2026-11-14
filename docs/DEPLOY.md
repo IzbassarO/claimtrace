@@ -1,89 +1,104 @@
 # Deploy (Vultr Compute, Docker Compose)
 
-Three containers on one VM, compose project `claimtrace-hg` (name pinned in `docker-compose.yml`,
-so volumes are always `claimtrace-hg_*` whatever the checkout directory):
+**Live:** https://66-135-11-202.sslip.io — deployed 2026-11-14 on Vultr Cloud Compute, 4 dedicated
+vCPU, 16 GB RAM, 240 GB NVMe, Ubuntu 24.04. Every step marked **[done on Vultr]** was run on that
+server as written.
 
-| service  | what                                         | ports              | healthcheck                       |
-|----------|----------------------------------------------|--------------------|-----------------------------------|
-| `app`    | uvicorn, non-root, mem cap 1.5 GB            | 8000, internal     | `GET /healthz`                    |
-| `grobid` | `grobid/grobid:0.9.1-crf`, mem cap 4.5 GB    | 8070, internal     | `GET /api/isalive`                |
-| `caddy`  | `caddy:2.10`, automatic HTTPS for `$DOMAIN`  | 80, 443, 443/udp   | admin API `127.0.0.1:2019/config/` |
+Three containers, compose project `claimtrace-hg` (name pinned, so volumes are always
+`claimtrace-hg_*`):
 
-Start order: `grobid` started → `app` healthy → `caddy`.
+| service  | what | ports | healthcheck |
+|----------|------|-------|-------------|
+| `app`    | uvicorn, non-root; mem cap `APP_MEM_LIMIT` (default 1.5 GB, Vultr 3 GB) | 8000, internal | `GET /healthz` |
+| `grobid` | `grobid/grobid:0.9.1-crf`; mem cap `GROBID_MEM_LIMIT` (default 4.5 GB, Vultr 6 GB) | 8070, internal | `GET /api/isalive` |
+| `caddy`  | `caddy:2.10`, automatic HTTPS for `$DOMAIN` | 80, 443, 443/udp | admin API `127.0.0.1:2019/config/` |
 
-Volumes: `app_cache` (finished reports in `/cache/reports`, OpenAlex cache and daily search
-counter: **back this up**), `caddy_data` (certificates), `caddy_config`.
+Start order: `grobid` started → `app` healthy → `caddy`. All three have `restart: unless-stopped`;
+with Docker enabled at boot they come back after a reboot (verified on Vultr).
 
-**Status of each step** (as of this PR): **[verified locally]** = run on macOS with Docker Desktop
-(compose v5) against this exact `docker-compose.yml`, `DOMAIN=localhost`; **[reviewed only]** =
-needs a real Ubuntu VM (no Vultr credits yet). Local verification ran `app` + `caddy` only,
-reusing an already-running `grobid` container; PDF parsing was not exercised end to end.
+Volumes: `app_cache` (reports; OpenAlex, Crossref, source and verdict caches; daily search and job
+counters; per-country usage counts — **back this up**), `caddy_data` (certificates),
+`caddy_config`.
 
-## 1. Create the server — [reviewed only]
+## 1. Server — [done on Vultr]
 
-- Vultr → Deploy → Cloud Compute (shared CPU is fine), **8 GB RAM** (GROBID peaks at ~4 GB,
-  the app at ~0.7 GB; compose caps them at 4.5 GB and 1.5 GB), ≥ 2 vCPU, ≥ 50 GB disk
-  (images ~4 GB), **Ubuntu 24.04 LTS x64**, add your SSH key.
-- Retrieval CPU: `RETRIEVAL_THREADS` × `RETRIEVAL_SLOTS` ≈ the vCPUs the app may use. On a
-  4-vCPU server keep the defaults `RETRIEVAL_THREADS=2`, `RETRIEVAL_SLOTS=2` (GROBID and the
-  LLM calls need the rest only briefly); on a 8+-core machine `4` / `2`. Container bench on 50
-  real full-text retrievals: 2/2 → 161 s, 4/2 → 103 s; app RSS ~0.7 GB either way.
-- Note the public IP, e.g. `203.0.113.7`.
+Cloud Compute, Ubuntu 24.04 x64, your SSH key. Sizing that worked: 4 vCPU / 16 GB (measured peaks
+under 5 concurrent jobs: app 1.21 GB, GROBID 5.31 GB; disk used 13 GB incl. 3.3 GB of images). An
+8 GB machine works with the default caps and `MAX_RUNNING_JOBS=1`.
 
-## 2. Domain — [reviewed only]
+## 2. Domain — [done on Vultr]
 
-Either point an A record of your domain at the IP, or use sslip.io with no DNS work:
-`DOMAIN=203-0-113-7.sslip.io` (IP with dashes). Caddy gets a Let's Encrypt certificate for it
-on first start; ports 80 and 443 must be reachable from the internet for that.
+No DNS work: `DOMAIN=<ip-with-dashes>.sslip.io` in `.env` (here `66-135-11-202.sslip.io`). Caddy
+obtained a Let's Encrypt certificate on first start; ports 80/443 must be reachable.
 
-## 3. Docker, firewall, swap — [reviewed only]
+## 3. Hardening, Docker, firewall, swap — [done on Vultr]
 
 ```bash
-ssh root@203.0.113.7
-apt-get update && apt-get -y upgrade
-curl -fsSL https://get.docker.com | sh          # Docker Engine + compose plugin
-docker compose version                          # needs v2.20+ (healthcheck start_interval: Engine 25+)
-ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp
-ufw --force enable && ufw status
-# optional safety net for builds while GROBID is running
-fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+ssh root@<ip>
+export DEBIAN_FRONTEND=noninteractive
+apt-get update && apt-get -y -o Dpkg::Options::="--force-confold" upgrade
+apt-get -y install unattended-upgrades fail2ban ufw curl git
+systemctl enable --now unattended-upgrades fail2ban
+# SSH keys only. The file name matters: sshd keeps the FIRST value it reads, and the cloud image's
+# 50-cloud-init.conf sets "PasswordAuthentication yes", so ours must sort before it.
+cat > /etc/ssh/sshd_config.d/00-claimtrace.conf <<EOF
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+EOF
+sshd -t && systemctl reload ssh && sshd -T | grep -E '^(passwordauthentication|permitrootlogin)'
+ufw default deny incoming && ufw default allow outgoing
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw --force enable
+# 4 GB swap (the Vultr image came with an 8 GB /swapfile: swapoff, delete, recreate)
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+echo vm.swappiness=10 > /etc/sysctl.d/99-claimtrace.conf && sysctl -p /etc/sysctl.d/99-claimtrace.conf
+curl -fsSL https://get.docker.com | sh && systemctl enable --now docker
+reboot   # the upgrade asked for one; it also proves the autostart
 ```
 
-Note: ports published by Docker bypass `ufw`. That is fine here because only `caddy` publishes
-ports (80/443); `app` and `grobid` are reachable only on the compose network. Do not add
-`ports:` to them. If you use a Vultr firewall group instead, open 22/tcp, 80/tcp, 443/tcp,
-443/udp there.
+Ports published by Docker bypass `ufw`; only `caddy` publishes ports, so `app` and `grobid` stay
+internal. Do not add `ports:` to them.
 
-## 4. Code and `.env` — [reviewed only]
+## 4. Code, `.env`, `server.env` — [done on Vultr]
 
-```bash
-# on the server
-git clone https://github.com/IzbassarO/claimtrace.git /opt/claimtrace
-# on your machine: fill in .env from .env.example (all keys, CONTACT_EMAIL, DOMAIN=...)
-scp .env root@203.0.113.7:/opt/claimtrace/.env
-ssh root@203.0.113.7 'chmod 600 /opt/claimtrace/.env && ls -l /opt/claimtrace/.env'
-```
-
-- `.env` is read by compose twice: as `env_file` for `app`, and for `${DOMAIN}` in `caddy`.
-  It is excluded from the image (`.dockerignore`) and from git.
-- `GROBID_URL` and `CACHE_DIR` in `.env` are ignored in compose; they are set to
-  `http://grobid:8070` and `/cache`.
-- Never run `docker compose config` without `-q` on the server: it prints the resolved
-  environment, keys included.
-
-## 5. Start — [verified locally] (app + caddy; grobid image reused, not freshly pulled)
+The owner copies `.env` (secrets): `scp .env root@<ip>:/opt/claimtrace/.env && chmod 600`. Check
+variable *names* only, never values: `cut -d= -f1 /opt/claimtrace/.env`. With `.env` already in
+place, clone into the non-empty directory like this:
 
 ```bash
 cd /opt/claimtrace
-docker compose config -q && echo compose OK
-docker compose up -d --build       # first build takes several minutes (deps + embedding model)
-docker compose ps                  # all three "healthy"; grobid needs ~1 min, caddy waits for app
-docker compose exec app python -m claimtrace.core.settings   # prints "settings OK" or variable names only
-docker compose logs caddy | grep -i "certificate obtained"   # [reviewed only] Let's Encrypt (not testable locally)
+git init -q && git remote add origin https://github.com/IzbassarO/claimtrace.git
+git fetch origin main && git checkout -f -B main origin/main   # leaves the untracked .env alone
+cp deploy/server.env.example server.env                         # non-secret sizing
 ```
 
-## 6. Smoke test — [verified locally]
+`server.env` values used on Vultr (reasons in the file): `RETRIEVAL_THREADS=2`,
+`RETRIEVAL_SLOTS=2` (4 vCPU), `MAX_RUNNING_JOBS=3`, `APP_MEM_LIMIT=3g`, `GROBID_MEM_LIMIT=6g`.
+Optional in `.env`: `MAX_JOBS_PER_DAY` (default 300) and `USAGE_TOKEN` (enables
+`GET /api/usage` with `Authorization: Bearer <token>`). `GROBID_URL` and `CACHE_DIR` in `.env` are
+ignored: compose sets `http://grobid:8070` and `/cache`. Never run `docker compose config` without
+`-q` on the server: it prints the resolved environment.
+
+## 5. Start — [done on Vultr]
+
+```bash
+cd /opt/claimtrace
+# both env files: server.env also drives the memory caps in docker-compose.yml
+docker compose --env-file .env --env-file server.env up -d --build
+docker compose ps                                           # all three "healthy" (grobid ~30 s)
+docker compose exec app python -m claimtrace.core.settings  # "settings OK" (names only otherwise)
+docker compose logs caddy | grep -ci "certificate obtained" # 1
+curl -s https://$DOMAIN/api/info    # {"max_reports":1000,"jobs_today":N,"daily_limit":300}
+```
+
+Measured on Vultr (4 vCPU / 16 GB, cold caches): the 40-reference PDF "Attention Is All You Need"
+(58 claims): first reference 18.7 s, first claim 27 s, done **191 s**; app peak 0.84 GB, GROBID
+4.36 GB. Five concurrent PDFs (3 running, 2 queued): GAN 144 s, BERT 230 s, ResNet (105 claims)
+322 s; queued jobs started as slots freed (queue positions 2 → 1 reported); peaks app 1.21 GB,
+GROBID 5.31 GB; no restarts. Log secret check: 0 matches.
+
+## 6. Smoke test — [done on Vultr]
 
 ```bash
 scripts/smoke.sh https://$DOMAIN      # from the server (curl + python3 are on Ubuntu) or your machine
@@ -110,12 +125,12 @@ Verified: after a normal job, a garbage PDF, a bad file type, an unknown job, an
 and a run with fake keys (`sk-...`, failing LLM calls and a failing chat), the count was 0 and the
 fake key values never appeared. Caddy writes no access log by default.
 
-## Update — [verified locally] (rebuild + recreate of app, caddy waiting for app healthy)
+## Update — [done on Vultr] (rebuild + recreate of app, caddy waiting for app healthy)
 
 ```bash
 cd /opt/claimtrace
-git pull
-docker compose up -d --build      # rebuilds app; grobid and caddy keep running
+git fetch origin main && git checkout -f -B main origin/main
+docker compose --env-file .env --env-file server.env up -d --build   # rebuilds app
 scripts/smoke.sh https://$DOMAIN
 docker image prune -f
 ```
