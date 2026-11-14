@@ -121,12 +121,16 @@ between runs, so read the order of magnitude):
 |---|---|---|
 | "Attention Is All You Need" PDF, 40 refs / 58 claims | 533 s (report only at the end) → **9 s** | 533 s → **292 s** |
 | same, second run (providers 2–3× slower that hour) | — → 3.3 s | — → 352 s |
+| same, final config (skeptic `kimi-k2.7-code-highspeed`, 16 skeptic slots) | — → 5.3 s | — → 317 s |
 | same paper as text (eval `timing`, no GROBID) | — → 25 s | — → 141 s |
 | review with 204 refs (PMC9820749), references only | — → 35 s | audit of 200 refs: 45.5 s (claims not run: LLM budget) |
 | built-in sample | ~20 s → **instant** (saved example; "Run live" ~20 s) | — |
 
-Where the time goes (40-ref PDF, after): skeptic model ~16 s per call vs judge ~3 s; claims
-stage dominates; app peak memory 1.19 GB. Target "40 refs in 3 min" is **not met yet**.
+**Speed is closed and the 3-minute target was NOT reached** (best full run 292 s, final config
+317 s). After the faster skeptic (7.4 s per call instead of 15.7 s) the bottleneck moved to
+retrieval on CPU inside the container: 50 retrievals × ~12 s each, at most 2 at a time (bounded
+for memory; app peak 1.39 GB of the 1.5 GB cap). A 200-reference document's first result is 35 s
+(reference-field extraction), measured before chunked streaming of the reference list landed.
 
 ## Limitations
 
