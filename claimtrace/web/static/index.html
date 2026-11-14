@@ -115,6 +115,7 @@
           <button id="copy-link" type="button" class="link">Copy link</button>
           <span id="downloads" class="downloads">Download <a id="export-json" download>JSON</a>
             <a id="export-md" download>Markdown</a></span>
+          <button id="print-pdf" type="button" class="link" title="Opens the print dialog: choose “Save as PDF”">PDF (print)</button>
           <button id="new-job" type="button" class="link">Audit another manuscript</button>
           <span id="copy-status" role="status"></span>
         </p>
@@ -182,6 +183,13 @@
           <button type="submit">Ask</button>
         </form>
       </section>
+      </div>
+      <!-- print-only copy of the report, filled by app.js printView(); hidden on screen -->
+      <div id="print" class="print-only">
+        <div id="print-report"></div>
+        <section id="print-method"><h2>How verdicts work</h2></section>
+        <p class="print-foot">ClaimTrace: automated citation audit. Every verdict needs a human check
+          against the source before you rely on it.</p>
       </div>
     </section>
   </main>
