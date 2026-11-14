@@ -262,7 +262,8 @@ const claimMiddle = (c) => !claimAttention(c) && (c.verdict !== "supported" || r
 const MIDDLE = "Partly supported, not checkable, or citing a doubtful reference";
 const need = (n) => (n === 1 ? "needs" : "need");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const firstSentence = (s) => String(s || "").split(/(?<=[.!?])\s+/)[0];
+// first sentence; "et al." / "e.g." / "Fig." do not end one
+const firstSentence = (s) => String(s || "").split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|Fig|Eq|No)\.)(?<=[.!?])\s+(?=[A-Z0-9“"(])/)[0];
 
 const CLAIM_COLS = ["Citation", "Citing sentence", "Source says", "Verdict"];
 const REF_COLS = ["Reference", "Cited as", "Found", "Status"];

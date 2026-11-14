@@ -498,3 +498,15 @@ def test_partial_report_shows_no_per_verdict_counts_and_timings_are_listed():
     assert "2 / 3 checked" in text(claims_meter)  # job total for the running stage
     t = text(out["timings"])
     assert "Checking references2.5 s" in t and "Total9.0 s" in t
+
+
+def test_reason_line_does_not_stop_at_et_al():
+    out = render_calls(
+        [
+            [two_claims()],
+            'lastRender[0].claims[0].judge.rationale = "Wu et al. 2016 say twice. Not +50.";'
+            "renderReport(...lastRender);",
+        ]
+    )
+    shown = visible(out["claims"])
+    assert "Wu et al. 2016 say twice." in shown and "Not +50." not in shown
