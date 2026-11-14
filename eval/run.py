@@ -619,7 +619,8 @@ async def time_doc(text: str | None, files: list) -> dict:
         "timings": t,
         "cost": run_cost(
             {k[2:]: v for k, v in t.items() if k.startswith("n_tokens_")},
-            {r: getattr(get_settings(), f"llm_{r}_model") for r in ("extract", "judge", "skeptic")},
+            {r: getattr(get_settings(), f"llm_{r}_model") for r in ("extract", "judge", "skeptic")}
+            | {"skeptic_fallback": get_settings().llm_skeptic_fallback_model},
         ),
         "stages": stage_rows(t),
         "ops": op_rows(t),
