@@ -74,10 +74,10 @@ function mark(value, labels, label, levelOverride) {
 }
 
 const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); return i < 0 ? 0 : i; };
-// worst first: a claim citing a missing/retracted reference, then verdict/status, then needs
-// review, then the cited reference's status
+// worst first: a claim citing a missing/retracted reference, then verdict/status (claims the two
+// readers disagree on after every agreed one), then the cited reference's status
 const severity = (labels, key, x) => (!x.reference && refBad(x) ? -1000 : rank(labels, key(x)) * 100)
-  + (x.reference ? 0 : (disagree(x) ? 0 : 10) + rank(STATUS, refStatus.get(x.ref_id) || "verified"));
+  + (x.reference ? 0 : (disagree(x) && !refBad(x) ? 1000 : 0) + rank(STATUS, refStatus.get(x.ref_id) || "verified"));
 
 async function apiError(resp) {
   try {
@@ -274,13 +274,20 @@ const refBad = (c) => ["not_found", "retracted"].includes(refStatus.get(c.ref_id
 const refAttention = (a) => a.status !== "verified";
 // counter/filter value of a claim: one citing a missing or retracted reference is never counted
 // under its (possibly green) verdict
-const claimKey = (c) => (refBad(c) ? "badref" : c.verdict);
+// under its (possibly green) verdict; one the two readers disagree on is counted as "review", never
+// under its cautious verdict
+const claimKey = (c) => (refBad(c) ? "badref" : disagree(c) ? "review" : c.verdict);
 // counts shown beside the per-verdict ones (screen counters and print): [value, count, words, mark class]
 const claimExtras = (cs) => [["badref", cs.filter(refBad).length, "cite a missing or retracted reference", "s-bad"],
-  ["review", cs.filter(disagree).length, "need review", "s-review"]].filter(([, n]) => n);
+  ["review", cs.filter((c) => claimKey(c) === "review").length, "need review", "s-review"]].filter(([, n]) => n);
 // "Needs review" means the two readers disagree, nothing else: the backend's needs_review is also
 // true when only one model answered (or none), which is shown as "judge only" / "skeptic only"
 const disagree = (c) => !!(c.judge && c.skeptic && c.judge.verdict !== c.skeptic.verdict);
+const verdictWord = (v) => (VERDICT[v] || [v])[0].toLowerCase();
+const readers = (c) => `Judge: ${verdictWord(c.judge.verdict)} · Skeptic: ${verdictWord(c.skeptic.verdict)}`;
+// main label: "Needs review" when the readers disagree (both verdicts shown beside it), else the verdict
+const claimMark = (c) => (disagree(c) ? el("span", { className: "mark s-review" }, el("span", { className: "word" }, "Needs review"))
+  : refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT));
 const claimAttention = (c) => c.verdict === "unsupported" || disagree(c) || refBad(c);
 // collapsed claim groups below "Needs your attention", in this order
 const CLAIM_GROUPS = [
@@ -303,7 +310,7 @@ const firstSentence = (s) => String(s || "").split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|
 let filter = null; // "c:<verdict>", "c:review", "r:<status>" or null (show everything)
 let lastRender = null; // [report, opts] for re-rendering when a filter changes
 let fresh = new Set(); // keys that arrived in this render (briefly highlighted)
-const filterMatch = (x) => (filter === "c:review" ? disagree(x) : filter.slice(2) === (x.reference ? x.status : claimKey(x)));
+const filterMatch = (x) => filter.slice(2) === (x.reference ? x.status : claimKey(x));
 
 // One ledger row: a full-width toggle button (the collapsed line) and, only when expanded, its body.
 // The open state lives in openKeys, so a streamed re-render keeps it.
@@ -417,7 +424,7 @@ function oneModelNote(r) {
 
 function claimReason(c) {
   if (!c.judge !== !c.skeptic) return c.note ? c.note.split(";")[0] : "Only one of the two models answered.";
-  if (disagree(c)) return "The judge and the skeptic disagree; the more cautious verdict is shown.";
+  if (disagree(c)) return "The judge and the skeptic disagree: read the quote and decide.";
   if (c.note) return firstSentence(c.note);
   const o = [c.judge, c.skeptic].find((x) => x && x.verdict === c.verdict && x.rationale);
   return o ? firstSentence(o.rationale) : null;
@@ -428,13 +435,13 @@ function claimRow(c) {
   const a = refAudits.get(c.ref_id);
   const one = singleModel(c);
   return rowEl(key,
-    [refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT),
+    [claimMark(c),
       el("span", { className: "line" },
-        disagree(c) ? tag("needs review", "mark s-review") : null,
         one ? tag(one) : null,
         a && REF_TAG[a.status] ? tag(REF_TAG[a.status]) : null,
         el("span", { className: "text" }, c.sentence)),
-      el("span", { className: "aside" }, refShort(c.ref_id, true) || `ref ${c.ref_id}`)],
+      el("span", { className: "aside" }, refShort(c.ref_id, true) || `ref ${c.ref_id}`),
+      disagree(c) ? el("span", { className: "readers" }, readers(c)) : null],
     () => claimBody(c, key, a));
 }
 
@@ -591,21 +598,23 @@ function headline(r, pending) {
     ? `${plural(gone.length, "reference")} ${!retracted ? "not found" : retracted === gone.length ? "retracted" : "not found or retracted"}`
     // not findings, but nothing was verified for them: never "No problems found" over them
     : refAtt ? `${plural(refAtt, "reference")} ${need(refAtt)} attention` : null;
-  const notSup = count(r.claims, (c) => c.verdict === "unsupported");
+  // "not supported" only where the readers agree (or one model read it); disagreements are "review"
+  const notSup = count(r.claims, (c) => c.verdict === "unsupported" && !disagree(c));
   const review = count(r.claims, disagree);
   const unchecked = count(r.claims, (c) => !disagree(c) && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict));
-  const partly = count(r.claims, (c) => c.verdict === "partly_supported");
+  const partly = count(r.claims, (c) => c.verdict === "partly_supported" && !disagree(c));
   const oneModel = count(r.claims, singleModel);
   const read = count(r.claims, (c) => c.judge || c.skeptic);
   // nothing contradicted, but not everything plainly backed (or read by only one model):
   // never "No problems found" / a bare "No claims contradicted" over it
   const clean = ["No claims contradicted", partly ? `${partly} partly supported` : null,
     oneModel ? `checked by one model for ${oneModel} of ${read}` : null].filter(Boolean);
-  const claimPart = notSup ? `${plural(notSup, "claim")} not supported`
-    : review ? `${plural(review, "claim")} ${need(review)} review`
-      : unchecked ? `${plural(unchecked, "claim")} could not be checked`
-        : clean.length > 1 ? clean.join(" · ") : null;
-  const parts = (gone.length ? [refPart, claimPart] : [claimPart, refPart]).filter(Boolean);
+  const claimPart = notSup || review ? null : unchecked ? `${plural(unchecked, "claim")} could not be checked`
+    : clean.length > 1 ? clean.join(" · ") : null;
+  // the two worst counts, in this order
+  const parts = [gone.length ? refPart : null, notSup ? `${plural(notSup, "claim")} not supported` : null,
+    review ? (notSup ? `${review} ${need(review)} review` : `${plural(review, "claim")} ${need(review)} review`) : null,
+    claimPart, gone.length ? null : refPart].filter(Boolean).slice(0, 2);
   const lead = pending ? "So far: " : "";
   if (!parts.length) {
     return `${lead}No problems found${pending ? " yet" : ""} in ${plural(r.claims.length, "claim")} and ${plural(r.references.length, "reference")}.`;
@@ -734,9 +743,8 @@ function printView(r, opts, refsFirst) {
     const note = refNote(c);
     const kind = { full_text: "full text", abstract: "abstract only" }[c.evidence_kind];
     return el("li", { className: "p-row" },
-      el("p", { className: "p-head" }, refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT),
-        disagree(c) ? tag("needs review", "mark s-review") : null, one ? tag(one) : null,
-        a && REF_TAG[a.status] ? tag(REF_TAG[a.status]) : null),
+      el("p", { className: "p-head" }, claimMark(c), disagree(c) ? el("span", { className: "readers" }, readers(c)) : null,
+        one ? tag(one) : null, a && REF_TAG[a.status] ? tag(REF_TAG[a.status]) : null),
       el("p", { className: "p-sentence" }, c.sentence),
       c.quote ? el("blockquote", { className: "quote" }, c.quote) : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
       reason ? el("p", { className: "p-reason" }, reason) : null,

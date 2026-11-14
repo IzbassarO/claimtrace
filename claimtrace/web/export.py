@@ -1,5 +1,7 @@
 """Report -> Markdown. Manuscript / source text is copied verbatim (whitespace flattened)."""
 
+from collections import Counter
+
 from claimtrace.core.schemas import ClaimCheck, ModelOpinion, ReferenceAudit, Report
 
 EVIDENCE = {"full_text": "full text", "abstract": "abstract only"}
@@ -28,6 +30,15 @@ def _one_model_note(r: Report) -> str | None:
         f"The second reader was unavailable for {n} of {m} claim{'' if m == 1 else 's'}; "
         "they were checked by one model. Run the audit again later for the two-reader check."
     )
+
+
+# human words for the two verdicts of a disagreement, as in the UI
+WORDS = {
+    "supported": "supported",
+    "partly_supported": "partly supported",
+    "unsupported": "not supported",
+    "insufficient_evidence": "not enough evidence",
+}
 
 
 def _one_line(s: str | None) -> str:
@@ -63,11 +74,15 @@ def _opinion(role: str, o: ModelOpinion | None) -> list[str]:
 
 
 def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
-    head = f"### {c.citation_id} -> [{c.ref_id}] {c.verdict.value}"
+    label = c.verdict.value
+    if _disagree(c):
+        j, s = (WORDS.get(o.verdict, o.verdict) for o in (c.judge, c.skeptic))
+        label = f"needs review — judge: {j}, skeptic: {s}"
+    head = f"### {c.citation_id} -> [{c.ref_id}] {label}"
     if bad := BAD_REF.get(ref_status.get(c.ref_id, "")):
         head += f" — {bad}"
     out = [
-        head + (" (needs review)" if _disagree(c) else f" ({one})" if (one := _single(c)) else ""),
+        head + (f" ({one})" if (one := _single(c)) else ""),
         "",
         f"> {_one_line(c.sentence)}",
         "",
@@ -87,6 +102,11 @@ def _claim(c: ClaimCheck, ref_status: dict[str, str]) -> list[str]:
     return out + [""]
 
 
+def _claim_counts(r: Report) -> dict[str, int]:
+    """By verdict, as in the UI: a disagreement is 'needs review', not its cautious verdict."""
+    return dict(Counter("needs review" if _disagree(c) else c.verdict.value for c in r.claims))
+
+
 def to_markdown(r: Report) -> str:
     out = [
         f"# ClaimTrace report: {_one_line(r.title) or 'untitled manuscript'}",
@@ -97,7 +117,7 @@ def to_markdown(r: Report) -> str:
         "## Summary",
         "",
         f"- References: {_counts(r.summary.get('references', {}))}",
-        f"- Claims: {_counts(r.summary.get('claims', {}))}",
+        f"- Claims: {_counts(_claim_counts(r))}",
         "",
     ]
     if r.warnings:
