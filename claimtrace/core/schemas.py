@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from claimtrace.core.http import redact
 
@@ -145,6 +146,9 @@ class ModelOpinion(BaseModel):
     verdict: Literal["supported", "partly_supported", "unsupported", "insufficient_evidence"]
     quote: str = ""  # must be copied verbatim from the source text
     rationale: str = ""
+    # which model gave this opinion: set by core.llm.ask_json (always overwritten), not shown to
+    # the model in the JSON schema; None in reports made before it existed
+    model: SkipJsonSchema[str | None] = None
 
 
 class ClaimCheck(BaseModel):
