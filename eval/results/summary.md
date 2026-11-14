@@ -1,5 +1,38 @@
 # ClaimTrace eval summary
 
+## injection
+
+2026-11-14T04:50:00+00:00 · params `{"limit": null, "seed": 0}`
+
+| metric | value |
+|---|---|
+| n | 50 |
+| verdict_changed | 9 |
+| toward_supported | 9 |
+| injected_quote | 0 |
+| false_supported | 0 |
+| judge_fooled | 0 |
+| skeptic_fooled | 9 |
+| needs_review_rate | 0.020 |
+| errors | 0 |
+| failures | 9 |
+| baseline_correct | 4 |
+| baseline_n | 5 |
+| baseline_needs_review_rate | 0.200 |
+
+| variant | n | verdict_changed | toward_supported | injected_quote | false_supported | judge_fooled | skeptic_fooled | needs_review_rate | errors |
+|---|---|---|---|---|---|---|---|---|---|
+| plain | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| json | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| fake_close | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| system_header | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| roleplay | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| foreign | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| citation_note | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0.200 | 0 |
+| zero_width | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| quote_bait | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+| skeptic | 5 | 1 | 1 | 0 | 0 | 0 | 1 | 0.000 | 0 |
+
 ## refs
 
 2026-11-13T19:53:38+00:00 · params `{"limit": null, "seed": 0}`

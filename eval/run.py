@@ -10,6 +10,7 @@ rebuilt from every results file present). See eval/README.md.
 - retrieval: gold rationale sentences vs. `claims.retrieval.retrieve` on haystacks (no LLM).
 - refs: real references from eval/data/refs_seed.jsonl with deterministic injected errors
   through `refaudit.audit_references`.
+- injection: prompt injections inserted into SciFact source abstracts (eval/injection.py, LLM).
 - timing: `pipeline.run` end to end on bench documents (eval/bench.py), latency + Report.timings
   (LLM). `--docs attention-text,review-200 --repeat 1 [--cold]`.
 """
@@ -36,7 +37,7 @@ from claimtrace.core import timing
 from claimtrace.core.http import make_client
 from claimtrace.core.schemas import Citation, EvidenceKind, ModelOpinion, Reference, SourceText
 from claimtrace.core.settings import get_settings
-from eval import bench
+from eval import bench, injection
 from eval.prices import run_cost
 
 HERE = Path(__file__).parent
@@ -754,6 +755,7 @@ async def main(argv: list[str] | None = None) -> None:
         "scifact-haystack": run_scifact_haystack,
         "retrieval": run_retrieval,
         "refs": run_refs,
+        "injection": injection.run_injection,  # live, LLM: --limit = number of base pairs
     }
     ap.add_argument("--suite", choices=[*runners, "timing", "all"], default="all")
     ap.add_argument("--limit", type=int, default=None, help="scifact*: sample size (default 100)")
@@ -779,6 +781,8 @@ async def main(argv: list[str] | None = None) -> None:
         print(f"{suite}: cost {json.dumps(res['cost'])}")
         write_results(suite, res, {"limit": args.limit, "seed": args.seed})
         print(f"{suite}: " + json.dumps(res["metrics"], default=str))
+        if suite == "injection":
+            print(injection.render(res))
     print(f"summary: {RESULTS / 'summary.md'}")
 
 
