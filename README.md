@@ -43,7 +43,9 @@ link; uploaded files are not kept).
   with both verdicts ("Judge: partly supported · Skeptic: not supported"); the JSON keeps the
   more cautious verdict. **Judge only** when the second model was unavailable: the claim shows
   that model's verdict and a line above the report says how many claims were checked by one
-  model. "Abstract only" vs "full text".
+  model. "Abstract only" vs "full text". If the skeptic model is down, a fallback skeptic
+  (`kimi-k2.7-code-highspeed`) answers instead; the claim's Details name the model and the
+  report says how many claims used it.
 - The report opens with what needs attention first; JSON / Markdown export and a chat that answers
   only from the report.
 
@@ -155,6 +157,8 @@ best, 300+ s when the skeptic provider is slow. Time to first result is seconds.
 - Claims are judged by LLMs; a verbatim quote proves the words exist in the source, not that the
   model read them correctly. Disagreement between judge and skeptic is flagged, not resolved.
 - Citations of methods or datasets ("we use X [12]") often come out `partly_supported`.
+- Sentences that cite a work as an example or for comparison, not as evidence, can come out "not
+  supported" even though nothing is wrong with the citation.
 - Only open-access full text is used; otherwise the claim is checked against the abstract and
   labelled so. Some publishers / bioRxiv block automated downloads.
 - Group / consortium authors produce false `metadata_mismatch` alarms; venue is not compared.

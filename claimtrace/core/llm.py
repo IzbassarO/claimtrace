@@ -34,6 +34,10 @@ class LLMError(RuntimeError):
     pass
 
 
+class ProviderSkipped(LLMError):
+    """The role's breaker is open: the provider was not called."""
+
+
 log = logging.getLogger(__name__)
 RATE_LIMIT_RETRIES = 2
 RATE_LIMIT_BACKOFF_S = 5.0
@@ -154,7 +158,9 @@ async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) 
     if br and br.blocked(loop.time()):
         if t := current():
             t.counts[f"llm_{role}_skipped"] += 1
-        raise LLMError(f"{role} unavailable: skipped after {BREAKER_FAILURES} failures in a row")
+        raise ProviderSkipped(
+            f"{role} unavailable: skipped after {BREAKER_FAILURES} failures in a row"
+        )
     try:
         msg = await _invoke_retrying(role, model, messages)
     except Exception:
@@ -207,9 +213,10 @@ def provider_of(role: Role) -> str:
 
 
 @lru_cache
-def get_model(role: Role) -> BaseChatModel:
+def get_model(role: Role, model_name: str | None = None) -> BaseChatModel:
+    """`model_name` overrides the configured model for the role (the skeptic fallback)."""
     s = get_settings()
-    provider, model = provider_of(role), getattr(s, f"llm_{role}_model")
+    provider, model = provider_of(role), model_name or getattr(s, f"llm_{role}_model")
     if role == "skeptic" and provider == provider_of("judge"):
         # independence is a correctness rule: without it the skeptic "fails" and every verdict
         # carries needs_review instead of two same-provider models silently agreeing
@@ -259,20 +266,60 @@ def json_instructions(schema: type[BaseModel]) -> str:
     )
 
 
+def _model_name(model: BaseChatModel) -> str | None:
+    name = getattr(model, "model_name", None) or getattr(model, "model", None)
+    return name if isinstance(name, str) else None
+
+
+def _fallback(role: Role) -> BaseChatModel | None:
+    """The skeptic's fallback model, only inside a pipeline run (breakers on; eval: never)."""
+    name = get_settings().llm_skeptic_fallback_model
+    t = current()
+    if role != "skeptic" or not name or t is None or t.breakers is None:
+        return None
+    return get_model("skeptic", name)
+
+
 async def ask_json(
-    role: Role, system: str, user: str, schema: type[T], model: BaseChatModel | None = None
+    role: Role,
+    system: str,
+    user: str,
+    schema: type[T],
+    model: BaseChatModel | None = None,
+    fallback: BaseChatModel | None = None,
 ) -> T:
     """Ask `role` for JSON matching `schema`. One retry on invalid output, then LLMError.
-    `model` overrides the configured one (tests pass a fake)."""
-    model = model or get_model(role)
+    `model` overrides the configured one (tests pass a fake); `fallback` (default: the
+    configured skeptic fallback in a pipeline run) answers when `model` is skipped by its breaker
+    or finally fails with a transient error. The answer records which model gave it."""
+    if model is None:
+        model, fallback = get_model(role), fallback or _fallback(role)
+    try:
+        return await _ask_json(role, role, system, user, schema, model)
+    except Exception as e:
+        if fallback is None or not (isinstance(e, ProviderSkipped) or _transient(e)):
+            raise
+        log.warning("%s: %s, asking the fallback model", role, type(e).__name__)
+        if t := current():
+            t.counts[f"{role}_fallback_used"] += 1
+        # own limiter + breaker key, so the primary's open breaker does not block it
+        return await _ask_json(role, f"{role}_fallback", system, user, schema, fallback)
+
+
+async def _ask_json(
+    role: Role, key: str, system: str, user: str, schema: type[T], model: BaseChatModel
+) -> T:
     messages: list[BaseMessage] = [
         SystemMessage(f"{system}\n\n{UNTRUSTED_NOTICE}\n\n{json_instructions(schema)}"),
         HumanMessage(user),
     ]
     for attempt in range(2):
-        reply = message_text(await _invoke(role, model, messages))
+        reply = message_text(await _invoke(key, model, messages))  # type: ignore[arg-type]
         try:
-            return schema.model_validate_json(extract_json(reply))
+            out = schema.model_validate_json(extract_json(reply))
+            if "model" in type(out).model_fields:
+                out.model = _model_name(model)  # type: ignore[attr-defined]  # never the LLM's
+            return out
         except (ValidationError, ValueError) as e:
             if attempt:
                 raise LLMError(f"{role}: invalid JSON after retry: {e}") from e

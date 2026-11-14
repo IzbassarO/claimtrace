@@ -195,3 +195,34 @@ sweep, PR #44), fix in progress.
 - **Found on the server:** the GAN paper gave 6 `not_found` for real references (venue glued to the
   title, recall of the top-5 search, unindexed tech reports). Fix in progress on
   `feat/false-not-found`.
+
+## Fallback skeptic (2026-11-14, morning)
+
+- **Why:** from about 00:30 to 05:30 ET Moonshot answered `kimi-k3.1-pro-highspeed` (our skeptic)
+  with 429 "engine is currently overloaded" or timeouts; every claim came out judge only.
+  Probes every 30 min (one minimal call each):
+
+  | ET | kimi-k3.1-pro-highspeed | kimi-k2.7-code-highspeed |
+  |---|---|---|
+  | 01:00 | 429 | answered |
+  | 01:31 | 429 | answered |
+  | 02:02 | timeout | answered |
+  | 02:33 | timeout | answered |
+  | 03:04 | 429 | answered |
+  | 03:35 | timeout | answered |
+  | 04:06 | timeout | answered |
+  | 04:37 | 429 | answered |
+  | 05:08 | timeout | answered |
+  | 05:39–08:39 (7 probes) | answered | answered |
+
+- **Decision (owner):** k3.1 stays the skeptic; `LLM_SKEPTIC_FALLBACK_MODEL=kimi-k2.7-code-highspeed`
+  answers only when k3.1's breaker is open or its call finally failed with a transient error
+  (429 / 5xx / connection / timeout). Primary is probed again every 60 s (breaker). Pipeline runs
+  only; eval never uses it. Each opinion records its model; the report warns "N claims used the
+  fallback skeptic".
+- **Quality of k2.7 as skeptic** — earlier measurement, not re-run: SciFact n = 100, accuracy
+  0.91 / false-supported 0.083 (base k3.1: 0.90 / 0.10); it was rejected as the *main* skeptic
+  for no speed gain and more `unsupported` on method citations (see "Faster skeptic candidate").
+- **Acceptance (local):** sample manuscript through the pipeline, primary skeptic replaced by a
+  model answering 429: both claims got two opinions (judge claude-sonnet-5-5, skeptic
+  kimi-k2.7-code-highspeed), warning "2 claims used the fallback skeptic"; < $0.01.

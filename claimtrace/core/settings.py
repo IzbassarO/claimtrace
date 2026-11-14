@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     llm_judge_model: str = ""
     llm_skeptic_provider: str = ""
     llm_skeptic_model: str = ""
+    # same provider as the skeptic; called only in pipeline runs, when the skeptic's breaker is
+    # open or its call finally failed with a transient error (429 / 5xx / connection / timeout)
+    llm_skeptic_fallback_model: str = ""
     anthropic_api_key: SecretStr = SecretStr("")
     moonshot_api_key: SecretStr = SecretStr("")
     moonshot_base_url: str = "https://api.moonshot.ai/v1"

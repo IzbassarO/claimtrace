@@ -174,12 +174,15 @@ def _failed(c: Citation, r: str, e: Exception) -> ClaimCheck:
 
 
 def _report(rid, ms, audits, checks, complete: bool) -> Report:
+    fb = get_settings().llm_skeptic_fallback_model
+    n_fb = sum(1 for c in checks if fb and c.skeptic and c.skeptic.model == fb)
+    fb_note = [f"{n_fb} claims used the fallback skeptic ({fb})."] if n_fb else []
     return Report(
         id=rid,
         title=ms.title,
         references=audits,
         claims=checks,
-        warnings=list(ms.warnings),
+        warnings=list(ms.warnings) + fb_note,
         summary={
             "references": dict(Counter(a.status.value for a in audits)),
             "claims": dict(Counter(c.verdict.value for c in checks)),
