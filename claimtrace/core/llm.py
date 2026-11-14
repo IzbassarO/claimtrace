@@ -115,7 +115,58 @@ def _quota_exhausted(e: Exception) -> bool:
     return _rate_limited(e) and any(w in f"{text} {e}".lower() for w in _QUOTA)
 
 
+BREAKER_FAILURES = 3
+BREAKER_COOLDOWN_S = 60.0
+
+
+class _Breaker:
+    """Per run and role: after BREAKER_FAILURES failed calls in a row the role is skipped for
+    BREAKER_COOLDOWN_S, then ONE probe call decides (success closes it, failure re-opens it), so
+    a provider that is down costs a job seconds, not ~20 s per claim."""
+
+    def __init__(self) -> None:
+        self.fails, self.open_until, self.probing = 0, 0.0, False
+
+    def blocked(self, now: float) -> bool:
+        if self.fails < BREAKER_FAILURES:
+            return False
+        if now < self.open_until or self.probing:
+            return True
+        self.probing = True  # cooldown over: let exactly one call through
+        return False
+
+    def record(self, ok: bool, now: float) -> None:
+        self.probing = False
+        self.fails = 0 if ok else self.fails + 1
+        if self.fails >= BREAKER_FAILURES:
+            self.open_until = now + BREAKER_COOLDOWN_S
+
+
+def _breaker(role: str) -> _Breaker | None:
+    t = current()  # no run (unit tests, eval calling claims directly): no breaker
+    return t.breakers.setdefault(role, _Breaker()) if t is not None else None  # type: ignore[return-value]
+
+
 async def _invoke(role: str, model: BaseChatModel, messages: list[BaseMessage]) -> BaseMessage:
+    br, loop = _breaker(role), asyncio.get_running_loop()
+    if br and br.blocked(loop.time()):
+        if t := current():
+            t.counts[f"llm_{role}_skipped"] += 1
+        raise LLMError(f"{role} unavailable: skipped after {BREAKER_FAILURES} failures in a row")
+    try:
+        msg = await _invoke_retrying(role, model, messages)
+    except Exception:
+        if br:
+            br.record(False, loop.time())
+        raise
+    if br:
+        br.record(True, loop.time())
+    return msg
+
+
+async def _invoke_retrying(
+    role: str, model: BaseChatModel, messages: list[BaseMessage]
+) -> BaseMessage:
     """One model call under the role's limiter; a transient error (burst 429 ⇒ also lower the
     limit, 5xx, connection, timeout) ⇒ wait, retry; out of quota ⇒ fail at once. The caller turns a
     final error into "judge only" / insufficient_evidence, never a negative verdict."""
