@@ -568,13 +568,17 @@ def test_claim_citing_a_missing_reference_needs_attention_and_is_never_green():
     assert text(out["headline"]) == "1 reference not found."
 
 
-def test_headline_counts_say_when_they_overlap():
+def test_headline_names_at_most_the_two_worst_counts():
+    # one count for claims, one for references; every other count is in the counters below
     r = Report.model_validate(two_claims())
     r.claims[0].needs_review = True
+    r.references.append(audit("2", RefStatus.unchecked))
+    r.references.append(audit("3", RefStatus.metadata_mismatch))
     out = render_calls([[r.model_dump(mode="json")]])
-    assert text(out["headline"]) == (
-        "1 claim not supported · 1 claim needs review (1 claim is in both counts)."
-    )
+    assert text(out["headline"]) == "1 claim not supported · 2 references need attention."
+    r.claims[0].verdict = Verdict.partly_supported
+    out = render_calls([[r.model_dump(mode="json")]])
+    assert text(out["headline"]) == "1 claim needs review · 2 references need attention."
     ok_only = Report.model_validate(two_claims())
     ok_only.claims = ok_only.claims[1:]
     out = render_calls([[ok_only.model_dump(mode="json")]])

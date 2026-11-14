@@ -37,6 +37,7 @@ let seen = new Map();
 let lastShown = "";
 const openKeys = new Set(); // rows / <details data-key> the reader opened, kept open across re-renders
 const autoOpened = new Set(); // defaults applied once (first attention row), never re-applied
+const NARROW = "(max-width: 48rem)"; // same breakpoint as the phone layout in style.css
 const ATTENTION_FIRST = 5; // "Needs your attention" shows this many rows until "Show all"
 
 // el("p", {className: "x"}, "text", childNode, null) -> element; strings become text nodes.
@@ -471,7 +472,11 @@ function claimGroups(items, pending, running) {
   if (!items.length) return [el("p", { className: "none" }, pending ? "No citing sentences checked yet." : "No citing sentences were found in this manuscript.")];
   if (filter && filter.startsWith("c:")) return filtered(items, VERDICT, key, claimRow, "citing sentences", running);
   const bad = order(items.filter(claimAttention), VERDICT, key, running);
-  if (bad.length && !autoOpened.has("first")) { openKeys.add(`row-${itemKey(bad[0])}`); autoOpened.add("first"); }
+  // first row open by default, once; on a phone it starts collapsed so several problem rows fit on screen
+  if (bad.length && !autoOpened.has("first")) {
+    if (typeof matchMedia !== "function" || !matchMedia(NARROW).matches) openKeys.add(`row-${itemKey(bad[0])}`);
+    autoOpened.add("first");
+  }
   const all = openKeys.has("all-attention");
   const shown = all ? bad : bad.slice(0, ATTENTION_FIRST);
   const rest = items.filter((c) => !claimAttention(c));
@@ -558,29 +563,29 @@ function renderEmpty(r) {
       el("ul", { className: "warnings" }, r.warnings.map((w) => el("li", {}, w)))) : null);
 }
 
-// The worst counts in plain words. Claim counts overlap (a claim can be not supported AND need
-// review), so the line says so when they do.
+// At most the two worst counts in plain words: one for references, one for claims (the counters
+// below give every count). A missing or retracted reference leads.
 function headline(r, pending) {
   const count = (xs, f) => xs.filter(f).length;
+  const gone = r.references.filter((a) => a.status === "not_found" || a.status === "retracted");
+  const retracted = count(gone, (a) => a.status === "retracted");
+  const refAtt = count(r.references, refAttention);
+  const refPart = gone.length
+    ? `${plural(gone.length, "reference")} ${!retracted ? "not found" : retracted === gone.length ? "retracted" : "not found or retracted"}`
+    // not findings, but nothing was verified for them: never "No problems found" over them
+    : refAtt ? `${plural(refAtt, "reference")} ${need(refAtt)} attention` : null;
   const notSup = count(r.claims, (c) => c.verdict === "unsupported");
   const review = count(r.claims, (c) => c.needs_review);
-  const both = count(r.claims, (c) => c.verdict === "unsupported" && c.needs_review);
-  const parts = [
-    [count(r.references, (a) => a.status === "retracted"), "reference", "retracted"],
-    [count(r.references, (a) => a.status === "not_found"), "reference", "not found"],
-    [notSup, "claim", "not supported"],
-    [review, "claim", review === 1 ? "needs review" : "need review"],
-    [count(r.references, (a) => a.status === "metadata_mismatch"), "reference", "with details that differ"],
-    // not findings, but nothing was verified for them: never "No problems found" over them
-    [count(r.references, (a) => a.status === "unchecked"), "reference", "could not be checked"],
-    [count(r.claims, (c) => !c.needs_review && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict)),
-      "claim", "could not be checked"],
-  ].filter(([n]) => n).map(([n, noun, what]) => `${plural(n, noun)} ${what}`);
+  const unchecked = count(r.claims, (c) => !c.needs_review && !refBad(c) && ["insufficient_evidence", "source_not_found"].includes(c.verdict));
+  const claimPart = notSup ? `${plural(notSup, "claim")} not supported`
+    : review ? `${plural(review, "claim")} ${review === 1 ? "needs" : "need"} review`
+      : unchecked ? `${plural(unchecked, "claim")} could not be checked` : null;
+  const parts = (gone.length ? [refPart, claimPart] : [claimPart, refPart]).filter(Boolean);
   const lead = pending ? "So far: " : "";
   if (!parts.length) {
     return `${lead}No problems found${pending ? " yet" : ""} in ${plural(r.claims.length, "claim")} and ${plural(r.references.length, "reference")}.`;
   }
-  return lead + parts.join(" · ") + (both ? ` (${plural(both, "claim")} ${both === 1 ? "is" : "are"} in both counts).` : ".");
+  return `${lead}${parts.join(" · ")}.`;
 }
 
 // opts.job: the running job (r is a partial snapshot); opts.saved: r is the saved sample report.

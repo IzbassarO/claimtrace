@@ -448,9 +448,15 @@ blockquote.quote::after { content: "\201D"; }
   h1, .home h1 { font-size: var(--font-size-xl); }
   .readout { grid-template-columns: minmax(0, 1fr); }
   .exports { justify-content: flex-start; }
-  .meter { grid-template-columns: minmax(0, 1fr); }
+  /* one row of actions, scrolled sideways instead of wrapping */
+  .report-top { margin-bottom: var(--space-1); }
+  .exports { flex-wrap: nowrap; overflow-x: auto; width: 100%; gap: 0 var(--space-3); white-space: nowrap; }
+  .exports > * { flex: none; }
   .headline { font-size: var(--font-size-base); }
-  .exports { gap: 0 var(--space-3); }
+  /* counters as one wrapped chip row per section; the ruler only while running */
+  .meter { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-2); }
+  #report:not(.running) .ruler { display: none; }
+  .running .ruler { flex: 1 0 100%; }
   .row-head, #refs-sec .row-head { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "mark aside cue" "line line line"; gap: var(--space-1) var(--space-3); }
   #refs-sec .row-head { grid-template-areas: "mark id cue" "line line line" "aside aside aside"; }
   .row-head > .mark { grid-area: mark; }

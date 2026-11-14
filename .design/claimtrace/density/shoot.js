@@ -12,7 +12,8 @@ async (page) => {
       doc: document.documentElement.scrollHeight, // never below the viewport height
       content: Math.ceil(document.body.getBoundingClientRect().height),
       maxCollapsedRow: Math.max(0, ...rows.map((r) => Math.round(r.closest(".row").getBoundingClientRect().height))),
-      problemRowsOnFirstScreen: attRows.filter((r) => r.getBoundingClientRect().bottom <= innerHeight).length,
+      problemRowsFullyOnFirstScreen: attRows.filter((r) => r.getBoundingClientRect().bottom <= innerHeight).length,
+      problemRowsStartingOnFirstScreen: attRows.filter((r) => r.getBoundingClientRect().top < innerHeight).length,
     };
   });
   const open = async (name, theme, w, h) => {
