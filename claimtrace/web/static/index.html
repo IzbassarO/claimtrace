@@ -106,7 +106,19 @@
     </section>
 
     <section id="results" aria-labelledby="results-h" hidden>
-      <h1 id="results-h">Report</h1>
+      <div class="report-top">
+        <h1 id="results-h">Report</h1>
+        <p id="exports" class="exports">
+          <button id="method-btn" type="button" class="link chev" aria-expanded="false" aria-controls="method">How verdicts work</button>
+          <button id="expand-all" type="button" class="link">Expand all</button>
+          <button id="collapse-all" type="button" class="link">Collapse all</button>
+          <button id="copy-link" type="button" class="link">Copy link</button>
+          <span id="downloads" class="downloads">Download <a id="export-json" download>JSON</a>
+            <a id="export-md" download>Markdown</a></span>
+          <button id="new-job" type="button" class="link">Audit another manuscript</button>
+          <span id="copy-status" role="status"></span>
+        </p>
+      </div>
       <div id="saved" class="notice" hidden>
         <p id="saved-note"></p>
         <button id="run-live" type="button" class="secondary">Run live</button>
@@ -122,31 +134,40 @@
           </div>
         </div>
         <div id="meters" class="meters"></div>
+        <div id="method" class="method" hidden>
+          <dl class="sheet">
+            <dt>References</dt><dd>Looked up in Crossref, OpenAlex, arXiv, Semantic Scholar and
+              doi.org. Title, authors, year (±1) and DOI are compared by code, not by a model.</dd>
+            <dt>Claims</dt><dd>Each citing sentence is read against the cited paper: full text where
+              open, otherwise the abstract; each row says which.</dd>
+            <dt>Evidence</dt><dd>A verdict is shown only with a quote of at least 5 words found
+              verbatim in the source. Without one, the claim reads “Not enough evidence”, which is
+              never counted against you.</dd>
+            <dt>Two readers</dt><dd>A judge and a skeptic on different model providers. If they
+              disagree, the claim is flagged “Needs review” and the more cautious verdict is kept.
+              If one of them is unavailable, the row says “judge only” or “skeptic only”.</dd>
+            <dt>Could not check</dt><dd>A lookup or model failure is never a finding: it is shown as
+              “Could not check”, not as a problem with the manuscript.</dd>
+          </dl>
+        </div>
       </div>
-      <p id="exports" class="exports">
-        <a id="export-json" download>Download JSON</a>
-        <a id="export-md" download>Download Markdown</a>
-        <button id="copy-link" type="button" class="link">Copy link</button>
-        <button id="new-job" type="button" class="link">Audit another manuscript</button>
-        <span id="copy-status" role="status"></span>
-      </p>
-      <p id="share" class="permalink"><span id="share-note"></span><a id="permalink"></a></p>
       <p id="filter-note" class="filter-note" role="status"></p>
 
       <div id="ledgers">
       <section id="claims-sec" aria-labelledby="claims-h">
-        <h2 id="claims-h">Claims <span id="claims-n" class="n"></span> <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
+        <h2 id="claims-h" class="sr-only">Claims <span id="claims-n" class="n"></span> <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
         <div id="claims"></div>
       </section>
 
       <section id="refs-sec" aria-labelledby="refs-h">
-        <h2 id="refs-h">References <span id="refs-n" class="n"></span> <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
+        <h2 id="refs-h" class="sr-only">References <span id="refs-n" class="n"></span> <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
         <div id="refs"></div>
       </section>
       </div>
 
       <details id="tech" class="tech">
-        <summary>Technical details: warnings and timings</summary>
+        <summary>Technical details: link, warnings and timings</summary>
+        <p id="share" class="permalink"><span id="share-note"></span><a id="permalink"></a></p>
         <ul id="warnings" class="warnings"></ul>
         <dl id="timings" class="timings"></dl>
       </details>

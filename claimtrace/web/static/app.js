@@ -35,7 +35,9 @@ let failures = 0;
 let streamed = false;
 let seen = new Map();
 let lastShown = "";
-const openKeys = new Set(); // <details data-key> the reader opened, kept open across re-renders
+const openKeys = new Set(); // rows / <details data-key> the reader opened, kept open across re-renders
+const autoOpened = new Set(); // defaults applied once (first attention row), never re-applied
+const ATTENTION_FIRST = 5; // "Needs your attention" shows this many rows until "Show all"
 
 // el("p", {className: "x"}, "text", childNode, null) -> element; strings become text nodes.
 function el(tag, props, ...children) {
@@ -161,6 +163,7 @@ function clearView() {
   seen = new Map();
   lastShown = "";
   openKeys.clear();
+  autoOpened.clear();
   filter = null;
   $("chat-log").replaceChildren();
 }
@@ -272,18 +275,19 @@ const refAttention = (a) => a.status !== "verified";
 // under its (possibly green) verdict
 const claimKey = (c) => (refBad(c) ? "badref" : c.verdict);
 const claimAttention = (c) => c.verdict === "unsupported" || c.needs_review || refBad(c);
-// partly supported, not checkable, or citing a doubtful reference: shown open, below the claims that need attention
-const claimMiddle = (c) => !claimAttention(c) && (c.verdict !== "supported" || refNote(c) !== null);
-const MIDDLE = "Partly supported, not checkable, or citing a doubtful reference";
+// collapsed claim groups below "Needs your attention", in this order
+const CLAIM_GROUPS = [
+  ["partly", "Partly supported", "s-partly v u-partly_supported", (c) => c.verdict === "partly_supported"],
+  ["supported", "Supported", "s-ok v u-supported", (c) => c.verdict === "supported"],
+  ["unchecked", "Could not check", "s-unknown v u-insufficient_evidence", (c) => !["partly_supported", "supported"].includes(c.verdict)],
+];
+// header order: "References · 38 verified · 1 differs · 1 unchecked"
+const REF_SHORT = { verified: "verified", metadata_mismatch: "differs", unchecked: "unchecked", not_found: "not found", retracted: "retracted" };
+const REF_TAG = { not_found: "reference not found", retracted: "reference retracted", metadata_mismatch: "reference differs", unchecked: "reference unchecked" };
 const need = (n) => (n === 1 ? "needs" : "need");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 // first sentence; "et al." / "e.g." / "Fig." do not end one
 const firstSentence = (s) => String(s || "").split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|Fig|Eq|No)\.)(?<=[.!?])\s+(?=[A-Z0-9“"(])/)[0];
-
-const CLAIM_COLS = ["Citation", "Citing sentence", "Source says", "Verdict"];
-const REF_COLS = ["Reference", "Cited as", "Found", "Status"];
-const cell = (cols, i, ...children) => el("div", { className: i === 0 ? "id" : i === 3 ? "verdict" : "" },
-  el("span", { className: "cell-label" }, cols[i]), children);
 
 // Reader state that survives the re-render on every streamed snapshot.
 let filter = null; // "c:<verdict>", "c:review", "r:<status>" or null (show everything)
@@ -291,9 +295,18 @@ let lastRender = null; // [report, opts] for re-rendering when a filter changes
 let fresh = new Set(); // keys that arrived in this render (briefly highlighted)
 const filterMatch = (x) => (filter === "c:review" ? !!x.needs_review : filter.slice(2) === (x.reference ? x.status : claimKey(x)));
 
-function rowEl(key, ...children) {
-  return el("li", { className: fresh.has(key) ? "row new" : "row" }, children);
+// One ledger row: a full-width toggle button (the collapsed line) and, only when expanded, its body.
+// The open state lives in openKeys, so a streamed re-render keeps it.
+function rowEl(key, head, body) {
+  const k = `row-${key}`;
+  const open = openKeys.has(k);
+  return el("li", { className: `row${open ? " open" : ""}${fresh.has(key) ? " new" : ""}` },
+    el("button", { type: "button", className: "row-head", "data-toggle": k, "data-fk": k, "aria-expanded": String(open),
+      ...(open ? { "aria-controls": `body-${key}` } : {}) }, head, el("span", { className: "cue" }, open ? "Less" : "More")),
+    open ? el("div", { className: "row-body", id: `body-${key}` }, body()) : null);
 }
+
+const tag = (word, cls = "") => el("span", { className: `tag ${cls}` }, word);
 
 function foundLine(a) {
   const m = a.matched;
@@ -338,18 +351,22 @@ function lookups(a) {
 
 function refRow(a) {
   const ref = a.reference;
-  const key = itemKey(a);
   const failed = a.providers.some((p) => !p.ok);
   const reason = refReason(a);
-  const table = fieldsTable(a);
-  return rowEl(key,
-    cell(REF_COLS, 0, `ref ${ref.id}`),
-    cell(REF_COLS, 1, el("p", { className: "cited" }, ref.raw)),
-    cell(REF_COLS, 2, foundLine(a)),
-    cell(REF_COLS, 3, mark(a.status, STATUS, a.status === "unchecked" && failed ? "Could not check (lookup failed)" : null)),
-    reason ? el("p", { className: "reason" }, reason) : null,
-    details(`ref-${key}`, { className: "more" }, el("summary", { "data-fk": `ref-${key}` }, "Details"),
-      el("div", { className: "more-body" }, table ? el("div", { className: "well" }, el("h4", {}, "Fields"), table) : null, lookups(a))));
+  const m = a.matched;
+  // the collapsed line: why it is not verified, or where it was found
+  const aside = reason || (a.status === "unchecked" && !failed && a.note) || (m ? [m.provider, m.year].filter(Boolean).join(" ") : "");
+  return rowEl(itemKey(a),
+    [mark(a.status, STATUS, a.status === "unchecked" && failed ? "Could not check (lookup failed)" : null),
+      el("span", { className: "id" }, `ref ${ref.id}`),
+      el("span", { className: "line" }, ref.title || ref.raw),
+      el("span", { className: "aside" }, aside)],
+    () => {
+      const table = fieldsTable(a);
+      return [el("p", { className: "cited" }, ref.raw), foundLine(a),
+        reason ? el("p", { className: "reason" }, reason) : null,
+        table ? el("div", { className: "well" }, el("h4", {}, "Fields"), table) : null, lookups(a)];
+    });
 }
 
 const itemKey = (x) => (x.reference ? `r:${x.reference.id}` : `c:${x.citation_id}:${x.ref_id}`);
@@ -367,14 +384,18 @@ function opinion(role, o, shown) {
     o.quote && o.quote !== shown ? el("p", { className: "quiet" }, `Other excerpt it quoted (not verified verbatim): “${o.quote}”`) : null);
 }
 
-// "Vaswani et al. 2017, Attention is all you need" from the cited reference's parsed fields
-function refShort(id) {
+// "Vaswani et al. 2017, Attention is all you need" (long) or "Vaswani 2017" (short, collapsed row)
+function refShort(id, short = false) {
   const a = refAudits.get(id);
   if (!a) return null;
   const r = a.reference;
-  const who = r.authors.length ? `${r.authors[0].split(",")[0].trim().split(" ").at(-1)}${r.authors.length > 1 ? " et al." : ""}` : "";
-  return [[who, r.year].filter(Boolean).join(" "), r.title].filter(Boolean).join(", ") || null;
+  const who = r.authors.length ? `${r.authors[0].split(",")[0].trim().split(" ").at(-1)}${r.authors.length > 1 && !short ? " et al." : ""}` : "";
+  const name = [who, r.year].filter(Boolean).join(" ");
+  return short ? name || null : [name, r.title].filter(Boolean).join(", ") || null;
 }
+
+// only one of the two models answered: the claims module's note says which ("skeptic unavailable — judge only")
+const singleModel = (c) => (!c.judge === !c.skeptic ? null : c.judge ? "judge only" : "skeptic only");
 
 function claimReason(c) {
   if (!c.judge !== !c.skeptic) return c.note ? c.note.split(";")[0] : "Only one of the two models answered.";
@@ -386,22 +407,37 @@ function claimReason(c) {
 
 function claimRow(c) {
   const key = itemKey(c);
+  const a = refAudits.get(c.ref_id);
+  const one = singleModel(c);
+  return rowEl(key,
+    [refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT),
+      el("span", { className: "line" },
+        c.needs_review ? tag("needs review", "mark s-review") : null,
+        one ? tag(one) : null,
+        a && REF_TAG[a.status] ? tag(REF_TAG[a.status]) : null,
+        el("span", { className: "text" }, c.sentence)),
+      el("span", { className: "aside" }, refShort(c.ref_id, true) || `ref ${c.ref_id}`)],
+    () => claimBody(c, key, a));
+}
+
+function claimBody(c, key, a) {
   const kind = { full_text: "full text", abstract: "abstract" }[c.evidence_kind];
   const long = { full_text: "Checked against the full text", abstract: "Checked against the abstract only" }[c.evidence_kind];
   const note = refNote(c);
   const reason = claimReason(c);
-  const a = refAudits.get(c.ref_id);
   const src = refShort(c.ref_id);
-  return rowEl(key,
-    cell(CLAIM_COLS, 0, `${c.citation_id} → ref ${c.ref_id}`, kind ? el("span", { className: "kind" }, kind) : null),
-    cell(CLAIM_COLS, 1, el("p", { className: "sentence" }, c.sentence)),
-    cell(CLAIM_COLS, 2, c.quote ? el("blockquote", { className: "quote" }, c.quote)
+  const qk = `quote-${key}`;
+  const full = openKeys.has(qk);
+  return [
+    el("p", { className: "sentence" }, c.sentence),
+    c.quote ? [el("blockquote", { className: full ? "quote" : "quote clamp", id: `q-${key}` }, c.quote),
+      el("button", { type: "button", className: "link more-quote", "data-toggle": qk, "data-fk": qk, "data-quote": `q-${key}`,
+        "aria-expanded": String(full), "aria-controls": `q-${key}` }, full ? "Show less of the quote" : "Show full quote")]
       : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
-    src || c.source_url ? el("p", { className: "provenance" }, src, src && c.source_url ? " · " : "", c.source_url ? link(c.source_url, "source") : null) : null),
-    cell(CLAIM_COLS, 3, refBad(c) ? mark(c.verdict, VERDICT, null, "unknown") : mark(c.verdict, VERDICT),
-      c.needs_review ? el("span", { className: "mark s-review" }, el("span", { className: "word" }, "Needs review")) : null,
-      note ? el("p", { className: "ref-note" }, note) : null),
     reason ? el("p", { className: "reason" }, reason) : null,
+    note ? el("p", { className: "ref-note" }, note) : null,
+    el("p", { className: "provenance" }, `${c.citation_id} → ref ${c.ref_id}`, kind ? ` · ${kind}` : "",
+      src ? ` · ${refShort(c.ref_id, true)}` : "", c.source_url ? [" · ", link(c.source_url, "open the source")] : null),
     details(`why-${key}`, { className: "more" }, el("summary", { "data-fk": `why-${key}` }, "Details"),
       el("div", { className: "more-body" },
         c.judge || c.skeptic ? [opinion("Judge", c.judge, c.quote), opinion("Skeptic", c.skeptic, c.quote)] : null,
@@ -410,34 +446,63 @@ function claimRow(c) {
           c.source_url ? el("p", {}, link(c.source_url)) : null,
           c.note ? el("p", {}, c.note) : null),
         a ? el("div", { className: "well" }, el("h4", {}, `Reference ${a.reference.id}`, mark(a.status, STATUS)),
-          el("p", {}, a.reference.raw), fieldsTable(a)) : null)));
+          el("p", {}, a.reference.raw), fieldsTable(a)) : null)),
+  ];
 }
 
-function ledger(cols, rows) {
-  return [el("div", { className: "ledger-head", "aria-hidden": "true" }, cols.map((h) => el("span", {}, h))),
-    el("ol", { className: "ledger" }, rows)];
-}
+const ledger = (rows) => el("ol", { className: "ledger" }, rows);
+const groupHead = (key, ...children) => el("summary", { "data-fk": key }, ...children);
+// "· 2 cite a reference that differs or could not be checked": never hidden inside a closed group
+const doubtful = (xs) => {
+  const n = xs.filter((c) => refNote(c) !== null).length;
+  return n ? el("span", { className: "group-note" }, `· ${n} ${n === 1 ? "cites" : "cite"} a reference that differs or could not be checked`) : null;
+};
+const order = (xs, labels, key, running) => xs.sort(running ? (a, b) => seen.get(itemKey(a)) - seen.get(itemKey(b))
+  : (a, b) => severity(labels, key, a) - severity(labels, key, b) || seen.get(itemKey(a)) - seen.get(itemKey(b)));
+const filtered = (items, labels, key, render, noun, running) => {
+  const hits = order(items.filter(filterMatch), labels, key, running);
+  return hits.length ? [ledger(hits.map(render))] : [el("p", { className: "none" }, `No ${noun} match this filter.`)];
+};
 
-// Problems first (worst first), everything fine collapsed in a <details>. With a filter on this
-// section: one ledger of the matching rows only.
-function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle, pending, cols, prefix, running) {
-  const order = (xs) => xs.sort(running ? (a, b) => seen.get(itemKey(a)) - seen.get(itemKey(b))
-    : (a, b) => severity(labels, key, a) - severity(labels, key, b) || seen.get(itemKey(a)) - seen.get(itemKey(b)));
-  if (!items.length) return [el("p", { className: "none" }, pending ? `No ${noun} checked yet.` : `No ${noun} were found in this manuscript.`)];
-  if (filter && filter.startsWith(prefix)) {
-    const hits = order(items.filter(filterMatch));
-    return hits.length ? ledger(cols, hits.map(render)) : [el("p", { className: "none" }, `No ${noun} match this filter.`)];
-  }
-  const bad = order(items.filter(isProblem));
-  const mid = order(items.filter((x) => !isProblem(x) && isMiddle(x)));
-  const fine = items.filter((x) => !isProblem(x) && !isMiddle(x));
+// Claims: "Needs your attention" open (first row expanded once, first 5 rows until "Show all"),
+// every other group a collapsed header with its count. With a claim filter: the matching rows only.
+function claimGroups(items, pending, running) {
+  const key = (c) => c.verdict;
+  if (!items.length) return [el("p", { className: "none" }, pending ? "No citing sentences checked yet." : "No citing sentences were found in this manuscript.")];
+  if (filter && filter.startsWith("c:")) return filtered(items, VERDICT, key, claimRow, "citing sentences", running);
+  const bad = order(items.filter(claimAttention), VERDICT, key, running);
+  if (bad.length && !autoOpened.has("first")) { openKeys.add(`row-${itemKey(bad[0])}`); autoOpened.add("first"); }
+  const all = openKeys.has("all-attention");
+  const shown = all ? bad : bad.slice(0, ATTENTION_FIRST);
+  const rest = items.filter((c) => !claimAttention(c));
   return [
-    bad.length ? [el("h3", {}, "Needs your attention"), ledger(cols, bad.map(render))]
-      : el("p", { className: "none" }, `No ${noun} need attention${pending ? " so far" : ""}.`),
-    mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), ledger(cols, mid.map(render))] : null,
-    fine.length ? details(`fine-${noun}`, { className: "fine" }, el("summary", { "data-fk": `fine-${noun}` }, `Show ${plural(fine.length, fineNoun)}`),
-      ledger(cols, fine.map(render))) : null,
+    bad.length ? [el("h3", {}, "Needs your attention ", el("span", { className: "n" }, String(bad.length)),
+      pending ? el("span", { className: "group-note" }, " · still checking") : null), ledger(shown.map(claimRow)),
+      bad.length > ATTENTION_FIRST ? el("button", { type: "button", className: "link show-all", "data-toggle": "all-attention",
+        "data-fk": "all-attention", "aria-expanded": String(all) }, all ? `Show the first ${ATTENTION_FIRST}` : `Show all ${bad.length}`) : null]
+      : el("p", { className: "none" }, `No citing sentences need attention${pending ? " so far" : ""}.`),
+    CLAIM_GROUPS.map(([g, word, cls, test]) => {
+      const xs = order(rest.filter((c) => test(c) && !CLAIM_GROUPS.slice(0, CLAIM_GROUPS.findIndex((x) => x[0] === g)).some((x) => x[3](c))), VERDICT, key, running);
+      return xs.length ? details(`grp-${g}`, { className: "fine" },
+        groupHead(`grp-${g}`, el("span", { className: `mark ${cls}` }, el("span", { className: "word" }, word)),
+          el("span", { className: "count" }, `· ${xs.length}`), doubtful(xs)),
+        ledger(xs.map(claimRow))) : null;
+    }),
   ].flat(Infinity).filter(Boolean);
+}
+
+// References: one collapsed header with the counts by status; inside, one line per reference.
+function refGroup(items, pending, running) {
+  const key = (a) => a.status;
+  if (!items.length) return [el("p", { className: "none" }, pending ? "No references checked yet." : "No references were found in this manuscript.")];
+  if (filter && filter.startsWith("r:")) return filtered(items, STATUS, key, refRow, "references", running);
+  const n = new Map();
+  for (const a of items) n.set(a.status, (n.get(a.status) || 0) + 1);
+  const counts = Object.keys(REF_SHORT).filter((v) => n.get(v)).map((v) => `${n.get(v)} ${REF_SHORT[v]}`);
+  return [details("fine-references", { className: "fine" },
+    groupHead("fine-references", el("span", { className: "group-name" }, "References"), el("span", {}, `· ${counts.join(" · ")}`),
+      pending ? el("span", { className: "group-note" }, "· still checking") : null),
+    ledger(order(items.slice(), STATUS, key, running).map(refRow)))];
 }
 
 // One counter per status present; each is a toggle button that filters its section.
@@ -460,7 +525,7 @@ function meter(name, items, total, done, countsNode, waitNote) {
   return el("div", { className: "meter" },
     el("p", { className: "meter-head" }, el("strong", {}, name),
       el("span", { className: "n" }, of !== null ? `${n} / ${of} checked` : `${n} checked so far`)),
-    el("div", { className: (of || n) > 80 ? "ruler dense" : "ruler", role: "img", "aria-label": of !== null ? `${n} of ${of} checked` : `${n} checked so far` },
+    el("div", { className: (of || n) > 40 ? "ruler dense" : "ruler", role: "img", "aria-label": of !== null ? `${n} of ${of} checked` : `${n} checked so far` },
       Array.from({ length: Math.max(of || 0, n) }, (_, i) => el("span", { className: i < n ? "tick" : "tick todo" }))),
     done ? countsNode : el("p", { className: "meter-note" }, waitNote));
 }
@@ -526,6 +591,7 @@ function renderReport(r, opts = {}) {
   const first = $("results").hidden;
   $("empty").hidden = !empty;
   $("report").hidden = empty;
+  $("exports").hidden = empty;
   if (empty) {
     renderEmpty(r);
     show("results");
@@ -545,6 +611,7 @@ function renderReport(r, opts = {}) {
     if (streamed && hadItems) fresh.add(itemKey(x));
   }
   $("report").className = pending ? "running" : opts.saved ? "saved" : "";
+  $("exports").className = `exports ${$("report").className}`;
   $("saved").hidden = !opts.saved;
   if (opts.saved) {
     const day = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -561,7 +628,7 @@ function renderReport(r, opts = {}) {
   $("claims-wait").hidden = !pending;
   $("results-h").textContent = r.title || "Report";
   // the saved sample is no job: no export or shareable link (they would point at another report)
-  for (const id of ["export-json", "export-md", "copy-link", "share"]) $(id).hidden = !!opts.saved;
+  for (const id of ["downloads", "copy-link", "share"]) $(id).hidden = !!opts.saved;
   if (!opts.saved) {
     $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
     $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
@@ -601,15 +668,21 @@ function renderReport(r, opts = {}) {
   } else $("filter-note").replaceChildren();
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
   $("timings").replaceChildren(...timingRows(r.timings || {}));
-  $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refRow,
-    "references", "verified reference", () => false, refsPending, REF_COLS, "r:", pending));
-  $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimRow,
-    "citing sentences", "supported claim", claimMiddle, pending, CLAIM_COLS, "c:", pending));
+  $("refs").replaceChildren(...refGroup(r.references, refsPending, pending));
+  $("claims").replaceChildren(...claimGroups(r.claims, pending, pending));
   // a missing or retracted reference is the worst finding: its section leads
   const refsFirst = r.references.some((a) => a.status === "not_found" || a.status === "retracted");
   $("ledgers").replaceChildren(...(refsFirst ? [$("refs-sec"), $("claims-sec")] : [$("claims-sec"), $("refs-sec")]));
   if (!opts.saved) showPermalink();
   show("results");
+  // "Show full quote" only where the 3-line clamp actually cuts the quote
+  // ponytail: measured once per render, not on resize; a resize to narrower shows no button until the next render
+  if (document.querySelectorAll) {
+    for (const b of document.querySelectorAll("[data-quote]")) {
+      const q = $(b.getAttribute("data-quote"));
+      b.hidden = b.getAttribute("aria-expanded") !== "true" && q.scrollHeight <= q.clientHeight + 1;
+    }
+  }
   if (first) { // focus moves (and the page scrolls) only when the report first appears
     $("results-h").setAttribute("tabindex", "-1");
     $("results-h").focus();
@@ -617,6 +690,22 @@ function renderReport(r, opts = {}) {
     const again = document.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
     if (again) again.focus();
   }
+}
+
+function rerender(focusKey) {
+  renderReport(...lastRender);
+  const again = focusKey && document.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
+  if (again) again.focus({ preventScroll: true });
+}
+
+// Expand all: every group and every row (not the inner "Details"); collapse all: everything closed.
+function expandAll(on) {
+  openKeys.clear();
+  autoOpened.add("first"); // the reader chose: no default-open row comes back
+  if (!on) return;
+  const r = lastRender[0];
+  for (const x of [...r.references, ...r.claims]) openKeys.add(`row-${itemKey(x)}`);
+  for (const k of ["fine-references", "all-attention", ...CLAIM_GROUPS.map(([g]) => `grp-${g}`)]) openKeys.add(k);
 }
 
 // Shareable link to this report; anyone holding it can read the report while it is kept.
@@ -775,6 +864,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const again = document.querySelector(`[data-fk="${CSS.escape(b.getAttribute("data-fk") || "")}"]`);
     if (again) again.focus({ preventScroll: true });
   });
+  // rows, "Show full quote", "Show all N": toggle their key and re-render (the key survives streaming)
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest("[data-toggle]");
+    if (!b || !lastRender) return;
+    const k = b.getAttribute("data-toggle");
+    openKeys.has(k) ? openKeys.delete(k) : openKeys.add(k);
+    rerender(b.getAttribute("data-fk"));
+  });
+  $("method-btn").addEventListener("click", () => {
+    const on = $("method").hidden;
+    $("method").hidden = !on;
+    $("method-btn").setAttribute("aria-expanded", String(on));
+  });
+  $("expand-all").addEventListener("click", () => { expandAll(true); rerender("expand-all"); });
+  $("collapse-all").addEventListener("click", () => { expandAll(false); rerender("collapse-all"); });
   $("retry").addEventListener("click", resumePolling);
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);
