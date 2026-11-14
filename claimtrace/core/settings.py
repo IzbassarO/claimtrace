@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     grobid_url: str = "http://localhost:8070"
 
     max_upload_mb: int = 20
+    # web jobs: how many run at once, and a daily cap on accepted jobs (cost guard; resets 00:00
+    # UTC); USAGE_TOKEN enables GET /api/usage (empty = disabled)
+    max_running_jobs: int = 2
+    max_jobs_per_day: int = 300
+    usage_token: SecretStr = SecretStr("")
     max_references: int = 200
     max_claims: int = 150
     llm_concurrency: int = 4
