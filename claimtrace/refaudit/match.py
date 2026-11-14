@@ -215,13 +215,24 @@ _VENUE_TAIL = re.compile(
 )
 
 
+# a full stop after these ends an abbreviation, not the title ('the U.S. FDA Workshop')
+_ABBREV = {"inc", "ltd", "corp", "vs", "etc", "al", "fig", "vol", "dept", "univ", "natl", "intl"}
+
+
 def strip_venue(title: str | None) -> str | None:
     """The title without a trailing venue segment; for search and matching only, never shown.
-    The head must keep >= 3 words, else the title is returned unchanged."""
-    if not title:
+    Unchanged unless the head keeps >= 3 words, the cut follows a word of >= 3 letters that
+    is no abbreviation ('U.S.', 'St.', 'E. coli'), and the tail has no negation ('. In girls,
+    no such effect')."""
+    m = _VENUE_TAIL.search(title or "")
+    if not m:
         return title
-    head = _VENUE_TAIL.sub("", title).rstrip(" .")
-    return head if head != title.rstrip(" .") and len(head.split()) >= 3 else title
+    head, tail = title[: m.start()], title[m.start() :]
+    last = (re.findall(r"\w+", head) or [""])[-1]
+    if len(last) < 3 or last.casefold() in _ABBREV or negations(tail):
+        return title
+    head = head.rstrip(" .")
+    return head if len(head.split()) >= 3 else title
 
 
 def title_prefix(a: str | None, b: str | None) -> bool:

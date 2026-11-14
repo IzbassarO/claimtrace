@@ -7,6 +7,7 @@ import pytest
 from claimtrace import refaudit
 from claimtrace.core.schemas import ProviderOutcome, Reference, RefStatus, Work
 from claimtrace.core.settings import get_settings
+from claimtrace.refaudit import providers
 from claimtrace.refaudit.match import strip_venue, word_coverage
 
 OK = [
@@ -190,3 +191,11 @@ async def test_glued_venue_is_stripped_for_search_but_kept_in_report():
     assert a.status == RefStatus.verified
     assert a.reference.title == title
     assert not any(r.url.host == "export.arxiv.org" for r in seen)  # identified: no fallback
+
+
+async def test_arxiv_id_lookup_non_atom_page_is_a_failure():
+    page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>maintenance</body></html>'
+    mock = httpx.MockTransport(lambda r: httpx.Response(200, text=page))
+    async with httpx.AsyncClient(transport=mock) as client:
+        out = await providers.arxiv_batch(client, providers.Gate(1), ["1206.6434"])
+    assert isinstance(out["1206.6434"], providers.ProviderError)

@@ -282,8 +282,11 @@ _ATOM = {"a": "http://www.w3.org/2005/Atom", "x": "http://arxiv.org/schemas/atom
 
 
 def parse_arxiv(xml: str) -> list[Work]:
+    root = ET.fromstring(xml)
+    if root.tag != f"{{{_ATOM['a']}}}feed":  # a 200 proxy / maintenance page is no answer
+        raise ProviderError("arXiv answer is not an Atom feed")
     out = []
-    for e in ET.fromstring(xml).findall("a:entry", _ATOM):
+    for e in root.findall("a:entry", _ATOM):
         eid = e.findtext("a:id", "", _ATOM)
         if "/abs/" not in eid:  # error entries have an /api/errors id
             raise ProviderError("arXiv error entry")
