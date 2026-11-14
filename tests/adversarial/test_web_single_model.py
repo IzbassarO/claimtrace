@@ -124,7 +124,9 @@ def test_mixed_report_counts_n_of_m_and_keeps_needs_review_for_disagreement():
     assert text(out["one-model"]).startswith(NOTICE.format(5, "7 claims"))
     assert attention_ids(out) == ["1", "2", "7"]
     tags = [text(t) for t in find(out["claims"], lambda n: "tag" in n["cls"].split())]
-    assert tags.count("needs review") == 1 and tags.count("judge only") == 5
+    assert tags.count("judge only") == 5
+    marks = [text(m) for m in find(out["claims"], lambda n: "s-review" in n["cls"].split())]
+    assert marks == ["Needs review"]
     review = [b for b in find(out["meters"], lambda n: n["tag"] == "button") if "review" in text(b)]
     assert [text(b) for b in review] == ["1 need review"]
 
@@ -154,5 +156,5 @@ def test_markdown_carries_the_notice_and_judge_only_heading():
     assert "### c1 -> [1] unsupported (judge only)" in md
     r.claims[1] = claim(2, "partly_supported", skeptic="supported")
     md = export.to_markdown(r)
-    assert "### c2 -> [1] partly_supported (needs review)" in md
+    assert "### c2 -> [1] needs review — judge: partly supported, skeptic: supported" in md
     assert NOTICE.format(6, "7 claims") in md

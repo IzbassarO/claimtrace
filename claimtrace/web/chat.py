@@ -19,6 +19,8 @@ SYSTEM = (
     "'insufficient_evidence' and 'source_not_found' mean the claim could not be checked. "
     "A claim needs review only when both 'judge' and 'skeptic' are present and disagree; if one "
     "of them is null, that model was unavailable and the claim was checked by one model only. "
+    "Present a claim whose readers disagree as 'needs review' with both verdicts, never as its "
+    "'verdict' field alone (that holds the more cautious of the two). "
     "Quote source text only from the report's verified 'quote' fields. Answer briefly in "
     "plain text, without markdown or HTML."
 )

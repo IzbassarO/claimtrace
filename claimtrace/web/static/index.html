@@ -69,17 +69,18 @@
           <dt>Evidence</dt><dd>A verdict is shown only with a quote of at least 5 words found
             verbatim in the source.</dd>
           <dt>Two readers</dt><dd>A judge and a skeptic on different model providers. If they
-            disagree, the claim is flagged and the more cautious verdict is kept.</dd>
+            disagree, the claim reads “Needs review” with both verdicts shown.</dd>
         </dl>
         <h2>Readout key</h2>
         <ul class="key">
           <li><span class="mark s-ok v u-supported"><span class="word">Supported</span></span></li>
           <li><span class="mark s-partly v u-partly_supported"><span class="word">Partly supported</span></span></li>
-          <li><span class="mark s-bad v u-unsupported"><span class="word">Not supported</span></span></li>
+          <li><span class="mark s-bad v u-unsupported"><span class="word">Not supported</span></span>
+            <span class="hint">both readers agree, with a verbatim quote</span></li>
           <li><span class="mark s-unknown v u-insufficient_evidence"><span class="word">Not enough evidence</span></span>
             <span class="hint">never counted against you</span></li>
           <li><span class="mark s-review"><span class="word">Needs review</span></span>
-            <span class="hint">the two readers disagree</span></li>
+            <span class="hint">the two readers disagree; both verdicts shown</span></li>
         </ul>
         <h2 id="data-h">About your data</h2>
         <p class="hint">Best used on published or preprint papers; avoid uploading confidential manuscripts.</p>
@@ -144,9 +145,11 @@
             <dt>Evidence</dt><dd>A verdict is shown only with a quote of at least 5 words found
               verbatim in the source. Without one, the claim reads “Not enough evidence”, which is
               never counted against you.</dd>
-            <dt>Two readers</dt><dd>A judge and a skeptic on different model providers. If they
-              disagree, the claim is flagged “Needs review” and the more cautious verdict is kept.
-              If one of them is unavailable, the row says “judge only” or “skeptic only”.</dd>
+            <dt>Two readers</dt><dd>A judge and a skeptic on different model providers.
+              “Not supported” means both readers agree the source does not back the sentence, with a
+              verbatim quote. “Needs review” means the two readers disagree; both verdicts are shown
+              (“Judge: … · Skeptic: …”) for you to decide. If one of them is unavailable, the row
+              says “judge only” or “skeptic only”.</dd>
             <dt>Could not check</dt><dd>A lookup or model failure is never a finding: it is shown as
               “Could not check”, not as a problem with the manuscript.</dd>
           </dl>
