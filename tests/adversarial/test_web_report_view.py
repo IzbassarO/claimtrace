@@ -62,7 +62,8 @@ vm.runInContext(fs.readFileSync(process.argv.at(-1), "utf8"), ctx);
 for (const c of JSON.parse(fs.readFileSync(0, "utf8")))
   typeof c === "string" ? vm.runInContext(c, ctx) : ctx.renderReport(...c);
 const out = {};
-for (const id of ["meters", "timings", "filter-note", "summary", "refs", "claims", "refs-wait",
+for (const id of ["headline", "ledgers", "meters", "timings", "filter-note", "summary", "refs",
+                  "claims", "refs-wait",
                   "claims-wait", "live", "live-stage",
                   "saved", "saved-note", "report"]) out[id] = document.getElementById(id).dump();
 process.stdout.write(JSON.stringify(out));
@@ -174,7 +175,7 @@ def test_supported_claim_citing_mismatched_reference_is_shown_with_a_note():
     )
     out = render(report)
     shown = open_text(out["claims"])
-    assert "Reference metadata does not match the cited work" in shown
+    assert "details differ from the found record" in shown
     assert "Residual learning eases training" in shown
     # counted by its own verdict: a mismatch alone is not a claim problem
     assert "0 of 1 claim need attention" in text(out["summary"])
@@ -343,7 +344,7 @@ def test_partial_report_counts_only_what_is_done_and_marks_sections():
     assert out["refs-wait"]["hidden"] is True and out["claims-wait"]["hidden"] is False
 
 
-def test_streamed_items_keep_arrival_order_including_the_final_render():
+def test_streamed_items_keep_arrival_order_until_the_run_finishes():
     # severity order would put not_found (ref 2) above metadata_mismatch (ref 1)
     a1, a2 = audit("1", RefStatus.metadata_mismatch), audit("2", RefStatus.not_found)
     out = render_calls(
@@ -351,7 +352,8 @@ def test_streamed_items_keep_arrival_order_including_the_final_render():
     )
     assert ref_order(out) == ["1", "2"]
     out = render_calls([[partial(a1), running("references")], [partial(a1, a2, complete=True)]])
-    assert ref_order(out) == ["1", "2"]  # no re-sort under the reader's eyes at the end
+    # once final: sorted worst first, the same order the permalink of this report shows
+    assert ref_order(out) == ["2", "1"]
     assert out["claims-wait"]["hidden"] is True and out["report"]["cls"] == ""
     assert text(out["live-stage"]) == "Audit complete."
     assert not text(out["summary"]).startswith("So far")
@@ -510,3 +512,49 @@ def test_reason_line_does_not_stop_at_et_al():
     )
     shown = visible(out["claims"])
     assert "Wu et al. 2016 say twice." in shown and "Not +50." not in shown
+
+
+def missing_ref_report(verdict=Verdict.supported) -> dict:
+    report = Report(
+        id="x",
+        references=[audit("1", RefStatus.not_found), audit("2", RefStatus.verified)],
+        claims=[
+            ClaimCheck(
+                citation_id="c1",
+                ref_id="1",
+                sentence="Quantum folding guides songbirds [1].",
+                verdict=verdict,
+                quote="quantum folding of circadian proteins guides migration",
+                evidence_kind=EvidenceKind.abstract,
+            )
+        ],
+    )
+    return report.model_dump(mode="json")
+
+
+def test_claim_citing_a_missing_reference_needs_attention_and_is_never_green():
+    tag = 'document.getElementById("refs-sec").className = "REFS";'
+    out = render_calls([tag, [missing_ref_report()]])
+    claims = out["claims"]
+    attention = text(claims).split("Needs your attention", 1)
+    assert len(attention) == 2 and "Quantum folding guides songbirds" in attention[1]
+    assert "Quantum folding" not in collapsed(claims)
+    assert "The cited reference was not found." in open_text(claims)
+    marks = find(claims, lambda n: "mark" in n["cls"].split())
+    assert marks and not any("s-ok" in m["cls"] for m in marks)
+    # the worst finding leads: references first, and the headline names it in plain words
+    assert out["ledgers"]["kids"][0]["cls"] == "REFS"
+    assert text(out["headline"]) == "1 reference not found."
+
+
+def test_headline_counts_say_when_they_overlap():
+    r = Report.model_validate(two_claims())
+    r.claims[0].needs_review = True
+    out = render_calls([[r.model_dump(mode="json")]])
+    assert text(out["headline"]) == (
+        "1 claim not supported · 1 claim needs review (1 claim is in both counts)."
+    )
+    ok_only = Report.model_validate(two_claims())
+    ok_only.claims = ok_only.claims[1:]
+    out = render_calls([[ok_only.model_dump(mode="json")]])
+    assert text(out["headline"]) == "No problems found in 1 claim and 1 reference."

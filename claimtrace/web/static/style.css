@@ -17,7 +17,7 @@
   --color-accent-primary-hover: #084a45;
   --color-accent-on: #ffffff;
   --color-accent-tint: #e3f0ee;
-  --color-tick-done: #4a555b;
+  --color-tick-done: #14191c;
   --color-border-input: #7d898f; /* form fields, drop zone, pending ticks: >= 3:1 */
   --color-tick-todo: var(--color-border-input);
   --color-status-supported: #1d6b3a;
@@ -108,7 +108,7 @@
     --color-accent-primary-hover: #8ad7cd;
     --color-accent-on: #0c1213;
     --color-accent-tint: #1b2e2c;
-    --color-tick-done: #a9b4b9;
+    --color-tick-done: #e3e8ea;
     --color-border-input: #6b787d;
     --color-tick-todo: var(--color-border-input);
     --color-status-supported: #74c893;
@@ -135,7 +135,7 @@
   --color-accent-primary-hover: #8ad7cd;
   --color-accent-on: #0c1213;
   --color-accent-tint: #1b2e2c;
-  --color-tick-done: #a9b4b9;
+  --color-tick-done: #e3e8ea;
   --color-border-input: #6b787d;
   --color-tick-todo: var(--color-border-input);
   --color-status-supported: #74c893;
@@ -281,7 +281,9 @@ progress { width: 100%; height: var(--space-2); accent-color: var(--color-accent
 
 /* ---------- report readout ---------- */
 .readout { display: grid; gap: var(--space-5); padding-bottom: var(--space-4); border-bottom: var(--border-width) solid var(--color-border-primary); }
-.summary { color: var(--color-text-secondary); font-size: var(--font-size-md); margin-top: 0; }
+.headline { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin: 0 0 var(--space-2); }
+.headline:empty { display: none; }
+.summary { color: var(--color-text-secondary); margin-top: 0; }
 .live p { color: var(--color-text-secondary); margin: 0 0 var(--space-1); }
 #saved { margin: 0 0 var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
 #saved p { margin: 0; }
@@ -289,9 +291,9 @@ progress { width: 100%; height: var(--space-2); accent-color: var(--color-accent
 .meter-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); margin: 0 0 var(--space-2); }
 .meter-head strong { font-weight: var(--font-weight-semibold); }
 .ruler { display: flex; gap: var(--tick-gap); height: var(--tick-height); }
-.tick { flex: 1; background: var(--color-tick-done); border-radius: var(--border-radius-sm); }
+.tick { flex: 1; background: var(--color-tick-done); border: var(--border-width) solid var(--color-tick-done); border-radius: var(--border-radius-sm); }
 .ruler.dense { gap: 0; }
-.tick.todo { background: var(--color-tick-todo); }
+.tick.todo { background: transparent; border-color: var(--color-tick-todo); } /* hollow: shape differs too */
 .counts { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
 .counts button {
   background: transparent; border: var(--border-width) solid transparent; padding: 0 var(--space-2);
@@ -378,8 +380,8 @@ blockquote.quote::after { content: "\201D"; }
 .chat-log p.user { background: var(--color-bg-tertiary); font-weight: var(--font-weight-semibold); }
 .chat-form { display: flex; gap: var(--space-2); margin: var(--space-2) 0 var(--space-8); }
 
-/* not usable until the report is final (exports/chat need it); hidden without moving the layout */
-.running #exports { visibility: hidden; }
+/* not usable until the report is final (exports/chat need it) */
+.running #exports { display: none; }
 .running #chat, .saved #chat, .saved #share, .saved #exports > :not(#new-job) { display: none; }
 
 @media (min-width: 64rem) {

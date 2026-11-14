@@ -6,6 +6,7 @@ then claims) on that run's own `timings` marks, squeezed into ~150 s. No LLM or 
 Also serves, for design screenshots only:
   /dev/show/<name>?theme=light|dark&open=1   the real page, with report <name> rendered into it
       names: home (no report), sample, final, empty, long, refs200
+  /dev/show/home?theme=light&job=<id>         a running job, polled like its /r/<id> permalink
   /dev/frame?src=<path>&w=390                 the page inside a 390 px iframe (phone width)
 
 Usage: uv run python scripts/replay_server.py [--port 8791] [--seconds 150] [--run PATH]
@@ -229,6 +230,7 @@ SHOW = """<script>
   const q = new URLSearchParams(location.search);
   if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
   const name = %s;
+  if (q.get("job")) addEventListener("load", () => startPolling(q.get("job")));  // live job
   if (!name) return;
   addEventListener("load", async () => {
     const r = await (await fetch("/dev/data/" + name + ".json")).json();

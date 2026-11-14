@@ -8,7 +8,7 @@ B=http://127.0.0.1:8791
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 shot() { # name url width height
   "$CHROME" --headless=new --disable-gpu --hide-scrollbars --no-first-run --no-default-browser-check \
-    --user-data-dir="$PWD/.cache/chrome" --window-size="$3,$4" --virtual-time-budget=4000 \
+    --user-data-dir="$PWD/.cache/${PROFILE:-chrome}" --window-size="$3,$4" --virtual-time-budget=4000 \
     --screenshot="$OUT/$1.png" "$2" 2>/dev/null
 }
 if [[ "${1:-static}" == static ]]; then
@@ -24,11 +24,12 @@ if [[ "${1:-static}" == static ]]; then
   shot long-cases-mobile "$B/dev/frame?src=/dev/show/long%3Ftheme%3Dlight%26open%3D1&w=390&h=3600" 390 3600
   shot refs-200 "$B/dev/show/refs200?theme=light" 1280 3000
 else
-  # streaming: one replayed job, the permalink opened fresh at 5 s, 30 s and 120 s
+  # streaming: one replayed job (~150 s), polled in a fresh browser at 5, 30, 120 s and after it ends
   ID=$(curl -s -F text=replay "$B/api/jobs" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
   T0=$SECONDS
-  for t in 5 30 120; do
+  for t in 5 30 120 158; do
     while (( SECONDS - T0 < t )); do sleep 0.2; done
-    shot "stream-${t}s" "$B/r/$ID?theme=light" 1280 2400
+    name="stream-${t}s"; [[ $t == 158 ]] && name=stream-finished
+    PROFILE=chrome-stream shot "$name" "$B/dev/show/home?theme=light&job=$ID" 1280 2400
   done
 fi

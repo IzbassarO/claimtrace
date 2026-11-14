@@ -15,7 +15,7 @@
   <header class="top">
     <div class="top-in">
       <a class="brand" href="/">ClaimTrace</a>
-      <button id="theme" type="button" class="ghost" aria-pressed="false">Dark theme</button>
+      <button id="theme" type="button" class="ghost">Dark theme</button>
     </div>
   </header>
 
@@ -36,8 +36,7 @@
             </div>
             <button id="sample" type="button" class="secondary" aria-describedby="sample-hint">Try a sample</button>
           </div>
-          <p id="sample-hint" class="sr-only">Shows a saved audit of a short sample manuscript with one correct
-            citation, one overstated claim and one fabricated reference.</p>
+          <p id="sample-hint" class="sr-only"></p>
           <div id="panel-upload" role="tabpanel" aria-labelledby="tab-upload">
             <label id="drop" class="drop" for="files">
               <span class="drop-title">Drop the manuscript here, or choose files</span>
@@ -103,10 +102,10 @@
       <div id="report">
       <div class="readout">
         <div class="readout-text">
+          <p id="headline" class="headline"></p>
           <p id="summary" class="summary"></p>
           <div id="live" class="live" hidden>
             <p id="live-stage" aria-live="polite"></p>
-            <progress id="live-bar" aria-labelledby="live-stage"></progress>
           </div>
         </div>
         <div id="meters" class="meters"></div>
@@ -118,19 +117,20 @@
         <button id="new-job" type="button" class="link">Audit another manuscript</button>
         <span id="copy-status" role="status"></span>
       </p>
-      <p id="share" class="permalink">Shareable link (anyone with it can view this report; kept for the
-        newest 1000 reports on this server): <a id="permalink"></a></p>
+      <p id="share" class="permalink"><span id="share-note"></span><a id="permalink"></a></p>
       <p id="filter-note" class="filter-note" role="status"></p>
 
-      <section aria-labelledby="claims-h">
+      <div id="ledgers">
+      <section id="claims-sec" aria-labelledby="claims-h">
         <h2 id="claims-h">Claims <span id="claims-n" class="n"></span> <span id="claims-wait" class="wait" hidden>Still checking…</span></h2>
         <div id="claims"></div>
       </section>
 
-      <section aria-labelledby="refs-h">
+      <section id="refs-sec" aria-labelledby="refs-h">
         <h2 id="refs-h">References <span id="refs-n" class="n"></span> <span id="refs-wait" class="wait" hidden>Still checking…</span></h2>
         <div id="refs"></div>
       </section>
+      </div>
 
       <details id="tech" class="tech">
         <summary>Technical details: warnings and timings</summary>

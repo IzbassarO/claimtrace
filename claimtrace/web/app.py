@@ -308,6 +308,12 @@ async def chat_route(job_id: str, body: ChatIn, request: Request) -> dict:
     return {"answer": answer}
 
 
+@app.get("/api/info")
+async def info() -> dict:
+    """Facts the page states instead of hard-coding them."""
+    return {"max_reports": MAX_REPORTS}
+
+
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}

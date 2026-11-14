@@ -15,7 +15,46 @@ real app served by `scripts/replay_server.py` (no LLM calls) and were taken with
 | `report-empty.png` | Empty report screen |
 | `long-cases.png`, `long-cases-mobile.png` | A 5-line sentence, an 8-line quote, a long title, an unbroken URL and DOI, needs review |
 | `refs-200.png` | 200 references and 28 claims |
-| `stream-5s.png`, `stream-30s.png`, `stream-120s.png` | One replayed job (about 150 s), opened in a fresh browser at 5, 30 and 120 s |
+| `stream-5s.png`, `stream-30s.png`, `stream-120s.png`, `stream-finished.png` | One replayed job (about 150 s) in light theme, polled in a fresh browser at 5, 30 and 120 s and after it ends (158 s) |
+
+## After the fresh-eyes review of PR #105
+
+1. **Missing or retracted reference ⇒ attention.** A claim that cites a `not_found` or `retracted`
+   reference is now always in "Needs your attention". Its verdict mark is drawn neutral (dashed
+   circle), never the green filled one, whatever the source text said. Claims citing
+   `metadata_mismatch` or `unchecked` references stay in the middle group with a note. In the
+   sample, c3 (the fabricated reference) is now in attention; in `refs-200`, c7 → ref 49 is no
+   longer green.
+2. **Same order live and on the permalink.** Arrival order is kept only while the run is going. On
+   the final render, rows are sorted once, worst first: verdict or status, then needs review, then
+   the cited reference's status, with arrival order breaking ties. The permalink uses the same sort.
+3. **Headline in plain words.** A primary-ink headline names the worst counts, for example
+   "1 reference not found · 7 claims not supported · 21 claims need review (5 claims are in both
+   counts)." When claim counts overlap, the headline says so. The old "partly supported, not
+   checkable, or citing a doubtful reference" phrase is gone from the summary. When any reference is
+   not found or retracted, the References section moves above Claims (a DOM move, so focus order
+   follows).
+4. **Filters scroll.** Clicking a counter scrolls the filtered section into view (smooth unless
+   reduced motion is on) and keeps focus on the pressed counter (`preventScroll`).
+5. **Stream shots retaken in light theme** at 5, 30 and 120 s, plus a finished shot. The replay
+   page polls a real job through `/dev/show/home?theme=light&job=<id>`.
+6. **Mismatch wording.** The note now reads "Details differ from the found record (year)." on both
+   the reference row and the claim citing it, matching the "Details differ" label.
+7. **Theme button.** It names the theme it switches to ("Light theme" while dark is on). I dropped
+   `aria-pressed` on purpose: a toggle button whose label changes with its state would be read as
+   "Light theme, pressed" while dark is on, which contradicts itself (WAI-ARIA APG: a toggle keeps
+   a constant label). The label alone carries the state.
+8. **Nothing hard-coded.**
+   - The retention sentence comes from a new `GET /api/info` → `{"max_reports": N}`. If that
+     request fails, the sentence falls back to "kept for a limited number of recent reports".
+   - The "Try a sample" description is counted from `sample-report.json` itself.
+9. **Ticks and running layout.**
+   - Done ticks are solid primary ink and pending ticks are hollow, outlined in the input-border
+     colour. They differ by shape and by contrast: 4.9:1 apart in light, 3.7:1 in dark.
+   - While running, the exports band is collapsed (`display: none`) instead of leaving an
+     invisible gap.
+   - The duplicated progress bar on the left is removed; the rulers are the only progress
+     display.
 
 ## Against the brief and B's README
 
@@ -23,7 +62,8 @@ Done:
 - **Ledger, aligned columns.** Rows run *citation, citing sentence, source says, verdict*. The quote
   is the largest and darkest text in the row and the sentence is secondary ink. References use
   *reference, cited as, found, status*, and the Details panel shows a field / cited / found table.
-- **Readout instead of tiles.** There are two tick rulers (claims, references) with `n / N checked`.
+- **Readout instead of tiles.** A plain-words headline, then two tick rulers (claims, references)
+  with `n / N checked`.
   The per-status counters appear only once that section is final; while it runs, the meter says
   "Counts by verdict appear when every claim is checked." The brief's rule against showing counts
   before the run is complete is kept.
@@ -46,8 +86,8 @@ Done:
 - **Counters are filters.** Each counter is a `<button aria-pressed>`. A click shows only matching
   rows, as one ledger without groups. A `role=status` line says "Showing only claims: supported."
   and offers "Show all". Focus stays on the pressed counter across the re-render.
-- **Themes.** Light by default, with `prefers-color-scheme` and a manual toggle (`aria-pressed`)
-  stored in `localStorage` (inside try/catch). An inline head script applies the stored choice
+- **Themes.** Light by default, with `prefers-color-scheme` and a manual toggle (its label names the
+  target theme) stored in `localStorage` (inside try/catch). An inline head script applies the stored choice
   before first paint.
 - **Tokens.** Every colour, size, space, radius, duration and column width is a custom property on
   `:root`. Component rules use only `var(...)`; the remaining literals are `0`, `1fr`, gradient
@@ -83,12 +123,13 @@ drop is an extra; the input is the real control. After "Paste text" the textarea
 again during streaming. DOM order: saved notice / Run live → summary → claims counters → reference
 counters → Download JSON / Markdown → Copy link → Audit another → permalink → "Show all" (when a
 filter is on) → claims rows (source link, Details) → "Show N supported claims" → references → Technical
-details → chat. Visual order matches DOM order except that the meters sit to the right of the
-summary on wide screens, and they come straight after it in the DOM.
+details → chat. When a reference is not found or retracted, the References section comes before Claims in
+the DOM as well as on screen. The meters sit to the right of the summary on wide screens and come
+straight after it in the DOM.
 
 **ARIA.**
 - Tabs: `role=tablist/tab/tabpanel`, `aria-selected`, `aria-controls`, `aria-labelledby`.
-- Theme: `aria-pressed`.
+- Theme: an action label ("Dark theme" / "Light theme"), no `aria-pressed` (see fix 7).
 - Counters: `aria-pressed`, in a list labelled "Filter by status".
 - Rulers: `role=img` with an `aria-label` such as "41 of 58 checked".
 - Disclosures: native `details/summary`.
@@ -118,7 +159,8 @@ Non-text UI needs 3:1:
 | Element | Light | Dark |
 |---|---|---|
 | Field, drop zone and pending-tick borders (`--color-border-input`) on row / page / well | 3.6 / 3.3 / 3.1 | 3.8 / 4.0 / 3.3 |
-| Done ticks | 7.7 | 8.1 |
+| Done ticks on the page | 16.3 | 14.9 |
+| Done vs pending tick | 4.9 | 3.7 |
 | Focus ring | 7.1 | 9.6 |
 
 The ledger rules (`--color-border-primary`, 1.6:1 light) are decorative separators, not controls.
