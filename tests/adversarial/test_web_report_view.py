@@ -62,7 +62,8 @@ vm.runInContext(fs.readFileSync(process.argv.at(-1), "utf8"), ctx);
 for (const c of JSON.parse(fs.readFileSync(0, "utf8")))
   typeof c === "string" ? vm.runInContext(c, ctx) : ctx.renderReport(...c);
 const out = {};
-for (const id of ["summary", "refs", "claims", "refs-wait", "claims-wait", "live", "live-stage",
+for (const id of ["meters", "timings", "filter-note", "summary", "refs", "claims", "refs-wait",
+                  "claims-wait", "live", "live-stage",
                   "saved", "saved-note", "report"]) out[id] = document.getElementById(id).dump();
 process.stdout.write(JSON.stringify(out));
 """
@@ -198,7 +199,7 @@ def test_unchecked_with_all_providers_ok_is_not_called_a_lookup_failure():
     # every provider answered: telling the user "the lookup failed" sends them to retry later
     # instead of checking a likely miscited reference
     assert "lookup failed" not in shown
-    assert "unchecked" in shown
+    assert "could not check" in shown
     assert "neither year (±1) nor first author confirm it" in shown
 
 
@@ -214,7 +215,7 @@ def test_unchecked_after_provider_failure_says_lookup_failed():
         ],
     )
     shown = text(render(report)["refs"])
-    assert "Unchecked (lookup failed)" in shown
+    assert "Could not check (lookup failed)" in shown
     assert "crossref failed: timeout" in shown
 
 
@@ -380,3 +381,120 @@ def test_saved_sample_is_labelled_as_saved():
         "Saved example — computed on 13 November 2026; results may differ in a live run."
     )
     assert out["live"]["hidden"] is True
+
+
+# ---------- progressive disclosure, filters, readout ----------
+
+
+def find(n, pred) -> list:
+    if isinstance(n, str):
+        return []
+    return ([n] if pred(n) else []) + [x for k in n["kids"] for x in find(k, pred)]
+
+
+def visible(n) -> str:
+    """Text shown without opening any <details> (summaries stay visible)."""
+    if isinstance(n, str):
+        return n
+    if n["tag"] == "details" and "open" not in n["attrs"]:
+        return "".join(
+            visible(k) for k in n["kids"] if not isinstance(k, str) and k["tag"] == "summary"
+        )
+    return "".join(visible(k) for k in n["kids"])
+
+
+def two_claims(**kw) -> dict:
+    w = Work(provider="crossref", title="Deep residual learning", year=2005)
+    judge = ModelOpinion(
+        verdict="unsupported",
+        rationale="The source reports a different depth. It never says 1000 layers.",
+    )
+    skeptic = ModelOpinion(verdict="unsupported", rationale="SKEPTIC-ONLY rationale text.")
+    claims = [
+        ClaimCheck(
+            citation_id="c1",
+            ref_id="1",
+            sentence="Residual nets train 1000 layers [1].",
+            verdict=Verdict.unsupported,
+            quote="we train residual networks with depth of 152 layers",
+            evidence_kind=EvidenceKind.full_text,
+            judge=judge,
+            skeptic=skeptic,
+        ),
+        ClaimCheck(
+            citation_id="c2",
+            ref_id="1",
+            sentence="Residual learning eases training [1].",
+            verdict=Verdict.supported,
+            quote="residual learning framework to ease the training of networks",
+            evidence_kind=EvidenceKind.abstract,
+        ),
+    ]
+    refs = [
+        ReferenceAudit(
+            reference=ref("1", "Deep residual learning"),
+            status=RefStatus.verified,
+            matched=w,
+            providers=ok,
+        )
+    ]
+    return Report(id="x", references=refs, claims=claims, **kw).model_dump(mode="json")
+
+
+def test_claim_row_shows_one_reason_and_hides_rationales_behind_details():
+    out = render_calls([[two_claims()]])
+    shown = visible(out["claims"])
+    assert "Residual nets train 1000 layers" in shown
+    assert "we train residual networks with depth of 152 layers" in shown
+    assert "Not supported" in shown
+    # one sentence of reason by default; the rest and the skeptic only behind "Details"
+    assert "The source reports a different depth." in shown
+    assert "It never says 1000 layers" not in shown and "SKEPTIC-ONLY" not in shown
+    assert "SKEPTIC-ONLY" in text(out["claims"])
+    (more,) = [d for d in find(out["claims"], lambda n: n["cls"] == "more") if "SKEPTIC" in text(d)]
+    assert text(find(more, lambda n: n["tag"] == "summary")[0]) == "Details"
+
+
+def test_opened_details_survive_a_stream_update():
+    key = "why-c:c1:1"
+    out = render_calls(
+        [
+            [two_claims(complete=False), running("claims")],
+            f'openKeys.add("{key}")',
+            [two_claims(complete=False), running("claims")],
+        ]
+    )
+    (d,) = find(out["claims"], lambda n: n["attrs"].get("data-key") == key)
+    assert "open" in d["attrs"]
+
+
+def test_counters_are_toggle_buttons_that_filter_the_ledger():
+    out = render_calls([[two_claims()]])
+    buttons = find(out["meters"], lambda n: n["tag"] == "button")
+    by = {b["attrs"]["data-filter"]: b for b in buttons}
+    assert {"c:unsupported", "c:supported", "r:verified"} <= set(by)
+    assert all(b["attrs"]["aria-pressed"] == "false" for b in buttons)
+    assert text(by["c:supported"]).startswith("1")
+    out = render_calls([[two_claims()], 'filter = "c:supported"; renderReport(...lastRender);'])
+    claims = text(out["claims"])
+    assert "Residual learning eases training" in claims and "1000 layers" not in claims
+    pressed = [
+        b
+        for b in find(out["meters"], lambda n: n["tag"] == "button")
+        if b["attrs"]["aria-pressed"] == "true"
+    ]
+    assert [b["attrs"]["data-filter"] for b in pressed] == ["c:supported"]
+    assert "Show all" in text(out["filter-note"])
+    # references are not filtered by a claim filter
+    assert "ref 1" in text(out["refs"])
+
+
+def test_partial_report_shows_no_per_verdict_counts_and_timings_are_listed():
+    timings = {"t_references_start": 1.0, "t_references_end": 3.5, "t_total": 9.0}
+    out = render_calls([[two_claims(complete=False, timings=timings), running("claims")]])
+    claims_meter = out["meters"]["kids"][0]
+    assert not find(claims_meter, lambda n: n["tag"] == "button")
+    assert "Counts by verdict appear when every claim is checked." in text(claims_meter)
+    assert "2 / 3 checked" in text(claims_meter)  # job total for the running stage
+    t = text(out["timings"])
+    assert "Checking references2.5 s" in t and "Total9.0 s" in t

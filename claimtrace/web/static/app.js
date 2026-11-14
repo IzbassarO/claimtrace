@@ -10,19 +10,19 @@ const STAGES = [
   ["sources", "Fetching cited sources"],
   ["claims", "Checking claims against sources"],
 ];
-// value -> [label, level]; level picks the shape (ok, warn, bad, unknown), order = severity
+// value -> [label, level]; level picks the shape (see .s-* in style.css), order = severity
 const STATUS = {
   not_found: ["Not found", "bad"],
   retracted: ["Retracted", "bad"],
-  metadata_mismatch: ["Metadata mismatch", "warn"],
-  unchecked: ["Unchecked", "unknown"],
+  metadata_mismatch: ["Details differ", "mismatch"],
+  unchecked: ["Could not check", "unknown"],
   verified: ["Verified", "ok"],
 };
 const VERDICT = {
-  unsupported: ["Unsupported", "bad"],
-  partly_supported: ["Partly supported", "warn"],
+  unsupported: ["Not supported", "bad"],
+  partly_supported: ["Partly supported", "partly"],
   source_not_found: ["Source not found", "unknown"],
-  insufficient_evidence: ["Insufficient evidence", "unknown"],
+  insufficient_evidence: ["Not enough evidence", "unknown"],
   supported: ["Supported", "ok"],
 };
 
@@ -62,10 +62,11 @@ function link(url, text) {
   return el("span", {}, text || String(url));
 }
 
-// Status label with a CSS shape, so it never depends on colour alone.
+// Status word + CSS shape (+ colour); verdict words also get their own underline style.
 function mark(value, labels, label) {
   const [text, level] = labels[value] || [value, "unknown"];
-  return el("span", { className: `mark m-${level}` }, label || text);
+  const v = labels === VERDICT ? ` v u-${value}` : "";
+  return el("span", { className: `mark s-${level}${v}` }, el("span", { className: "word" }, label || text));
 }
 
 const rank = (labels, value) => { const i = Object.keys(labels).indexOf(value); return i < 0 ? 0 : i; };
@@ -121,12 +122,7 @@ async function trySample() {
     const resp = await fetch("/static/sample-report.json");
     if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
     jobId = null; // the sample is no job: no polling, chat, export or share link for it
-    chatHistory = [];
-    streamed = false;
-    seen = new Map();
-    lastShown = "";
-    openKeys.clear();
-    $("chat-log").replaceChildren();
+    clearView();
     renderReport(await resp.json(), { saved: true });
   } catch (e) {
     formMessage(e.message);
@@ -142,22 +138,30 @@ async function runSampleLive() {
   try {
     const resp = await fetch("/static/sample.txt");
     if (!resp.ok) throw new Error(`Could not load the sample (HTTP ${resp.status}).`);
+    selectTab("paste");
     $("text").value = await resp.text();
     $("files").value = "";
+    showFiles();
     $("job-form").requestSubmit();
   } catch (e) {
     formMessage(e.message);
   }
 }
 
-function startPolling(id) {
-  jobId = id;
+// Per-report view state (stream order, opened disclosures, filter, chat) starts fresh per report.
+function clearView() {
   chatHistory = [];
   streamed = false;
   seen = new Map();
   lastShown = "";
   openKeys.clear();
+  filter = null;
   $("chat-log").replaceChildren();
+}
+
+function startPolling(id) {
+  jobId = id;
+  clearView();
   show("progress");
   renderStages({ status: "queued" });
   resumePolling();
@@ -241,8 +245,9 @@ async function poll() {
   setTimeout(poll, 1000);
 }
 
-// ref id -> audit status, set by renderReport: a claim is only as good as the reference it cites
-let refStatus = new Map();
+// ref id -> audit, set by renderReport: a claim is only as good as the reference it cites
+let refAudits = new Map();
+const refStatus = { get: (id) => (refAudits.get(id) || {}).status };
 const REF_NOTE = {
   retracted: "The cited source is retracted.",
   not_found: "The cited reference was not found.",
@@ -257,30 +262,78 @@ const claimMiddle = (c) => !claimAttention(c) && (c.verdict !== "supported" || r
 const MIDDLE = "Partly supported, not checkable, or citing a doubtful reference";
 const need = (n) => (n === 1 ? "needs" : "need");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const firstSentence = (s) => String(s || "").split(/(?<=[.!?])\s+/)[0];
 
-function refItem(a) {
-  const ref = a.reference;
+const CLAIM_COLS = ["Citation", "Citing sentence", "Source says", "Verdict"];
+const REF_COLS = ["Reference", "Cited as", "Found", "Status"];
+const cell = (cols, i, ...children) => el("div", { className: i === 0 ? "id" : i === 3 ? "verdict" : "" },
+  el("span", { className: "cell-label" }, cols[i]), children);
+
+// Reader state that survives the re-render on every streamed snapshot.
+let filter = null; // "c:<verdict>", "c:review", "r:<status>" or null (show everything)
+let lastRender = null; // [report, opts] for re-rendering when a filter changes
+let fresh = new Set(); // keys that arrived in this render (briefly highlighted)
+const filterMatch = (x) => (filter === "c:review" ? !!x.needs_review : filter.slice(2) === (x.reference ? x.status : x.verdict));
+
+function rowEl(key, ...children) {
+  return el("li", { className: fresh.has(key) ? "row new" : "row" }, children);
+}
+
+function foundLine(a) {
   const m = a.matched;
   const failed = a.providers.some((p) => !p.ok);
   // unchecked although every provider answered: the audit note says why (possible match, nothing to compare)
   const explained = a.status === "unchecked" && !failed && a.note;
-  const found = m
-    ? el("p", { className: "found" }, el("span", { className: "label" }, "Found: "),
-      m.title || "(untitled)", m.year ? ` (${m.year})` : "", ` · ${m.provider}`,
-      m.doi ? [" · ", link(`https://doi.org/${m.doi}`, `doi:${m.doi}`)] : m.url ? [" · ", link(m.url, "record")] : null)
-    : el("p", { className: "found quiet" }, a.status !== "unchecked" ? "No matching record was found."
-      : failed ? "The lookup failed, so this reference could not be checked."
-        : explained || "The providers answered, but this reference could not be confirmed or ruled out.");
-  const issues = [
-    ...a.mismatches.map((x) => el("li", {}, `${x.field}: cited "${x.cited}", found "${x.found}"`)),
-    ...a.providers.filter((p) => !p.ok).map((p) => el("li", {}, `${p.provider} failed${p.error ? `: ${p.error}` : ""}`)),
-    a.note && !explained ? el("li", {}, a.note) : null,
-  ].filter(Boolean);
-  return el("li", { className: "item" },
-    el("p", { className: "item-head" }, mark(a.status, STATUS, a.status === "unchecked" && failed ? "Unchecked (lookup failed)" : null), el("span", { className: "id" }, `ref ${ref.id}`)),
-    el("p", { className: "cited" }, ref.raw),
-    found,
-    issues.length ? el("ul", { className: "issues" }, issues) : null);
+  if (m) {
+    return el("p", { className: "found" }, el("span", { className: "title" }, m.title || "(untitled)"),
+      m.year ? ` (${m.year})` : "", ` · ${m.provider}`,
+      m.doi ? [" · ", link(`https://doi.org/${m.doi}`, `doi:${m.doi}`)] : m.url ? [" · ", link(m.url, "record")] : null);
+  }
+  return el("p", { className: "found" }, a.status !== "unchecked" ? "No matching record was found."
+    : failed ? "The lookup failed, so this reference could not be checked."
+      : explained || "The providers answered, but this reference could not be confirmed or ruled out.");
+}
+
+function refReason(a) {
+  const failed = a.providers.filter((p) => !p.ok).map((p) => p.provider);
+  if (a.mismatches.length) return `Differs from the found record: ${a.mismatches.map((x) => x.field).join(", ")}.`;
+  if (failed.length && a.status === "unchecked") return `${failed.join(", ")} did not answer; this is not a finding against the reference.`;
+  if (a.status === "unchecked" && a.note && !failed.length) return null; // already the "found" text
+  return a.note ? firstSentence(a.note) : null;
+}
+
+function fieldsTable(a) {
+  if (!a.mismatches.length) return null;
+  return el("table", { className: "fields" },
+    el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "Field"), el("th", { scope: "col" }, "Cited"),
+      el("th", { scope: "col" }, `Found${a.matched ? ` (${a.matched.provider})` : ""}`))),
+    el("tbody", {}, a.mismatches.map((x) => el("tr", {}, el("th", { scope: "row" }, x.field), el("td", {}, x.cited), el("td", {}, x.found)))));
+}
+
+function lookups(a) {
+  const m = a.matched;
+  return el("div", { className: "well" }, el("h4", {}, "Lookups"),
+    el("ul", {}, a.providers.map((p) => el("li", {}, p.ok ? `${p.provider}: ${plural(p.candidates, "candidate")}`
+      : `${p.provider} failed${p.error ? `: ${p.error}` : ""}`))),
+    m && m.authors.length ? el("p", {}, `Found authors: ${m.authors.join("; ")}`) : null,
+    m && m.venue ? el("p", {}, `Found venue: ${m.venue}`) : null,
+    a.note ? el("p", {}, a.note) : null);
+}
+
+function refRow(a) {
+  const ref = a.reference;
+  const key = itemKey(a);
+  const failed = a.providers.some((p) => !p.ok);
+  const reason = refReason(a);
+  const table = fieldsTable(a);
+  return rowEl(key,
+    cell(REF_COLS, 0, `ref ${ref.id}`),
+    cell(REF_COLS, 1, el("p", { className: "cited" }, ref.raw)),
+    cell(REF_COLS, 2, foundLine(a)),
+    cell(REF_COLS, 3, mark(a.status, STATUS, a.status === "unchecked" && failed ? "Could not check (lookup failed)" : null)),
+    reason ? el("p", { className: "reason" }, reason) : null,
+    details(`ref-${key}`, { className: "more" }, el("summary", { "data-fk": `ref-${key}` }, "Details"),
+      el("div", { className: "more-body" }, table ? el("div", { className: "well" }, el("h4", {}, "Fields"), table) : null, lookups(a))));
 }
 
 const itemKey = (x) => (x.reference ? `r:${x.reference.id}` : `c:${x.citation_id}:${x.ref_id}`);
@@ -290,48 +343,118 @@ function details(key, props, ...children) {
   return el("details", { ...props, "data-key": key, ...(openKeys.has(key) ? { open: "" } : {}) }, ...children);
 }
 
-function opinion(role, o) {
-  if (!o) return el("p", {}, `${role}: no answer (model call failed).`);
-  return el("div", { className: "opinion" },
-    el("p", {}, el("strong", {}, `${role}: `), (VERDICT[o.verdict] || [o.verdict])[0]),
+function opinion(role, o, shown) {
+  if (!o) return el("div", { className: "well" }, el("h4", {}, role), el("p", {}, "No answer (model call failed)."));
+  return el("div", { className: "well" },
+    el("h4", {}, role, mark(o.verdict, VERDICT)),
     o.rationale ? el("p", {}, o.rationale) : null,
-    o.quote ? el("p", { className: "quiet" }, `Quoted (not necessarily verified): "${o.quote}"`) : null);
+    o.quote && o.quote !== shown ? el("p", { className: "quiet" }, `Other excerpt it quoted (not verified verbatim): “${o.quote}”`) : null);
 }
 
-function claimCard(c) {
-  const kind = { full_text: "Checked against the full text", abstract: "Checked against the abstract only" }[c.evidence_kind];
-  return el("li", { className: "item claim" },
-    el("article", { "aria-label": `Claim ${c.citation_id} citing reference ${c.ref_id}` },
-      el("p", { className: "item-head" },
-        mark(c.verdict, VERDICT),
-        c.needs_review ? el("span", { className: "mark m-review" }, "Needs review") : null,
-        el("span", { className: "id" }, `${c.citation_id} → ref ${c.ref_id}`)),
-      refNote(c) ? el("p", { className: "notice" }, refNote(c)) : null,
-      el("p", { className: "label" }, "The manuscript says"),
-      el("p", { className: "sentence" }, c.sentence),
-      c.quote
-        ? [el("p", { className: "label" }, "The source says"), el("blockquote", { className: "quote" }, c.quote)]
-        : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
-      el("p", { className: "provenance" }, kind || null, kind && c.section ? ` · § ${c.section}` : "",
-        kind && c.source_url ? " · " : "", c.source_url ? link(c.source_url, "source") : null),
-      c.note ? el("p", { className: "quiet" }, c.note) : null,
-      c.judge || c.skeptic ? details(`why-${itemKey(c)}`, {}, el("summary", {}, "Model rationales"), opinion("Judge", c.judge), opinion("Skeptic", c.skeptic)) : null));
+// "Vaswani et al. 2017, Attention is all you need" from the cited reference's parsed fields
+function refShort(id) {
+  const a = refAudits.get(id);
+  if (!a) return null;
+  const r = a.reference;
+  const who = r.authors.length ? `${r.authors[0].split(",")[0].trim().split(" ").at(-1)}${r.authors.length > 1 ? " et al." : ""}` : "";
+  return [[who, r.year].filter(Boolean).join(" "), r.title].filter(Boolean).join(", ") || null;
 }
 
-// Problems first (worst first), everything fine collapsed in a <details>.
-function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle = () => false, pending = false) {
-  const worst = (xs) => xs.sort(streamed ? (a, b) => seen.get(itemKey(a)) - seen.get(itemKey(b))
+function claimReason(c) {
+  if (c.needs_review) return "The judge and the skeptic disagree; the more cautious verdict is shown.";
+  if (c.note) return firstSentence(c.note);
+  const o = [c.judge, c.skeptic].find((x) => x && x.verdict === c.verdict && x.rationale);
+  return o ? firstSentence(o.rationale) : null;
+}
+
+function claimRow(c) {
+  const key = itemKey(c);
+  const kind = { full_text: "full text", abstract: "abstract" }[c.evidence_kind];
+  const long = { full_text: "Checked against the full text", abstract: "Checked against the abstract only" }[c.evidence_kind];
+  const note = refNote(c);
+  const reason = claimReason(c);
+  const a = refAudits.get(c.ref_id);
+  const src = refShort(c.ref_id);
+  return rowEl(key,
+    cell(CLAIM_COLS, 0, `${c.citation_id} → ref ${c.ref_id}`, kind ? el("span", { className: "kind" }, kind) : null),
+    cell(CLAIM_COLS, 1, el("p", { className: "sentence" }, c.sentence)),
+    cell(CLAIM_COLS, 2, c.quote ? el("blockquote", { className: "quote" }, c.quote)
+      : el("p", { className: "quiet" }, "No verbatim quote from the source backs a verdict."),
+    src || c.source_url ? el("p", { className: "provenance" }, src, src && c.source_url ? " · " : "", c.source_url ? link(c.source_url, "source") : null) : null),
+    cell(CLAIM_COLS, 3, mark(c.verdict, VERDICT),
+      c.needs_review ? el("span", { className: "mark s-review" }, el("span", { className: "word" }, "Needs review")) : null,
+      note ? el("p", { className: "ref-note" }, note) : null),
+    reason ? el("p", { className: "reason" }, reason) : null,
+    details(`why-${key}`, { className: "more" }, el("summary", { "data-fk": `why-${key}` }, "Details"),
+      el("div", { className: "more-body" },
+        c.judge || c.skeptic ? [opinion("Judge", c.judge, c.quote), opinion("Skeptic", c.skeptic, c.quote)] : null,
+        el("div", { className: "well" }, el("h4", {}, "Source"),
+          el("p", {}, [long, c.section ? `§ ${c.section}` : null].filter(Boolean).join(" · ") || "No source text was read."),
+          c.source_url ? el("p", {}, link(c.source_url)) : null,
+          c.note ? el("p", {}, c.note) : null),
+        a ? el("div", { className: "well" }, el("h4", {}, `Reference ${a.reference.id}`, mark(a.status, STATUS)),
+          el("p", {}, a.reference.raw), fieldsTable(a)) : null)));
+}
+
+function ledger(cols, rows) {
+  return [el("div", { className: "ledger-head", "aria-hidden": "true" }, cols.map((h) => el("span", {}, h))),
+    el("ol", { className: "ledger" }, rows)];
+}
+
+// Problems first (worst first), everything fine collapsed in a <details>. With a filter on this
+// section: one ledger of the matching rows only.
+function group(items, isProblem, labels, key, render, noun, fineNoun, isMiddle, pending, cols, prefix) {
+  const order = (xs) => xs.sort(streamed ? (a, b) => seen.get(itemKey(a)) - seen.get(itemKey(b))
     : (a, b) => rank(labels, key(a)) - rank(labels, key(b)));
-  const bad = worst(items.filter(isProblem));
-  const mid = worst(items.filter((x) => !isProblem(x) && isMiddle(x)));
+  if (!items.length) return [el("p", { className: "none" }, pending ? `No ${noun} checked yet.` : `No ${noun} were found in this manuscript.`)];
+  if (filter && filter.startsWith(prefix)) {
+    const hits = order(items.filter(filterMatch));
+    return hits.length ? ledger(cols, hits.map(render)) : [el("p", { className: "none" }, `No ${noun} match this filter.`)];
+  }
+  const bad = order(items.filter(isProblem));
+  const mid = order(items.filter((x) => !isProblem(x) && isMiddle(x)));
   const fine = items.filter((x) => !isProblem(x) && !isMiddle(x));
-  if (!items.length) return [el("p", { className: "quiet" }, pending ? `No ${noun} checked yet.` : `No ${noun} were found in this manuscript.`)];
   return [
-    bad.length ? el("ol", { className: "items" }, bad.map(render)) : el("p", { className: "quiet" }, `No ${noun} need attention${pending ? " so far" : ""}.`),
-    mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), el("ol", { className: "items" }, mid.map(render))] : null,
-    fine.length ? details(`fine-${noun}`, { className: "fine" }, el("summary", {}, plural(fine.length, fineNoun)),
-      el("ol", { className: "items" }, fine.map(render))) : null,
-  ].flat().filter(Boolean);
+    bad.length ? [el("h3", {}, "Needs your attention"), ledger(cols, bad.map(render))]
+      : el("p", { className: "none" }, `No ${noun} need attention${pending ? " so far" : ""}.`),
+    mid.length ? [el("h3", {}, `${MIDDLE} (${mid.length})`), ledger(cols, mid.map(render))] : null,
+    fine.length ? details(`fine-${noun}`, { className: "fine" }, el("summary", { "data-fk": `fine-${noun}` }, `Show ${plural(fine.length, fineNoun)}`),
+      ledger(cols, fine.map(render))) : null,
+  ].flat(Infinity).filter(Boolean);
+}
+
+// One counter per status present; each is a toggle button that filters its section.
+function counters(items, labels, prefix, valueOf, extra) {
+  const n = new Map();
+  for (const x of items) n.set(valueOf(x), (n.get(valueOf(x)) || 0) + 1);
+  const entries = Object.keys(labels).filter((v) => n.get(v)).map((v) => [v, n.get(v), mark(v, labels, `${labels[v][0].toLowerCase()}`)]);
+  if (extra) entries.push(extra);
+  return el("ul", { className: "counts", "aria-label": "Filter by status" }, entries.map(([v, count, m]) => {
+    const f = `${prefix}${v}`;
+    return el("li", {}, el("button", { type: "button", "data-filter": f, "data-fk": `f:${f}`, "aria-pressed": String(filter === f) },
+      el("span", { className: "num" }, String(count)), " ", m));
+  }));
+}
+
+// Readout meter: one tick per item, pending ticks while the total is known but not reached.
+function meter(name, items, total, done, countsNode, waitNote) {
+  const n = items.length;
+  const of = total && total > n ? total : done ? n : null;
+  return el("div", { className: "meter" },
+    el("p", { className: "meter-head" }, el("strong", {}, name),
+      el("span", { className: "n" }, of !== null ? `${n} / ${of} checked` : `${n} checked so far`)),
+    el("div", { className: (of || n) > 80 ? "ruler dense" : "ruler", role: "img", "aria-label": of !== null ? `${n} of ${of} checked` : `${n} checked so far` },
+      Array.from({ length: Math.max(of || 0, n) }, (_, i) => el("span", { className: i < n ? "tick" : "tick todo" }))),
+    done ? countsNode : el("p", { className: "meter-note" }, waitNote));
+}
+
+const TIMED = [["ingest", "Reading the manuscript"], ["references", "Checking references"],
+  ["sources", "Fetching cited sources"], ["claims", "Checking claims"]];
+function timingRows(t) {
+  const rows = TIMED.filter(([k]) => `t_${k}_start` in t && `t_${k}_end` in t)
+    .map(([k, label]) => [label, `${(t[`t_${k}_end`] - t[`t_${k}_start`]).toFixed(1)} s`]);
+  if ("t_total" in t) rows.push(["Total", `${t.t_total.toFixed(1)} s`]);
+  return rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]);
 }
 
 const REF_EXAMPLE = `References
@@ -355,6 +478,7 @@ function renderEmpty(r) {
 
 // opts.job: the running job (r is a partial snapshot); opts.saved: r is the saved sample report.
 function renderReport(r, opts = {}) {
+  lastRender = [r, opts];
   const pending = r.complete === false;
   const empty = !r.references.length && !r.claims.length;
   const first = $("results").hidden;
@@ -367,8 +491,17 @@ function renderReport(r, opts = {}) {
     $("results-h").focus();
     return;
   }
+  // keep keyboard focus on the same control (counter, Details) across the re-render
+  const ae = document.activeElement;
+  const focusKey = ae && ae.getAttribute ? ae.getAttribute("data-fk") : null;
   if (pending) streamed = true;
-  for (const x of [...r.references, ...r.claims]) if (!seen.has(itemKey(x))) seen.set(itemKey(x), seen.size);
+  const hadItems = seen.size > 0;
+  fresh = new Set();
+  for (const x of [...r.references, ...r.claims]) {
+    if (seen.has(itemKey(x))) continue;
+    seen.set(itemKey(x), seen.size);
+    if (streamed && hadItems) fresh.add(itemKey(x));
+  }
   $("report").className = pending ? "running" : opts.saved ? "saved" : "";
   $("saved").hidden = !opts.saved;
   if (opts.saved) {
@@ -393,7 +526,7 @@ function renderReport(r, opts = {}) {
     $("export-json").href = `/api/jobs/${encodeURIComponent(jobId)}/export.json`;
     $("export-md").href = `/api/jobs/${encodeURIComponent(jobId)}/export.md`;
   }
-  refStatus = new Map(r.references.map((a) => [a.reference.id, a.status]));
+  refAudits = new Map(r.references.map((a) => [a.reference.id, a]));
   const nr = r.references.filter(refAttention).length;
   const nc = r.claims.filter(claimAttention).length;
   const nm = r.claims.filter(claimMiddle).length;
@@ -403,16 +536,39 @@ function renderReport(r, opts = {}) {
     r.claims.length ? `${nc} of ${plural(r.claims.length, "claim")} ${need(nc)} attention`
       : pending ? "no claims checked yet" : "No citing sentences were found or checked",
     nm ? `${nm} ${MIDDLE.toLowerCase()}` : ""].filter(Boolean).join(" · ");
+  // readout: totals are known only for the stage the job is in right now
+  const job = opts.job || {};
+  const total = (stage) => (job.stage === stage && job.total ? job.total : null);
+  const review = r.claims.filter((c) => c.needs_review).length;
+  $("meters").replaceChildren(
+    meter("Claims", r.claims, total("claims"), !pending,
+      counters(r.claims, VERDICT, "c:", (c) => c.verdict,
+        review ? ["review", review, el("span", { className: "mark s-review" }, el("span", { className: "word" }, "need review"))] : null),
+      "Counts by verdict appear when every claim is checked."),
+    meter("References", r.references, total("references"), !refsPending,
+      counters(r.references, STATUS, "r:", (a) => a.status), "Counts by status appear when every reference is checked."));
+  $("claims-n").textContent = String(r.claims.length);
+  $("refs-n").textContent = String(r.references.length);
+  if (filter) {
+    const [labels, v] = filter.startsWith("c:") ? [VERDICT, filter.slice(2)] : [STATUS, filter.slice(2)];
+    const name = v === "review" ? "needs review" : (labels[v] || [v])[0].toLowerCase();
+    $("filter-note").replaceChildren(`Showing only ${filter.startsWith("c:") ? "claims" : "references"}: ${name}.`,
+      el("button", { type: "button", className: "link", "data-filter": "", "data-fk": "f:" }, "Show all"));
+  } else $("filter-note").replaceChildren();
   $("warnings").replaceChildren(...r.warnings.map((w) => el("li", {}, w)));
-  $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refItem,
-    "references", "verified reference", undefined, refsPending));
-  $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimCard,
-    "citing sentences", "supported claim", claimMiddle, pending));
+  $("timings").replaceChildren(...timingRows(r.timings || {}));
+  $("refs").replaceChildren(...group(r.references, refAttention, STATUS, (a) => a.status, refRow,
+    "references", "verified reference", () => false, refsPending, REF_COLS, "r:"));
+  $("claims").replaceChildren(...group(r.claims, claimAttention, VERDICT, (c) => c.verdict, claimRow,
+    "citing sentences", "supported claim", claimMiddle, pending, CLAIM_COLS, "c:"));
   if (!opts.saved) showPermalink();
   show("results");
   if (first) { // focus moves (and the page scrolls) only when the report first appears
     $("results-h").setAttribute("tabindex", "-1");
     $("results-h").focus();
+  } else if (focusKey !== null && document.querySelector) {
+    const again = document.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
+    if (again) again.focus();
   }
 }
 
@@ -464,7 +620,51 @@ function reset() {
   $("saved").hidden = true;
   history.replaceState(null, "", "/");
   show("input");
-  $("text").focus();
+  $($("panel-paste").hidden ? "files" : "text").focus();
+}
+
+// Home: "Upload files" / "Paste text" tabs (WAI-ARIA tabs, arrow keys move between them).
+function selectTab(name, focus = false) {
+  for (const t of ["upload", "paste"]) {
+    const on = t === name;
+    $(`tab-${t}`).setAttribute("aria-selected", String(on));
+    $(`tab-${t}`).tabIndex = on ? 0 : -1;
+    $(`panel-${t}`).hidden = !on;
+    if (on && focus) $(`tab-${t}`).focus();
+  }
+}
+
+function showFiles() {
+  const names = [...$("files").files].map((f) => f.name);
+  $("file-list").textContent = names.length ? `Selected: ${names.join(", ")}` : "";
+}
+
+function initDrop() {
+  const drop = $("drop");
+  const over = (on) => (e) => { e.preventDefault(); drop.classList.toggle("over", on); };
+  drop.addEventListener("dragover", over(true));
+  drop.addEventListener("dragleave", over(false));
+  drop.addEventListener("drop", (e) => {
+    over(false)(e);
+    if (e.dataTransfer && e.dataTransfer.files.length) $("files").files = e.dataTransfer.files;
+    showFiles();
+  });
+  $("files").addEventListener("change", showFiles);
+}
+
+// Light / dark: follows prefers-color-scheme until the reader picks one (remembered if storage works).
+function initTheme() {
+  const root = document.documentElement;
+  const media = matchMedia("(prefers-color-scheme: dark)");
+  const dark = () => (root.dataset.theme ? root.dataset.theme === "dark" : media.matches);
+  const sync = () => $("theme").setAttribute("aria-pressed", String(dark()));
+  sync();
+  media.addEventListener("change", sync);
+  $("theme").addEventListener("click", () => {
+    root.dataset.theme = dark() ? "light" : "dark";
+    try { localStorage.setItem("ct-theme", root.dataset.theme); } catch (_) { /* storage blocked */ }
+    sync();
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -474,11 +674,28 @@ document.addEventListener("DOMContentLoaded", () => {
   $("copy-link").addEventListener("click", copyLink);
   $("sample").addEventListener("click", trySample);
   $("run-live").addEventListener("click", runSampleLive);
+  for (const t of ["upload", "paste"]) $(`tab-${t}`).addEventListener("click", () => selectTab(t));
+  $("tab-upload").parentNode.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      selectTab(e.key === "ArrowLeft" || e.key === "Home" ? "upload" : "paste", true);
+    }
+  });
+  initDrop();
+  initTheme();
   // toggle does not bubble: listen in the capture phase
   document.addEventListener("toggle", (e) => {
     const key = e.target.getAttribute && e.target.getAttribute("data-key");
     if (key) (e.target.open ? openKeys.add(key) : openKeys.delete(key));
   }, true);
+  // summary counters: toggle buttons that filter the ledger; "Show all" clears
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest("[data-filter]");
+    if (!b || !lastRender) return;
+    const f = b.getAttribute("data-filter");
+    filter = f && f !== filter ? f : null;
+    renderReport(...lastRender);
+  });
   $("retry").addEventListener("click", resumePolling);
   const m = location.pathname.match(/^\/r\/([\w-]+)$/);
   if (m) startPolling(m[1]);
