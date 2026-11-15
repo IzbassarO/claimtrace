@@ -1,5 +1,7 @@
 # ClaimTrace
 
+Top 10 at HackGlobal 2026 (Polaris School of Technology × Vultr)
+
 **Does each cited source actually say what the sentence citing it claims?** ClaimTrace audits the
 citations in a scientific manuscript: for every reference it checks that the work **exists and is
 described correctly**, and for every citing sentence it checks the **cited source itself** and
